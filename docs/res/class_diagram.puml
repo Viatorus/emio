@@ -1,0 +1,55 @@
+@startuml
+
+class "format functions" << (F,#FF7700) >> {
+    format(format_str, args...) -> result<std::string>
+}
+
+class reader
+reader *-- "std::string_view"
+
+abstract class buffer
+
+class string_buffer
+class span_buffer
+class iterator_buffer
+
+buffer <|-- iterator_buffer
+buffer <|-- span_buffer
+buffer <|-- string_buffer
+
+class writer
+writer o-- buffer
+
+iterator_buffer o-- "output iterator"
+
+package "output iterator" {
+    class truncating_iterator
+    class "std::vector<T>::iterator"
+    class "const char *"
+}
+
+package "contiguous container" {
+    class "std::array"
+    class "std::string" as s2
+    class "std::vector"
+}
+
+span_buffer o-- "contiguous container"
+string_buffer *-- "std::string"
+
+class format_string
+
+class formatter<T - Type to format> {
+    validate(reader&) [0..1]
+    parse(reader&)
+    format(writer&, T)
+}
+
+format_string  -.> "validate[/parse] " formatter
+
+"format functions" *-.- "format_string"
+"format functions" -.-> "writer" : "write formatted\noutput"
+"format functions" -.-> "reader" : read format\nstring
+"format functions" -.-> "formatter" : parse,\nformat
+
+@enduml

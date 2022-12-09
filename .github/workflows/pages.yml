@@ -1,0 +1,35 @@
+name: Deploy Github Pages
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+
+jobs:
+  deploy-pages:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Generate single header file
+        run: |
+          pip install quom
+          if [[ -z "$(git tag --points-at HEAD)" ]]; then
+            DST=trunk
+          else
+            DST=$(git tag)
+          fi
+          mkdir -p web/dist/$DST
+          quom include/emio/emio.hpp web/dist/$DST/emio.hpp
+
+      - name: Deploy
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          folder: web/
+          clean: false

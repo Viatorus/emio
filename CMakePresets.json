@@ -1,0 +1,210 @@
+{
+  "version": 2,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 14,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "cmake-pedantic",
+      "hidden": true,
+      "warnings": {
+        "dev": true,
+        "deprecated": true,
+        "uninitialized": true,
+        "unusedCli": true,
+        "systemVars": false
+      },
+      "errors": {
+        "dev": true,
+        "deprecated": true
+      }
+    },
+    {
+      "name": "dev-mode",
+      "hidden": true,
+      "inherits": "cmake-pedantic",
+      "cacheVariables": {
+        "emio_DEVELOPER_MODE": "ON"
+      }
+    },
+    {
+      "name": "cppcheck",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_CXX_CPPCHECK": "cppcheck;--inline-suppr"
+      }
+    },
+    {
+      "name": "clang-tidy",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_CXX_CLANG_TIDY": "clang-tidy;--header-filter=${sourceDir}/*;-warnings-as-errors=*"
+      }
+    },
+    {
+      "name": "valgrind",
+      "hidden": true,
+      "cacheVariables": {
+        "MEMORYCHECK_COMMAND_OPTIONS": "--error-exitcode=1 --leak-check=full"
+      }
+    },
+    {
+      "name": "ci-std",
+      "description": "This preset makes sure the project actually builds with at least the specified standard",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_CXX_EXTENSIONS": "OFF",
+        "CMAKE_CXX_STANDARD": "20",
+        "CMAKE_CXX_STANDARD_REQUIRED": "ON"
+      }
+    },
+    {
+      "name": "flags-unix",
+      "hidden": true,
+      "environment": {
+        "CXX_FLAGS": "-Wall -Wextra -Wpedantic -Wconversion -Wsign-conversion -Wcast-qual -Wshadow -Wformat=2 -Wundef"
+      }
+    },
+    {
+      "name": "ci-unix",
+      "generator": "Unix Makefiles",
+      "hidden": true,
+      "inherits": [
+        "flags-unix",
+        "ci-std"
+      ],
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS": "$env{CXX_FLAGS}",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "ci-arm-none-eabi",
+      "generator": "Unix Makefiles",
+      "hidden": true,
+      "inherits": [
+        "flags-unix",
+        "ci-std"
+      ],
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/arm-none-eabi-toolchain.cmake",
+        "CMAKE_CXX_FLAGS": "$env{CXX_FLAGS} -ffunction-sections -fdata-sections -mcpu=cortex-m7 -mthumb -g0 -fno-exceptions -fno-rtti",
+        "CMAKE_EXE_LINKER_FLAGS": "-mcpu=cortex-m7 -mthumb -specs=nano.specs -Wl,--gc-sections",
+        "CMAKE_BUILD_TYPE": "MinSizeRel"
+      }
+    },
+    {
+      "name": "coverage-unix",
+      "inherits": [
+        "ci-build",
+        "ci-unix"
+      ],
+      "hidden": true,
+      "cacheVariables": {
+        "ENABLE_COVERAGE": "ON",
+        "CMAKE_BUILD_TYPE": "Coverage",
+        "CMAKE_CXX_FLAGS_COVERAGE": "-O0 -g --coverage",
+        "CMAKE_EXE_LINKER_FLAGS_COVERAGE": "--coverage",
+        "CMAKE_SHARED_LINKER_FLAGS_COVERAGE": "--coverage"
+      }
+    },
+    {
+      "name": "ci-coverage",
+      "inherits": [
+        "coverage-unix",
+        "dev-mode"
+      ],
+      "cacheVariables": {
+        "COVERAGE_HTML_COMMAND": ""
+      }
+    },
+    {
+      "name": "ci-sanitize",
+      "inherits": [
+        "ci-build",
+        "ci-unix",
+        "dev-mode"
+      ],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Sanitize",
+        "CMAKE_CXX_FLAGS_SANITIZE": "-O2 -g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-common"
+      }
+    },
+    {
+      "name": "ci-build",
+      "binaryDir": "${sourceDir}/build",
+      "hidden": true
+    },
+    {
+      "name": "ci-ubuntu",
+      "inherits": [
+        "ci-build",
+        "ci-unix",
+        "dev-mode"
+      ]
+    },
+    {
+      "name": "ci-memcheck",
+      "inherits": [
+        "ci-build",
+        "ci-unix",
+        "valgrind",
+        "dev-mode"
+      ]
+    },
+    {
+      "name": "ci-checks",
+      "inherits": [
+        "ci-build",
+        "ci-unix",
+        "clang-tidy",
+        "dev-mode"
+      ]
+    },
+    {
+      "name": "ci-embedded",
+      "inherits": [
+        "ci-build",
+        "ci-arm-none-eabi",
+        "dev-mode"
+      ]
+    },
+    {
+      "name": "ci-size-coverage",
+      "inherits": [
+        "ci-build",
+        "ci-unix",
+        "dev-mode"
+      ],
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS": "$env{CXX_FLAGS} -ffunction-sections -fdata-sections -g0 -fno-exceptions -fno-rtti -fno-asynchronous-unwind-tables",
+        "BUILD_SIZE_COVERAGE": "ON",
+        "ENABLE_SIZE_COVERAGE": "ON",
+        "SIZE_COVERAGE_HTML_COMMAND": "",
+        "SIZE_TOOL": "size"
+      }
+    },
+    {
+      "name": "ci-size-coverage-embedded",
+      "inherits": [
+        "ci-build",
+        "ci-arm-none-eabi",
+        "dev-mode"
+      ],
+      "cacheVariables": {
+        "BUILD_SIZE_COVERAGE": "ON",
+        "ENABLE_SIZE_COVERAGE": "ON",
+        "SIZE_COVERAGE_HTML_COMMAND": "",
+        "SIZE_TOOL": "arm-none-eabi-size"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "default",
+      "configurePreset": "ci-ubuntu"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+# Run manually to reformat a file:
+# clang-format -i --style=file <file>
+Language: Cpp
+BasedOnStyle: Google
+IndentPPDirectives: AfterHash
+IndentCaseLabels: false
+DerivePointerAlignment: false
+Standard: c++20
+ColumnLimit: 120
+AllowShortFunctionsOnASingleLine: Empty
+IndentRequiresClause: true
