@@ -168,8 +168,9 @@ type        ::=  "b" | "B" | "c" | "d" | "o" | "s" | "x" | "X"
 The format string syntax is validated at compile-time. If a runtime format string is required, the string must be
 wrapped inside a `runtime` object.
 
-`format(format_str, ...args) -> result<string>`
+`format(format_str, ...args) -> string/result<string>`
 - Formats arguments according to the format string, and returns the result as a string.
+- The return value depends on the type of the format string (valid-only type or not).
 
 `format_to(out, format_str, ...args) -> result<Output>`
 - Formats arguments according to the format string, and writes the result to the output.
@@ -178,8 +179,9 @@ wrapped inside a `runtime` object.
 - Formats arguments according to the format string, and writes the result to the output iterator. At most *n* characters
   are written.
 
-`formatted_size(format_str, ...args) -> result<size_t>`
+`formatted_size(format_str, ...args) -> size_t/result<size_t>`
 - Determines the total number of characters in the formatted string by formatting args according to the format string.
+- The return value depends on the type of the format string (valid-only type or not).
 
 For each function there exists a function prefixed with v (e.g. `vformat`) which takes `format_args` instead of a
 format string and arguments. The types are erased and can be used in non-template functions to reduce build-time, hide

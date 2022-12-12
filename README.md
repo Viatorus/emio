@@ -7,7 +7,9 @@
 systems with a very small binary footprint.
 
 ```cpp
-emio::result<std::string> res = emio::format("The answer is {}.", 42);  
+std::string str = emio::format("The answer is {}.", 42);  
+
+emio::result<std::string> res = emio::format(emio::runtime{"The answer is {}."}, 42);
 if (res.has_value()) {
     std::string res = res.value();  // The answer is 42.
 }
@@ -31,7 +33,7 @@ EMIO_TRY(char suffix, rdr.read_char());                // c
 [**This library is in beta status! Please help to make it fly!**](https://github.com/Viatorus/emio/milestone/1)
 
 * [API documentation](docs/API.md)
-* Try em{io} [online](https://godbolt.org/z/r44zsr5Wx).
+* Try em{io} [online](https://godbolt.org/z/5ceG4hc5j).
 
 ## Yet another parsing and formatting library  
 

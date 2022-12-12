@@ -55,13 +55,28 @@ inline result<size_t> vformatted_size(format_args&& args) noexcept {
  * Determines the total number of characters in the formatted string by formatting args according to the format string.
  * @param format_str The format string
  * @param args The arguments to be formatted.
+ * @return The total number of characters in the formatted string.
+ */
+template <typename... Args>
+constexpr size_t formatted_size(valid_format_string<Args...> format_str,
+                                const Args&... args) noexcept(detail::exceptions_disabled) {
+  detail::basic_counting_buffer<char> buf{};
+  detail::format::format_to(buf, format_str, args...).value();
+  return buf.count();
+}
+
+/**
+ * Determines the total number of characters in the formatted string by formatting args according to the format string.
+ * @param format_str The format string
+ * @param args The arguments to be formatted.
  * @return The total number of characters in the formatted string on success or invalid_format if the format string
  * validation failed.
  */
 template <typename... Args>
-constexpr result<size_t> formatted_size(format_string<Args...> format_str, const Args&... args) noexcept {
+constexpr result<size_t> formatted_size(runtime<char> format_str, const Args&... args) noexcept {
   detail::basic_counting_buffer<char> buf{};
-  EMIO_TRYV(detail::format::format_to(buf, format_str, args...));
+  basic_format_string<char, Args...> str{format_str};
+  EMIO_TRYV(detail::format::format_to(buf, str, args...));
   return buf.count();
 }
 
@@ -161,7 +176,7 @@ constexpr result<OutputIt> format_to(OutputIt out, format_string<Args...> format
 /**
  * Formats arguments according to the format string, and returns the result as string.
  * @param args The format args with the format string.
- * @return The string on success or EOF if the buffer is to small or invalid_format if the format string validation
+ * @return The string on success or invalid_format if the format string validation
  * failed.
  */
 inline result<std::string> vformat(const format_args& args) noexcept {
@@ -176,11 +191,23 @@ inline result<std::string> vformat(const format_args& args) noexcept {
  * Formats arguments according to the format string, and returns the result as string.
  * @param format_str The format string.
  * @param args The format args with the format string.
- * @return The string on success or EOF if the buffer is to small or invalid_format if the format string validation
+ * @return The string.
+ */
+template <typename... Args>
+std::string format(valid_format_string<Args...> format_str,
+                   const Args&... args) noexcept(detail::exceptions_disabled) {
+  return vformat(make_format_args(format_str, args...)).value();
+}
+
+/**
+ * Formats arguments according to the format string, and returns the result as string.
+ * @param format_str The format string.
+ * @param args The format args with the format string.
+ * @return The string on success or invalid_format if the format string validation
  * failed.
  */
 template <typename... Args>
-result<std::string> format(format_string<Args...> format_str, const Args&... args) noexcept {
+result<std::string> format(runtime<char> format_str, const Args&... args) noexcept {
   return vformat(make_format_args(format_str, args...));
 }
 
