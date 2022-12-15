@@ -100,7 +100,7 @@ class basic_format_string {
   }
 
   /**
-   * Returns the may validated format string as view.
+   * Returns the validated format string as view.
    * @return The view or invalid_format if the validation failed.
    */
   constexpr result<std::basic_string_view<Char>> get() const noexcept {
@@ -111,7 +111,7 @@ class basic_format_string {
    * Returns format string as valid one.
    * @return The valid format string or invalid_format if the validation failed.
    */
-  constexpr result<basic_valid_format_string<Char, Args...>> as_valid_format_string() const noexcept {
+  constexpr result<basic_valid_format_string<Char, Args...>> as_valid() const noexcept {
     if (str_.has_value()) {
       return basic_valid_format_string<Char, Args...>{valid, str_.assume_value()};
     }
@@ -163,7 +163,7 @@ class basic_valid_format_string : public basic_format_string<Char, Args...> {
  private:
   friend class basic_format_string<Char, Args...>;
 
-  using valid_t = basic_format_string<Char, Args...>::valid_t;
+  using valid_t = typename basic_format_string<Char, Args...>::valid_t;
   using basic_format_string<Char, Args...>::valid;
 
   explicit constexpr basic_valid_format_string(valid_t /*unused*/, std::basic_string_view<Char> s)

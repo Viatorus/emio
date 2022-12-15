@@ -3,6 +3,8 @@
 This is a small API overview. The public API is fully documented inside the source code. Unless otherwise stated,
 everything can be used at compile-time.
 
+The public namespace is `emio` only - no deeper nesting. 
+
 ## err
 
 A list of possible I/O errors as enum.
@@ -167,6 +169,8 @@ type        ::=  "b" | "B" | "c" | "d" | "o" | "s" | "x" | "X"
 
 The format string syntax is validated at compile-time. If a runtime format string is required, the string must be
 wrapped inside a `runtime` object.
+Some functions (like `format` or `formatted_size`) are further optimized (simplified) in their return type if the format
+string is a valid-only format string that could be ensured at compile-time.
 
 `format(format_str, ...args) -> string/result<string>`
 - Formats arguments according to the format string, and returns the result as a string.
@@ -267,3 +271,6 @@ int main() {
     emio::format("{:#x}", foo{42});  // 0x2a 
 }
 ```
+
+If the `validate` (or if absent the `parse`) function is not constexpr a runtime format strings must be used. The
+`format` function don't need to be constexpr if the formatting shouldn't be done at compile-time.
