@@ -8,14 +8,14 @@
 #include <catch2/catch_test_macros.hpp>
 
 TEST_CASE("simple integer format") {
-  static constexpr std::string_view format_str("{}");
+  static constexpr std::string_view format_str(" {}");
   static constexpr int arg = 1;
 
   BENCHMARK("base") {
     return "1";
   };
   BENCHMARK("emio") {
-    return emio::format(format_str, arg).value();
+    return emio::format(format_str, arg);
   };
   BENCHMARK("emio runtime") {
     return emio::format(emio::runtime{format_str}, arg).value();
@@ -36,7 +36,7 @@ TEST_CASE("complex integer format") {
     return "1";
   };
   BENCHMARK("emio") {
-    return emio::format(format_str, arg).value();
+    return emio::format(format_str, arg);
   };
   BENCHMARK("emio runtime") {
     return emio::format(emio::runtime{format_str}, arg).value();
@@ -59,7 +59,7 @@ TEST_CASE("many arguments") {
     return "1";
   };
   BENCHMARK("emio") {
-    return emio::format(format_str, ARGS).value();
+    return emio::format(format_str, ARGS);
   };
   BENCHMARK("emio runtime") {
     return emio::format(emio::runtime{format_str}, ARGS).value();
