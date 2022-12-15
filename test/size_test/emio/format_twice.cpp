@@ -1,6 +1,6 @@
 #include <emio/format.hpp>
 
 int main() {
-  emio::format("{}", 1).value();
-  emio::format("{}", 2).value();
+  static_cast<void>(emio::format("{}", 1));
+  static_cast<void>(emio::format("{}", 2));
 }

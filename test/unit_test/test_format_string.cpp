@@ -12,7 +12,7 @@ namespace {
 constexpr std::string_view format_str{"abc {} {} {}"};
 constexpr emio::format_string<int, char, std::string_view> precompiled_format_str{format_str};
 constexpr emio::valid_format_string<int, char, std::string_view> precompiled_validated_format_str{
-    precompiled_format_str.as_validated().value()};
+    precompiled_format_str.as_valid_format_string().value()};
 constexpr std::string_view expected_str{"abc 42 x hello"};
 
 }  // namespace
@@ -29,8 +29,11 @@ TEST_CASE("allowed types for format string", "[format_string]") {
     res = emio::format(emio::runtime{format_str}, 42, 'x', "hello"sv);
     CHECK(res == expected_str);
 
-    res = emio::format(precompiled_validated_format_str, 42, 'x', "hello"sv);
+    res = emio::format(precompiled_format_str, 42, 'x', "hello"sv);
     CHECK(res == expected_str);
+
+    std::string str = emio::format(precompiled_validated_format_str, 42, 'x', "hello"sv);
+    CHECK(str == expected_str);
   }
 
   SECTION("make_format_args") {
@@ -59,9 +62,12 @@ TEST_CASE("allowed types for format string", "[format_string]") {
       constexpr emio::result<size_t> res = emio::formatted_size(emio::runtime{format_str}, 42, 'x', "hello"sv);
       STATIC_CHECK(res == 14UL);
     }
-
     {
-      constexpr emio::result<size_t> res = emio::formatted_size(precompiled_validated_format_str, 42, 'x', "hello"sv);
+      constexpr emio::result<size_t> res = emio::formatted_size(precompiled_format_str, 42, 'x', "hello"sv);
+      STATIC_CHECK(res == 14UL);
+    }
+    {
+      constexpr size_t res = emio::formatted_size(precompiled_validated_format_str, 42, 'x', "hello"sv);
       STATIC_CHECK(res == 14UL);
     }
   }
@@ -89,7 +95,7 @@ TEST_CASE("runtime", "[format_string]") {
 
   emio::format_string<int, char, std::string_view> str{emio::runtime{"{"}};
   CHECK(str.get() == emio::err::invalid_format);
-  CHECK(str.as_validated() == emio::err::invalid_format);
+  CHECK(str.as_valid_format_string() == emio::err::invalid_format);
 
   emio::result<emio::valid_format_string<int, char>> res = emio::valid_format_string<int, char>::from("{}");
   CHECK(res == emio::err::invalid_format);

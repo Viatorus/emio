@@ -58,8 +58,8 @@ inline result<size_t> vformatted_size(format_args&& args) noexcept {
  * @return The total number of characters in the formatted string.
  */
 template <typename... Args>
-constexpr size_t formatted_size(valid_format_string<Args...> format_str,
-                                const Args&... args) noexcept(detail::exceptions_disabled) {
+[[nodiscard]] constexpr size_t formatted_size(valid_format_string<Args...> format_str,
+                                              const Args&... args) noexcept(detail::exceptions_disabled) {
   detail::basic_counting_buffer<char> buf{};
   detail::format::format_to(buf, format_str, args...).value();
   return buf.count();
@@ -72,8 +72,9 @@ constexpr size_t formatted_size(valid_format_string<Args...> format_str,
  * @return The total number of characters in the formatted string on success or invalid_format if the format string
  * validation failed.
  */
-template <typename... Args>
-constexpr result<size_t> formatted_size(runtime<char> format_str, const Args&... args) noexcept {
+template <typename T, typename... Args>
+  requires(std::is_same_v<T, runtime<char>> || std::is_same_v<T, format_string<Args...>>)
+constexpr result<size_t> formatted_size(T format_str, const Args&... args) noexcept {
   detail::basic_counting_buffer<char> buf{};
   basic_format_string<char, Args...> str{format_str};
   EMIO_TRYV(detail::format::format_to(buf, str, args...));
@@ -194,8 +195,8 @@ inline result<std::string> vformat(const format_args& args) noexcept {
  * @return The string.
  */
 template <typename... Args>
-std::string format(valid_format_string<Args...> format_str,
-                   const Args&... args) noexcept(detail::exceptions_disabled) {
+[[nodiscard]] std::string format(valid_format_string<Args...> format_str,
+                                 const Args&... args) noexcept(detail::exceptions_disabled) {
   return vformat(make_format_args(format_str, args...)).value();
 }
 
@@ -206,8 +207,9 @@ std::string format(valid_format_string<Args...> format_str,
  * @return The string on success or invalid_format if the format string validation
  * failed.
  */
-template <typename... Args>
-result<std::string> format(runtime<char> format_str, const Args&... args) noexcept {
+template <typename T, typename... Args>
+  requires(std::is_same_v<T, runtime<char>> || std::is_same_v<T, format_string<Args...>>)
+result<std::string> format(T format_str, const Args&... args) noexcept {
   return vformat(make_format_args(format_str, args...));
 }
 

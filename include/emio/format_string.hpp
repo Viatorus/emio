@@ -108,21 +108,21 @@ class basic_format_string {
   }
 
   /**
-   * Returns the validated format string.
-   * @return The validated format string or invalid_format if the validation failed.
+   * Returns format string as valid one.
+   * @return The valid format string or invalid_format if the validation failed.
    */
-  constexpr result<basic_valid_format_string<Char, Args...>> as_validated() const noexcept {
+  constexpr result<basic_valid_format_string<Char, Args...>> as_valid_format_string() const noexcept {
     if (str_.has_value()) {
-      return basic_valid_format_string<Char, Args...>{validated, str_.assume_value()};
+      return basic_valid_format_string<Char, Args...>{valid, str_.assume_value()};
     }
     return err::invalid_format;
   }
 
  protected:
-  static constexpr struct validated_t {
-  } validated{};
+  static constexpr struct valid_t {
+  } valid{};
 
-  constexpr explicit basic_format_string(validated_t /*unused*/, std::basic_string_view<Char> s) : str_{s} {}
+  constexpr explicit basic_format_string(valid_t /*unused*/, std::basic_string_view<Char> s) : str_{s} {}
 
  private:
   result<std::basic_string_view<Char>> str_{err::invalid_format};  ///< Validated format string.
@@ -157,17 +157,17 @@ class basic_valid_format_string : public basic_format_string<Char, Args...> {
     if (!detail::format::validate_format_string<Args...>(str)) {
       return err::invalid_format;
     }
-    return basic_valid_format_string{validated, str};
+    return basic_valid_format_string{valid, str};
   }
 
  private:
   friend class basic_format_string<Char, Args...>;
 
-  using validated_t = basic_format_string<Char, Args...>::validated_t;
-  using basic_format_string<Char, Args...>::validated;
+  using valid_t = basic_format_string<Char, Args...>::valid_t;
+  using basic_format_string<Char, Args...>::valid;
 
-  explicit constexpr basic_valid_format_string(validated_t /*unused*/, std::basic_string_view<Char> s)
-      : basic_format_string<Char, Args...>{validated, s} {}
+  explicit constexpr basic_valid_format_string(valid_t /*unused*/, std::basic_string_view<Char> s)
+      : basic_format_string<Char, Args...>{valid, s} {}
 };
 
 // Alias template types.
