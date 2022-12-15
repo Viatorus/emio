@@ -97,6 +97,12 @@ TEST_CASE("runtime", "[format_string]") {
   CHECK(str.get() == emio::err::invalid_format);
   CHECK(str.as_valid() == emio::err::invalid_format);
 
+  emio::format_string<int, char> str2{emio::runtime{"{} {}"}};
+  CHECK(str2.get() == "{} {}");
+  emio::result<emio::valid_format_string<int, char>> valid = str2.as_valid();
+  REQUIRE(valid);
+  CHECK(valid->get() == "{} {}");
+
   emio::result<emio::valid_format_string<int, char>> res = emio::valid_format_string<int, char>::from("{}");
   CHECK(res == emio::err::invalid_format);
 
