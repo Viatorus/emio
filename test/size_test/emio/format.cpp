@@ -1,5 +1,5 @@
 #include <emio/format.hpp>
 
 int main() {
-  emio::format("{}", 1).value();
+  static_cast<void>(emio::format("{}", 1));
 }

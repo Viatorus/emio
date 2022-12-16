@@ -48,7 +48,7 @@ TEST_CASE("formatter with inherit from emio::formatter", "[formatter]") {
   }
 
   CHECK(emio::format("{}", wrap{42}) == "42");
-  CHECK(emio::format("{:x<4x}", wrap{42}).value() == "2axx");
+  CHECK(emio::format("{:x<4x}", wrap{42}) == "2axx");
 }
 
 namespace {

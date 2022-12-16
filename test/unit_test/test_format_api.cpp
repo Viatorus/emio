@@ -12,7 +12,7 @@ TEST_CASE("emio::format", "[format]") {
   // Expected: The return types, values and the format results are correct.
 
   SECTION("success") {
-    emio::result<std::string> res = emio::format("{}", 42);
+    std::string res = emio::format("{}", 42);
     CHECK(res == "42");
   }
   SECTION("invalid_format") {
