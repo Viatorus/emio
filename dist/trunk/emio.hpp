@@ -3506,6 +3506,9 @@ runtime(std::basic_string<Char, Traits, Alloc>) -> runtime<Char>;
 template <typename Char>
 runtime(const Char*) -> runtime<Char>;
 
+template <typename Char, typename... Args>
+class basic_valid_format_string;
+
 /**
  * This class represents a validated format string. The validation happens at object construction.
  * @tparam Char The character type.
@@ -3543,20 +3546,82 @@ class basic_format_string {
   }
 
   /**
-   * Returns the validated format string.
+   * Returns the validated format string as view.
    * @return The view or invalid_format if the validation failed.
    */
   constexpr result<std::basic_string_view<Char>> get() const noexcept {
     return str_;
   }
 
+  /**
+   * Returns format string as valid one.
+   * @return The valid format string or invalid_format if the validation failed.
+   */
+  constexpr result<basic_valid_format_string<Char, Args...>> as_valid() const noexcept {
+    if (str_.has_value()) {
+      return basic_valid_format_string<Char, Args...>{valid, str_.assume_value()};
+    }
+    return err::invalid_format;
+  }
+
+ protected:
+  static constexpr struct valid_t {
+  } valid{};
+
+  constexpr explicit basic_format_string(valid_t /*unused*/, std::basic_string_view<Char> s) : str_{s} {}
+
  private:
   result<std::basic_string_view<Char>> str_{err::invalid_format};  ///< Validated format string.
+};
+
+/**
+ * This class represents a valid format string. The validation happens at object construction.
+ * @tparam Char The character type.
+ * @tparam Args The argument types to format.
+ */
+template <typename Char, typename... Args>
+class basic_valid_format_string : public basic_format_string<Char, Args...> {
+ public:
+  /**
+   * Constructs and validates the format string from any suitable char sequence at compile-time.
+   * @note Terminates compilation if format string is invalid.
+   * @param s The char sequence.
+   */
+  template <typename S>
+    requires(std::is_constructible_v<std::basic_string_view<Char>, S>)
+  consteval basic_valid_format_string(const S& s) : basic_format_string<Char, Args...>{s} {}
+
+  /**
+   * Constructs and validates a format string at runtime.
+   * @param s The format string.
+   * @return The valid format string or invalid_format if the validation failed.
+   */
+  template <typename S>
+    requires(std::is_constructible_v<std::basic_string_view<Char>, S>)
+  static constexpr result<basic_valid_format_string<Char, Args...>> from(const S& s) {
+    std::basic_string_view<Char> str{s};
+    if (!detail::format::validate_format_string<Args...>(str)) {
+      return err::invalid_format;
+    }
+    return basic_valid_format_string{valid, str};
+  }
+
+ private:
+  friend class basic_format_string<Char, Args...>;
+
+  using valid_t = typename basic_format_string<Char, Args...>::valid_t;
+  using basic_format_string<Char, Args...>::valid;
+
+  explicit constexpr basic_valid_format_string(valid_t /*unused*/, std::basic_string_view<Char> s)
+      : basic_format_string<Char, Args...>{valid, s} {}
 };
 
 // Alias template types.
 template <typename... Args>
 using format_string = basic_format_string<char, std::type_identity_t<Args>...>;
+
+template <typename... Args>
+using valid_format_string = basic_valid_format_string<char, std::type_identity_t<Args>...>;
 
 }  // namespace emio
 
@@ -3804,13 +3869,29 @@ inline result<size_t> vformatted_size(format_args&& args) noexcept {
  * Determines the total number of characters in the formatted string by formatting args according to the format string.
  * @param format_str The format string
  * @param args The arguments to be formatted.
+ * @return The total number of characters in the formatted string.
+ */
+template <typename... Args>
+[[nodiscard]] constexpr size_t formatted_size(valid_format_string<Args...> format_str,
+                                              const Args&... args) noexcept(detail::exceptions_disabled) {
+  detail::basic_counting_buffer<char> buf{};
+  detail::format::format_to(buf, format_str, args...).value();
+  return buf.count();
+}
+
+/**
+ * Determines the total number of characters in the formatted string by formatting args according to the format string.
+ * @param format_str The format string
+ * @param args The arguments to be formatted.
  * @return The total number of characters in the formatted string on success or invalid_format if the format string
  * validation failed.
  */
-template <typename... Args>
-constexpr result<size_t> formatted_size(format_string<Args...> format_str, const Args&... args) noexcept {
+template <typename T, typename... Args>
+  requires(std::is_same_v<T, runtime<char>> || std::is_same_v<T, format_string<Args...>>)
+constexpr result<size_t> formatted_size(T format_str, const Args&... args) noexcept {
   detail::basic_counting_buffer<char> buf{};
-  EMIO_TRYV(detail::format::format_to(buf, format_str, args...));
+  basic_format_string<char, Args...> str{format_str};
+  EMIO_TRYV(detail::format::format_to(buf, str, args...));
   return buf.count();
 }
 
@@ -3910,7 +3991,7 @@ constexpr result<OutputIt> format_to(OutputIt out, format_string<Args...> format
 /**
  * Formats arguments according to the format string, and returns the result as string.
  * @param args The format args with the format string.
- * @return The string on success or EOF if the buffer is to small or invalid_format if the format string validation
+ * @return The string on success or invalid_format if the format string validation
  * failed.
  */
 inline result<std::string> vformat(const format_args& args) noexcept {
@@ -3925,11 +4006,24 @@ inline result<std::string> vformat(const format_args& args) noexcept {
  * Formats arguments according to the format string, and returns the result as string.
  * @param format_str The format string.
  * @param args The format args with the format string.
- * @return The string on success or EOF if the buffer is to small or invalid_format if the format string validation
- * failed.
+ * @return The string.
  */
 template <typename... Args>
-result<std::string> format(format_string<Args...> format_str, const Args&... args) noexcept {
+[[nodiscard]] std::string format(valid_format_string<Args...> format_str,
+                                 const Args&... args) noexcept(detail::exceptions_disabled) {
+  return vformat(make_format_args(format_str, args...)).value();
+}
+
+/**
+ * Formats arguments according to the format string, and returns the result as string.
+ * @param format_str The format string.
+ * @param args The format args with the format string.
+ * @return The string on success or invalid_format if the format string validation
+ * failed.
+ */
+template <typename T, typename... Args>
+  requires(std::is_same_v<T, runtime<char>> || std::is_same_v<T, format_string<Args...>>)
+result<std::string> format(T format_str, const Args&... args) noexcept {
   return vformat(make_format_args(format_str, args...));
 }
 
