@@ -2,9 +2,9 @@
 
 This is a short design overview of *emio*. 
 
-**Note:** [fmtlib/fmt](https://github.com/fmtlib/fmt) is an awesome library with great concepts and implementations which are partly reused in
-this library. All statements made here by comparing *emio* with *fmt* are only objective and shouldn't insult anybody's
-work.
+**Note:** [fmtlib/fmt](https://github.com/fmtlib/fmt) is an awesome library with great concepts and implementations
+which are partly reused in this library. All statements made here by comparing *emio* with *fmt* are only objective and
+shouldn't insult anybody's work.
 
 ## Binary footprint
 
@@ -68,6 +68,11 @@ The biggest advantage of using a result type is that error handling is still pos
 disabled. Unlike other libraries like *fmt*, which mostly terminate deep inside their library if an error occurs, the
 result object propagates the error back to the callee. The drawback is of course the small performance overhead and
 the explicit handling of the control flow.
+
+## Performance
+
+The current benchmarks show that the formatting is round about 1.5 - 2 times slower than fmtlib. See the benchmark tests
+inside the CI for more details.
 
 ## Class diagram
 
