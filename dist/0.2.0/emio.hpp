@@ -1,6 +1,7 @@
 /*
-  em{io} is an open-source, safe and fast parsing and formatting library
-  for bare-metal and RTOS based embedded systems with a small binary footprint.
+  em{io} is a safe and fast high-level and low-level character input/output
+  library for bare-metal and RTOS based embedded systems with a very small
+  binary footprint.
 
   Copyright (c) 2021 - present, Toni Neubert (viatorus/emio)
   Copyright (c) 2012 - present, Victor Zverovich (fmtlib/fmt)
