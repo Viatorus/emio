@@ -33,7 +33,7 @@ EMIO_TRY(char suffix, rdr.read_char());                // c
 [**This library is in beta status! Please help to make it fly!**](https://github.com/Viatorus/emio/milestone/1)
 
 * [API documentation](docs/API.md)
-* Try em{io} [online](https://godbolt.org/z/5ceG4hc5j).
+* Try em{io} [online](https://godbolt.org/z/Wo6xraWEW).
 
 ## Yet another character input/output library  
 
