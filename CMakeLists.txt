@@ -4,8 +4,8 @@ include(cmake/prelude.cmake)
 
 project(
         emio
-        VERSION 0.1.0
-        DESCRIPTION "Parsing and formatting library for embedded systems."
+        VERSION 0.2.0
+        DESCRIPTION "Character input/output library for embedded systems."
         HOMEPAGE_URL "https://github.com/viatorus/emio"
         LANGUAGES CXX
 )

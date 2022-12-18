@@ -3,8 +3,8 @@
 [![Continuous Integration](https://github.com/Viatorus/emio/actions/workflows/ci.yml/badge.svg)](https://github.com/Viatorus/emio/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/Viatorus/emio/branch/main/graph/badge.svg?token=7BQFK1PNLX)](https://codecov.io/gh/Viatorus/emio)
 
-**em{io}** is an open-source, safe and fast parsing and formatting library for bare-metal and RTOS based embedded
-systems with a very small binary footprint.
+**em{io}** is a safe and fast high-level and low-level character input/output library for bare-metal and RTOS based
+embedded systems with a very small binary footprint.
 
 ```cpp
 std::string str = emio::format("The answer is {}.", 42);  
@@ -35,7 +35,7 @@ EMIO_TRY(char suffix, rdr.read_char());                // c
 * [API documentation](docs/API.md)
 * Try em{io} [online](https://godbolt.org/z/5ceG4hc5j).
 
-## Yet another parsing and formatting library  
+## Yet another character input/output library  
 
 Bare-metal and RTOS based embedded systems do have special requirements which are mostly overlooked by the C++ standard,
 its implementations and other libraries.
@@ -44,7 +44,7 @@ Therefore, this library:
 
 * has a very small binary footprint **(42 times smaller than fmtlib!)**
 * returns a result object instead of throwing an exception
-* provides a low-level and high-level API which can be used at compile-time
+* provides a high-level and low-level API which can be used at compile-time
 
 Read more about it in the [DESIGN](docs/DESIGN.md) document.
 
