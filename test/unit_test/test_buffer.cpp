@@ -50,6 +50,22 @@ TEST_CASE("string_buffer", "[buffer]") {
   CHECK(buf.view() == expected_str);
 }
 
+TEST_CASE("string_buffer regression bug 1") {
+  size_t default_capacity = std::string{}.capacity();
+
+  emio::string_buffer buf;
+  for (size_t i = 0; i < default_capacity + 2U; i++) {
+    buf.get_write_area_of(1).value()[0] = 'a';
+  }
+
+  emio::result<std::span<char>> area2 = buf.get_write_area_of(default_capacity);
+  REQUIRE(area2);
+  CHECK(area2->size() == default_capacity);
+  std::fill(area2->begin(), area2->end(), 'b');
+
+  CHECK(buf.str() == "aaaaaaaaaaaaaaaaabbbbbbbbbbbbbbb");
+}
+
 TEST_CASE("string_buffer at compile-time", "[buffer]") {
   // Test strategy:
   // * Construct a ct_string_buffer.
