@@ -161,14 +161,22 @@ class ct_basic_string {
     if (data_ == nullptr) {
       // NOLINTNEXTLINE(bugprone-unhandled-exception-at-new): char types cannot throw
       data_ = new Char[new_size]{};  // NOLINT(cppcoreguidelines-owning-memory)
-    } else if (size_ < new_size) {
+      capacity_ = new_size;
+    } else if (capacity_ < new_size) {
       // NOLINTNEXTLINE(bugprone-unhandled-exception-at-new): char types cannot throw
       Char* new_data = new Char[new_size]{};      // NOLINT(cppcoreguidelines-owning-memory)
       std::copy(data_, data_ + size_, new_data);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
       std::swap(new_data, data_);
+      capacity_ = new_size;
       delete[] new_data;  // NOLINT(cppcoreguidelines-owning-memory)
+    } else if (size_ < new_size) {
+      std::fill(data_ + size_, data_ + new_size, Char{});  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     }
     size_ = new_size;
+  }
+
+  [[nodiscard]] constexpr size_t capacity() const noexcept {
+    return capacity_;
   }
 
   [[nodiscard]] constexpr size_t size() const noexcept {
@@ -186,6 +194,7 @@ class ct_basic_string {
  private:
   Char* data_{};
   size_t size_{};
+  size_t capacity_{};
 };
 
 /**
@@ -217,7 +226,7 @@ union basic_string_union {
 
   [[nodiscard]] constexpr size_t capacity() noexcept {
     if (Y_EMIO_IS_CONST_EVAL) {
-      return 0;
+      return ct_str_.capacity();
     } else {
       return str_.capacity();
     }
@@ -261,6 +270,7 @@ union basic_string_union {
 };
 
 }  // namespace emio::detail
+
 //
 // Copyright (c) 2021 - present, Toni Neubert
 // All rights reserved.
