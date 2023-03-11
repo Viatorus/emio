@@ -50,20 +50,43 @@ TEST_CASE("string_buffer", "[buffer]") {
   CHECK(buf.view() == expected_str);
 }
 
-TEST_CASE("string_buffer regression bug 1") {
-  size_t default_capacity = std::string{}.capacity();
+TEST_CASE("string_buffer regression bug 1", "[buffer]") {
+  // Regression description:
+  // string_buffer::request_write_area() set a wrongly larger write area in buffer::set_write_area than returned.
+
+  // Test strategy:
+  // * Construct a string_buffer and write 'a's into it for more than the default capacity of an std::string to
+  //   trigger a resize.
+  // * Write a 'b'. This memory location was a buffer overflow and not seen after another resize.
+  // * Write enough 'c's into it to trigger another resize. Otherwise, the issue would only be visible for memory
+  //   checks.
+  // Expected: Everything is correctly written.
+
+  const size_t default_capacity = std::string{}.capacity();
+  const size_t default_resize_capacity = [] {
+    std::string s;
+    s.resize(s.capacity() + 1U);
+    return s.capacity();
+  }();
 
   emio::string_buffer buf;
-  for (size_t i = 0; i < default_capacity + 2U; i++) {
+  // Write a.
+  for (size_t i = 0; i < default_capacity + 1U; i++) {
     buf.get_write_area_of(1).value()[0] = 'a';
   }
 
-  emio::result<std::span<char>> area2 = buf.get_write_area_of(default_capacity);
-  REQUIRE(area2);
-  CHECK(area2->size() == default_capacity);
-  std::fill(area2->begin(), area2->end(), 'b');
+  // Write b.
+  buf.get_write_area_of(1).value()[0] = 'b';
 
-  CHECK(buf.str() == "aaaaaaaaaaaaaaaaabbbbbbbbbbbbbbb");
+  // Write c.
+  auto area2 = buf.get_write_area_of(default_resize_capacity).value();
+  std::fill(area2.begin(), area2.end(), 'c');
+
+  std::string res(default_capacity + 1, 'a');
+  res += 'b';
+  std::fill_n(std::back_inserter(res), default_resize_capacity, 'c');
+
+  CHECK(buf.str() == res);
 }
 
 TEST_CASE("string_buffer at compile-time", "[buffer]") {
