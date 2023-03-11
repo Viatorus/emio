@@ -153,9 +153,9 @@ class string_buffer final : public buffer<Char> {
     data_.resize(new_size);
     used_ += used;
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): Performance in debug.
-    const std::span<Char> area{data_.data() + used_, new_size};
+    const std::span<Char> area{data_.data() + used_, size};
     this->set_write_area(area);
-    return area.subspan(0, size);
+    return area;
   }
 
  private:
