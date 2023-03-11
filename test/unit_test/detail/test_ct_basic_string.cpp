@@ -18,20 +18,37 @@ TEST_CASE("ct_basic_string") {
       bool result = true;
 
       ct_basic_string<char> str;
+      result &= str.size() == 0;
+      result &= str.capacity() == 0;
+
       str.resize(5);
+      result &= str.size() == 5;
+      result &= str.capacity() == 5;
       *(str.data() + 2) = 'x';
 
       str.resize(10);
+      result &= str.size() == 10;
+      result &= str.capacity() == 10;
       *(str.data() + 8) = 'y';
 
       str.resize(15);
+      result &= str.size() == 15;
+      result &= str.capacity() >= 15;
       *(str.data() + 12) = 'z';
       std::string_view sv{str.data(), str.size()};
       result &= sv == "\0\0x\0\0\0\0\0y\0\0\0z\0\0"sv;
 
       str.resize(9);
+      result &= str.size() == 9;
+      result &= str.capacity() == 15;
       sv = std::string_view{str.data(), str.size()};
       result &= sv == "\0\0x\0\0\0\0\0y"sv;
+
+      str.resize(15);
+      result &= str.size() == 15;
+      result &= str.capacity() == 15;
+      sv = std::string_view{str.data(), str.size()};
+      result &= sv == "\0\0x\0\0\0\0\0y\0\0\0\0\0\0"sv;
 
       return result;
     }();
@@ -39,19 +56,36 @@ TEST_CASE("ct_basic_string") {
   }
   SECTION("runtime") {
     ct_basic_string<char> str;
+    CHECK(str.size() == 0);
+    CHECK(str.capacity() == 0);
+
     str.resize(5);
+    CHECK(str.size() == 5);
+    CHECK(str.capacity() == 5);
     *(str.data() + 2) = 'x';
 
     str.resize(10);
+    CHECK(str.size() == 10);
+    CHECK(str.capacity() == 10);
     *(str.data() + 8) = 'y';
 
     str.resize(15);
+    CHECK(str.size() == 15);
+    CHECK(str.capacity() == 15);
     *(str.data() + 12) = 'z';
     std::string_view sv{str.data(), str.size()};
     CHECK(sv == "\0\0x\0\0\0\0\0y\0\0\0z\0\0"sv);
 
     str.resize(9);
+    CHECK(str.size() == 9);
+    CHECK(str.capacity() == 15);
     sv = std::string_view{str.data(), str.size()};
     CHECK(sv == "\0\0x\0\0\0\0\0y"sv);
+
+    str.resize(15);
+    CHECK(str.size() == 15);
+    CHECK(str.capacity() == 15);
+    sv = std::string_view{str.data(), str.size()};
+    CHECK(sv == "\0\0x\0\0\0\0\0y\0\0\0\0\0\0"sv);
   }
 }
