@@ -127,11 +127,13 @@ namespace emio::detail {
   }                                          \
   EMIO_Z_INTERNAL_DEPAREN(var) = std::move(name).assume_value()
 
-// Separate macro instead of std::is_constant_evaluated() because code will be optimized away even in debug if inlined.
 #if defined(__GNUC__) || defined(__GNUG__) || defined(_MSC_VER)
+// Separate macro instead of std::is_constant_evaluated() because code will be optimized away even in debug if inlined.
 #  define Y_EMIO_IS_CONST_EVAL __builtin_is_constant_evaluated()
+#  define EMIO_Z_INTERNAL_UNREACHABLE __builtin_unreachable()
 #else
 #  define Y_EMIO_IS_CONST_EVAL std::is_constant_evaluated()
+#  define EMIO_Z_INTERNAL_UNREACHABLE std::terminate()
 #endif
 
 }  // namespace emio::detail
@@ -378,7 +380,7 @@ inline constexpr bool exceptions_disabled = true;
     std::terminate();
 #endif
   }
-  __builtin_unreachable();
+  EMIO_Z_INTERNAL_UNREACHABLE;
 }
 
 }  // namespace detail
@@ -1319,6 +1321,7 @@ constexpr char digit_to_char(int digit, int base, bool upper) noexcept {
 }
 
 template <typename T>
+  requires(std::is_unsigned_v<T>)
 constexpr size_t count_digits_10(T number) noexcept {
   size_t count = 1;
   for (;;) {
@@ -1343,6 +1346,7 @@ constexpr size_t count_digits_10(T number) noexcept {
 }
 
 template <size_t Base, typename T>
+  requires(std::is_unsigned_v<T>)
 constexpr size_t count_digits(T number) noexcept {
   if (number == 0) {
     return 1;
@@ -2546,7 +2550,9 @@ template <typename Arg>
   requires(std::is_integral_v<Arg> && !std::is_same_v<Arg, bool> && !std::is_same_v<Arg, char>)
 constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const Arg& arg) noexcept {
   if (specs.type == 'c') {
-    return write_padded<alignment::left>(wtr, specs, 1, [&] { return wtr.write_char(static_cast<char>(arg)); });
+    return write_padded<alignment::left>(wtr, specs, 1, [&] {
+      return wtr.write_char(static_cast<char>(arg));
+    });
   }
   EMIO_TRY((auto [prefix, options]), make_write_int_options(specs.type));
 
@@ -2629,9 +2635,13 @@ constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const A
 
 inline constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const std::string_view arg) noexcept {
   if (specs.type != '?') {
-    return write_padded<alignment::left>(wtr, specs, arg.size(), [&] { return wtr.write_str(arg); });
+    return write_padded<alignment::left>(wtr, specs, arg.size(), [&] {
+      return wtr.write_str(arg);
+    });
   }
-  return write_padded<alignment::left>(wtr, specs, arg.size() + 2U, [&] { return wtr.write_str_escaped(arg); });
+  return write_padded<alignment::left>(wtr, specs, arg.size() + 2U, [&] {
+    return wtr.write_str_escaped(arg);
+  });
 }
 
 template <typename Arg>
@@ -2642,9 +2652,13 @@ constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const A
     return write_arg(wtr, specs, static_cast<uint8_t>(arg));
   }
   if (specs.type != '?') {
-    return write_padded<alignment::left>(wtr, specs, 1, [&] { return wtr.write_char(arg); });
+    return write_padded<alignment::left>(wtr, specs, 1, [&] {
+      return wtr.write_char(arg);
+    });
   }
-  return write_padded<alignment::left>(wtr, specs, 3, [&] { return wtr.write_char_escaped(arg); });
+  return write_padded<alignment::left>(wtr, specs, 3, [&] {
+    return wtr.write_char_escaped(arg);
+  });
 }
 
 template <typename Arg>
@@ -2664,9 +2678,13 @@ constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, Arg arg
     return write_arg(wtr, specs, static_cast<uint8_t>(arg));
   }
   if (arg) {
-    return write_padded<alignment::left>(wtr, specs, 4, [&] { return wtr.write_str("true"); });
+    return write_padded<alignment::left>(wtr, specs, 4, [&] {
+      return wtr.write_str("true");
+    });
   }
-  return write_padded<alignment::left>(wtr, specs, 5, [&] { return wtr.write_str("false"); });
+  return write_padded<alignment::left>(wtr, specs, 5, [&] {
+    return wtr.write_str("false");
+  });
 }
 
 //
