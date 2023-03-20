@@ -1,9 +1,15 @@
+//
+// Copyright (c) 2021 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
 
 #pragma once
 
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <exception>
 #include <span>
 
 namespace emio::detail {
@@ -337,13 +343,6 @@ class bignum {
     }
     return std::strong_ordering::equal;
   }
-
-  // https://github.com/rust-lang/rust/blob/master/library/core/src/num/bignum.rs
-  // mul_pow2
-  // mul_pow10
-  // mul_digits
-
-  // div_2pow10
 
   constexpr bool operator==(const bignum& other) const noexcept = default;
 };

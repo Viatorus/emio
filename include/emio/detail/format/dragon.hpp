@@ -1,3 +1,9 @@
+//
+// Copyright (c) 2021 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+
 #pragma once
 
 #include <algorithm>
