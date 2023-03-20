@@ -473,7 +473,7 @@ template <typename T>
 concept has_validate_function_v = requires {
                                     {
                                       formatter<T>::validate(std::declval<reader<char>&>())
-                                    } -> std::same_as<result<void>>;
+                                      } -> std::same_as<result<void>>;
                                   };
 
 template <typename T>
