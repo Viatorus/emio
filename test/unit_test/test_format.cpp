@@ -48,13 +48,9 @@ TEST_CASE("auto_arg_index") {
   CHECK(emio::format("{}{}{}", 'a', 'b', 'c') == "abc");
   CHECK(emio::format(emio::runtime("{0}{}"), 'a', 'b') == emio::err::invalid_format);
   CHECK(emio::format(emio::runtime("{}{0}"), 'a', 'b') == emio::err::invalid_format);
-  // CHECK(emio::format("{:.{}}", 1.2345, 2) == "1.2");
-  // EXPECT_THROW_MSG((void)fmt::format(runtime("{0}:.{}"), 1.2345, 2),
-  //                   format_error,
-  //                   "cannot switch from manual to automatic argument indexing");
-  //  EXPECT_THROW_MSG((void)fmt::format(runtime("{:.{0}}"), 1.2345, 2),
-  //                   format_error,
-  //                   "cannot switch from automatic to manual argument indexing");
+  CHECK(emio::format("{:.2}", 1.2345) == "1.2");
+  CHECK(emio::format(emio::runtime("{0}:.{}"), 1.2345, 2) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{:.{0}}"), 1.2345, 2) == emio::err::invalid_format);
   CHECK(emio::format(emio::runtime("{}")) == emio::err::invalid_format);
 }
 
@@ -72,8 +68,6 @@ TEST_CASE("left align") {
   CHECK(emio::format("{0:<5}", 42ul) == "42   ");
   CHECK(emio::format("{0:<5}", -42ll) == "-42  ");
   CHECK(emio::format("{0:<5}", 42ull) == "42   ");
-  //  CHECK(emio::format("{0:<5}", -42.0) == "-42  ");
-  //  CHECK(emio::format("{0:<5}", -42.0l) == "-42  ");
   CHECK(emio::format("{0:<5}", 'c') == "c    ");
   CHECK(emio::format("{0:<5}", "abc") == "abc  ");
   CHECK(emio::format("{0:<8}", reinterpret_cast<void*>(0xface)) == "0xface  ");
@@ -89,8 +83,7 @@ TEST_CASE("right align") {
   CHECK(emio::format("{0:>5}", 42ul) == "   42");
   CHECK(emio::format("{0:>5}", -42ll) == "  -42");
   CHECK(emio::format("{0:>5}", 42ull) == "   42");
-  //  CHECK(emio::format("{0:>5}", -42.0) == "  -42");
-  //  CHECK(emio::format("{0:>5}", -42.0l) == "  -42");
+  CHECK(emio::format("{0:>5}", -42.0) == "  -42");
   CHECK(emio::format("{0:>5}", 'c') == "    c");
   CHECK(emio::format("{0:>5}", "abc") == "  abc");
   CHECK(emio::format("{0:>8}", reinterpret_cast<void*>(0xface)) == "  0xface");
@@ -106,8 +99,7 @@ TEST_CASE("center align") {
   CHECK(emio::format("{0:^5}", 42ul) == " 42  ");
   CHECK(emio::format("{0:^5}", -42ll) == " -42 ");
   CHECK(emio::format("{0:^5}", 42ull) == " 42  ");
-  //  CHECK(emio::format("{0:^5}", -42.0) == " -42 ");
-  //  CHECK(emio::format("{0:^5}", -42.0l) == " -42 ");
+  CHECK(emio::format("{0:^5}", -42.0) == " -42 ");
   CHECK(emio::format("{0:^5}", 'c') == "  c  ");
   CHECK(emio::format("{0:^6}", "abc") == " abc  ");
   CHECK(emio::format("{0:^8}", reinterpret_cast<void*>(0xface)) == " 0xface ");
@@ -121,8 +113,7 @@ TEST_CASE("fill") {
   CHECK(emio::format("{0:*>5}", 42ul) == "***42");
   CHECK(emio::format("{0:*>5}", -42ll) == "**-42");
   CHECK(emio::format("{0:*>5}", 42ull) == "***42");
-  //  CHECK(emio::format("{0:*>5}", -42.0) == "**-42");
-  //  CHECK(emio::format("{0:*>5}", -42.0l) == "**-42");
+  CHECK(emio::format("{0:*>5}", -42.0) == "**-42");
   CHECK(emio::format("{0:*<5}", 'c') == "c****");
   CHECK(emio::format("{0:*<5}", "abc") == "abc**");
   CHECK(emio::format("{0:*>8}", reinterpret_cast<void*>(0xface)) == "**0xface");
@@ -143,8 +134,7 @@ TEST_CASE("plus sign") {
   //  CHECK(emio::format("{0:+}", __int128_t(42)) == "+42");
   // #endif
   CHECK(emio::format(emio::runtime("{0:+}"), 42ull) == emio::err::invalid_format);
-  //  CHECK(emio::format("{0:+}", 42.0) == "+42");
-  //  CHECK(emio::format("{0:+}", 42.0l) == "+42");
+  CHECK(emio::format("{0:+}", 42.0) == "+42");
   CHECK(emio::format(emio::runtime("{0:+"), 'c') == emio::err::invalid_format);
   CHECK(emio::format(emio::runtime("{0:+}"), 'c') == emio::err::invalid_format);
   CHECK(emio::format(emio::runtime("{0:+}"), "abc") == emio::err::invalid_format);
@@ -158,8 +148,7 @@ TEST_CASE("minus sign") {
   CHECK(emio::format(emio::runtime("{0:-}"), 42u) == emio::err::invalid_format);
   CHECK(emio::format("{0:-}", 42l) == "42");
   CHECK(emio::format("{0:-}", 42ll) == "42");
-  //  CHECK(emio::format("{0:-}", 42.0) == "42");
-  //  CHECK(emio::format("{0:-}", 42.0l) == "42");
+  CHECK(emio::format("{0:-}", 42.0) == "42");
   CHECK(emio::format(emio::runtime("{0:-}"), 'c') == emio::err::invalid_format);
   CHECK(emio::format(emio::runtime("{0:-}"), "abc") == emio::err::invalid_format);
   CHECK(emio::format(emio::runtime("{0:-}"), reinterpret_cast<void*>(0x42)) == emio::err::invalid_format);
@@ -174,8 +163,7 @@ TEST_CASE("space sign") {
   CHECK(emio::format(emio::runtime("{0: }"), 42ul) == emio::err::invalid_format);
   CHECK(emio::format("{0: }", 42ll) == " 42");
   CHECK(emio::format(emio::runtime("{0: }"), 42ull) == emio::err::invalid_format);
-  // CHECK(emio::format("{0: }", 42.0) == " 42");
-  // CHECK(emio::format("{0: }", 42.0l) == " 42");
+  CHECK(emio::format("{0: }", 42.0) == " 42");
   CHECK(emio::format(emio::runtime("{0: "), 'c') == emio::err::invalid_format);
   CHECK(emio::format(emio::runtime("{0: }"), 'c') == emio::err::invalid_format);
   CHECK(emio::format(emio::runtime("{0: }"), "abc") == emio::err::invalid_format);
@@ -216,12 +204,11 @@ TEST_CASE("hash flag") {
   CHECK(emio::format("{0:#x}", 0x42ull) == "0x42");
   CHECK(emio::format("{0:#o}", 042ull) == "042");
 
-  //  CHECK(emio::format("{0:#}", -42.0) == "-42.0");
-  //  CHECK(emio::format("{0:#}", -42.0l) == "-42.0");
-  //  CHECK(emio::format("{:#.0e}", 42.0) == "4.e+01");
-  //  CHECK(emio::format("{:#.0f}", 0.01) == "0.");
-  //  CHECK(emio::format("{:#.2g}", 0.5) == "0.50");
-  //  CHECK(emio::format("{:#.0f}", 0.5) == "0.");
+  CHECK(emio::format("{0:#}", -42.0) == "-42.");
+  CHECK(emio::format("{:#.0e}", 42.0) == "4.e+01");
+  CHECK(emio::format("{:#.0f}", 0.01) == "0.");
+  CHECK(emio::format("{:#.2g}", 0.5) == "0.50");
+  CHECK(emio::format("{:#.0f}", 0.5) == "0.");
   CHECK(emio::format(emio::runtime("{0:#"), 'c') == emio::err::invalid_format);
   CHECK(emio::format(emio::runtime("{0:#}"), 'c') == emio::err::invalid_format);
   CHECK(emio::format(emio::runtime("{0:#}"), "abc") == emio::err::invalid_format);
@@ -229,15 +216,14 @@ TEST_CASE("hash flag") {
 }
 
 TEST_CASE("zero flag") {
-  //  CHECK(emio::format("{0:0}", 42) == "42");
+  CHECK(emio::format(emio::runtime("{0:0}")) == emio::err::invalid_format);  // Zero without width doesn't make sense.
   CHECK(emio::format("{0:05}", -42) == "-0042");
   CHECK(emio::format("{0:05}", 42u) == "00042");
   CHECK(emio::format("{0:05}", -42l) == "-0042");
   CHECK(emio::format("{0:05}", 42ul) == "00042");
   CHECK(emio::format("{0:05}", -42ll) == "-0042");
   CHECK(emio::format("{0:05}", 42ull) == "00042");
-  //  CHECK(emio::format("{0:07}", -42.0) == "-000042");
-  //  CHECK(emio::format("{0:07}", -42.0l) == "-000042");
+  CHECK(emio::format("{0:07}", -42.0) == "-000042");
   CHECK(emio::format(emio::runtime("{0:0"), 'c') == emio::err::invalid_format);
   CHECK(emio::format(emio::runtime("{0:05}"), 'c') == emio::err::invalid_format);
   CHECK(emio::format(emio::runtime("{0:05}"), "abc") == emio::err::invalid_format);
@@ -268,16 +254,135 @@ TEST_CASE("width") {
   CHECK(emio::format("{0:7}", 42ul) == "     42");
   CHECK(emio::format("{0:6}", -42ll) == "   -42");
   CHECK(emio::format("{0:7}", 42ull) == "     42");
-  //  CHECK(emio::format("{0:8}", -1.23) == "   -1.23");
-  //  CHECK(emio::format("{0:9}", -1.23l) == "    -1.23");
+  CHECK(emio::format("{0:8}", -1.23) == "   -1.23");
   CHECK(emio::format("{0:10}", reinterpret_cast<void*>(0xcafe)) == "    0xcafe");
   CHECK(emio::format("{0:11}", 'x') == "x          ");
   CHECK(emio::format("{0:12}", "str") == "str         ");
   //  EXPECT_EQ(fmt::format("{:*^6}", "🤡"), "**🤡**");
   //  EXPECT_EQ(fmt::format("{:*^8}", "你好"), "**你好**");
-  // EXPECT_EQ(fmt::format("{:#6}", 42.0), "  42.0");
+  CHECK(emio::format("{:#6}", 42.) == "   42.");
   CHECK(emio::format("{:6c}", static_cast<int>('x')) == "x     ");
-  //  CHECK(emio::format("{:>06.0f}", 0.00884311) == "000000");
+  CHECK(emio::format("{:06.0f}", 0.00884311) == "000000");
+  CHECK(emio::format("{:>6.0f}", 0.00884311) == "     0");
+}
+
+TEST_CASE("precision") {
+  //  char format_str[buffer_size];
+  ////  safe_sprintf(format_str, "{0:.%u", UINT_MAX);
+  ////  increment(format_str + 4);
+  ////  EXPECT_THROW_MSG((void)fmt::format(runtime(format_str), 0.0), format_error,
+  ////                   "number is too big");
+  ////  size_t size = std::strlen(format_str);
+  ////  format_str[size] = '}';
+  ////  format_str[size + 1] = 0;
+  ////  EXPECT_THROW_MSG((void)fmt::format(runtime(format_str), 0.0), format_error,
+  ////                   "number is too big");
+  ////
+  ////  safe_sprintf(format_str, "{0:.%u", INT_MAX + 1u);
+  ////  EXPECT_THROW_MSG((void)fmt::format(runtime(format_str), 0.0), format_error,
+  ////                   "number is too big");
+  ////  safe_sprintf(format_str, "{0:.%u}", INT_MAX + 1u);
+  ////  EXPECT_THROW_MSG((void)fmt::format(runtime(format_str), 0.0), format_error,
+  ////                   "number is too big");
+
+  CHECK(emio::format(emio::runtime("{0:."), 0.0) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{0:.}"), 0.0) == emio::err::invalid_format);
+
+  CHECK(emio::format(emio::runtime("{0:.2"), 0) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{0:.2}"), 42) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{0:.2f}"), 42) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{0:.2}"), 42u) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{0:.2f}"), 42u) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{0:.2}"), 42l) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{0:.2f}"), 42l) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{0:.2}"), 42ul) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{0:.2f}"), 42ul) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{0:.2}"), 42ll) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{0:.2f}"), 42ll) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{0:.2}"), 42ull) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{0:.2f}"), 42ull) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{0:3.0}"), 'x') == emio::err::invalid_format);
+  CHECK(emio::format("{0:.2}", 1.2345) == "1.2");
+  CHECK(emio::format("{:.2}", 1.234e56) == "1.2e+56");
+  CHECK(emio::format("{0:.3}", 1.1) == "1.1");
+  CHECK(emio::format("{:.0e}", 1.0) == "1e+00");
+  CHECK(emio::format("{:9.1e}", 0.0) == "  0.0e+00");
+  CHECK(emio::format("{:.494}", 4.9406564584124654E-324) ==
+        "4.9406564584124654417656879286822137236505980261432476442558568250067550"
+        "727020875186529983636163599237979656469544571773092665671035593979639877"
+        "479601078187812630071319031140452784581716784898210368871863605699873072"
+        "305000638740915356498438731247339727316961514003171538539807412623856559"
+        "117102665855668676818703956031062493194527159149245532930545654440112748"
+        "012970999954193198940908041656332452475714786901472678015935523861155013"
+        "480352649347201937902681071074917033322268447533357208324319361e-324");
+  CHECK(emio::format("{:.1074f}", 1.1125369292536e-308) ==
+        "0.0000000000000000000000000000000000000000000000000000000000000000000000"
+        "000000000000000000000000000000000000000000000000000000000000000000000000"
+        "000000000000000000000000000000000000000000000000000000000000000000000000"
+        "000000000000000000000000000000000000000000000000000000000000000000000000"
+        "000000000000000000000111253692925360019747947051741965785554081512200979"
+        "355021686109411883779182127659725163430929750364498219730822952552570601"
+        "152163505899912777129583674906301179059298598412303893909188340988729019"
+        "014361467448914817838555156840459458527907308695109202499990850735085304"
+        "478476991912072201449236975063640913461919914396877093174125167509869762"
+        "482369631100360266123742648159508919592746619553246586039571522788247697"
+        "156360766271842991667238355464496455107749716934387136380536472531224398"
+        "559833794807213172371254492216255558078524900147957309382830827524104234"
+        "530961756787819847850302379672357738807808384667004752163416921762619527"
+        "462847642037420991432005657440259928195996762610375541867198059294212446"
+        "81962777939941034720757232455434770912461317493580281734466552734375");
+
+  std::string outputs[] = {
+      "-0X1.41FE3FFE71C9E000000000000000000000000000000000000000000000000000000"
+      "000000000000000000000000000000000000000000000000000000000000000000000000"
+      "000000000000000000000000000000000000000000000000000000000000000000000000"
+      "000000000000000000000000000000000000000000000000000000000000000000000000"
+      "000000000000000000000000000000000000000000000000000000000000000000000000"
+      "000000000000000000000000000000000000000000000000000000000000000000000000"
+      "000000000000000000000000000000000000000000000000000000000000000000000000"
+      "000000000000000000000000000000000000000000000000000000000000000000000000"
+      "000000000000000000000000000000000000000000000000000000000000000000000000"
+      "000000000000000000000000000000000000000000000000000000000000000000000000"
+      "000000000000000000000000000000000000000000000000000000000000000000000000"
+      "000000000000000000000000000000000000000000000000000P+127",
+      "-0XA.0FF1FFF38E4F0000000000000000000000000000000000000000000000000000000"
+      "000000000000000000000000000000000000000000000000000000000000000000000000"
+      "000000000000000000000000000000000000000000000000000000000000000000000000"
+      "000000000000000000000000000000000000000000000000000000000000000000000000"
+      "000000000000000000000000000000000000000000000000000000000000000000000000"
+      "000000000000000000000000000000000000000000000000000000000000000000000000"
+      "000000000000000000000000000000000000000000000000000000000000000000000000"
+      "000000000000000000000000000000000000000000000000000000000000000000000000"
+      "000000000000000000000000000000000000000000000000000000000000000000000000"
+      "000000000000000000000000000000000000000000000000000000000000000000000000"
+      "000000000000000000000000000000000000000000000000000000000000000000000000"
+      "000000000000000000000000000000000000000000000000000P+124"};
+  //  EXPECT_THAT(outputs,
+  //              testing::Contains(fmt::format("{:.838A}", -2.14001164E+38)));
+
+  //  if (std::numeric_limits<long double>::digits == 64) {
+  //    auto ld = (std::numeric_limits<long double>::min)();
+  //    EXPECT_EQ(fmt::format("{:.0}", ld), "3e-4932");
+  //    EXPECT_EQ(
+  //        fmt::format("{:0g}", std::numeric_limits<long double>::denorm_min()),
+  //        "3.6452e-4951");
+  //  }
+
+  CHECK(emio::format("{:#.0f}", 123.0) == "123.");
+  CHECK(emio::format("{:.02f}", 1.234) == "1.23");
+  CHECK(emio::format("{:.1g}", 0.001) == "0.001");
+  // TODO (float instead double):  CHECK(emio::format("{}", 1019666432.0f) == "1019666400");
+  CHECK(emio::format("{:.0e}", 9.5) == "1e+01");
+  CHECK(emio::format("{:.1e}", 1e-34) == "1.0e-34");
+
+  CHECK(emio::format(emio::runtime("{0:.2}"), reinterpret_cast<void*>(0xcafe)) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{0:.2f}"), reinterpret_cast<void*>(0xcafe)) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{0:.2e}"), reinterpret_cast<void*>(0xcafe)) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{0:.-1e}"), 42.0) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{0:.-1e}"), 42.0) == emio::err::invalid_format);
+
+  //  CHECK(emio::format("{0:.2}", "str") == "st");
+  //  EXPECT_EQ("вожык", fmt::format("{0:.5}", "вожыкі"));
 }
 
 TEST_CASE("format bool") {

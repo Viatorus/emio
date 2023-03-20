@@ -8,6 +8,7 @@
 
 #include "../../writer.hpp"
 #include "../parser.hpp"
+#include "dragon.hpp"
 #include "specs.hpp"
 
 namespace emio {
@@ -93,13 +94,16 @@ inline constexpr result<std::pair<std::string_view, writer<char>::write_int_opti
   return std::pair{prefix, options};
 }
 
-inline constexpr result<void> write_sign_and_prefix(writer<char>& wtr, const format_specs& specs, bool negative,
-                                                    std::string_view prefix) {
+inline constexpr result<void> write_sign(writer<char>& wtr, const format_specs& specs, bool negative) {
   if (negative) {
     EMIO_TRYV(wtr.write_char('-'));
   } else if (specs.sign == '+' || specs.sign == ' ') {
     EMIO_TRYV(wtr.write_char(specs.sign));
   }
+  return success;
+}
+
+inline constexpr result<void> write_prefix(writer<char>& wtr, const format_specs& specs, std::string_view prefix) {
   if (specs.alternate_form && !prefix.empty()) {
     EMIO_TRYV(wtr.write_str(prefix));
   }
@@ -121,25 +125,27 @@ constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const A
   }
 
   const auto abs_number = detail::to_absolute(arg);
-  const bool negative = detail::is_negative(arg);
+  const bool is_negative = detail::is_negative(arg);
   const size_t number_of_digits = detail::get_number_of_digits(abs_number, options.base);
 
   size_t total_length = number_of_digits;
   if (specs.alternate_form) {
     total_length += prefix.size();
   }
-  if (negative || specs.sign == ' ' || specs.sign == '+') {
+  if (is_negative || specs.sign == ' ' || specs.sign == '+') {
     total_length += 1;
   }
 
   if (specs.zero_flag) {
-    EMIO_TRYV(write_sign_and_prefix(wtr, specs, negative, prefix));
+    EMIO_TRYV(write_sign(wtr, specs, is_negative));
+    EMIO_TRYV(write_prefix(wtr, specs, prefix));
   }
 
   return write_padded<alignment::right>(
       wtr, specs, total_length, [&, &prefix = prefix, &options = options]() -> result<void> {
         if (!specs.zero_flag) {
-          EMIO_TRYV(write_sign_and_prefix(wtr, specs, negative, prefix));
+          EMIO_TRYV(write_sign(wtr, specs, is_negative));
+          EMIO_TRYV(write_prefix(wtr, specs, prefix));
         }
 
         auto& buf = wtr.get_buffer();
@@ -149,49 +155,291 @@ constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const A
       });
 }
 
-// template <typename Arg>
-// requires(std::is_floating_point_v<Arg>)
-//      result<void> write_arg(writer<char>& wtr, const format_specs&
-//     specs,
-//                                          const Arg& arg) noexcept {
-//	result<void> err;
-//	std::chars_format fmt;
-//	switch (specs.type) {
-//	case no_type:
-//	case 'f':
-//		fmt = std::chars_format::fixed;
-//		break;
-//		//	case 'G': upper
-//	case 'g':
-//		fmt = std::chars_format::general;
-//		break;
-//		//	case 'E': upper
-//	case 'e':
-//		fmt = std::chars_format::scientific;
-//		break;
-//		//	case 'F': upper
-//		// case 'A': upper
-//	case 'a':
-//		fmt = std::chars_format::hex;
-//		err = wtr.write("0x");
-//		break;
-//	default:
-//		err = err::invalid_format;
-//	}
-//	if (!err.has_error()) {
-//		if (specs.precision == NoPrecision) {
-//			if (specs.type == no_type) {
-//				err = wtr.write(arg);
-//			} else {
-//				err = wtr.write(arg, fmt);
-//			}
-//		} else {
-//			err = wtr.write(arg, fmt, specs.precision);
-//		}
-//	}
-//	return err;
-// return err::invalid_format;
-//}
+inline constexpr result<void> write_non_finite(writer<char>& wtr, bool upper_case, bool is_inf) {
+  if (is_inf) {
+    EMIO_TRYV(wtr.write_str(upper_case ? "INF" : "inf"));
+  } else {
+    EMIO_TRYV(wtr.write_str(upper_case ? "NAN" : "nan"));
+  }
+  return success;
+}
+
+// A floating-point presentation format.
+enum class fp_format : uint8_t {
+  general,  // General: exponent notation or fixed point based on magnitude.
+  exp,      // Exponent notation with the default precision of 6, e.g. 1.2e-3.
+  fixed,    // Fixed point with the default precision of 6, e.g. 0.0012.
+  hex
+};
+
+struct fp_format_specs {
+  int16_t precision;
+  fp_format format;
+  bool upper_case;
+  bool showpoint;
+};
+
+inline constexpr fp_format_specs parse_fp_format_specs(const format_specs& specs) {
+  constexpr int16_t default_precision = 6;
+
+  // This spec is typically for general format.
+  fp_format_specs fp_specs{
+      .precision =
+          specs.precision >= 0 || specs.type == no_type ? static_cast<int16_t>(specs.precision) : default_precision,
+      .format = fp_format::general,
+      .upper_case = specs.type == 'E' || specs.type == 'F' || specs.type == 'G',
+      .showpoint = specs.alternate_form,
+  };
+
+  if (specs.type == 'e' || specs.type == 'E') {
+    fp_specs.format = fp_format::exp;
+    fp_specs.precision += 1;
+    fp_specs.showpoint |= specs.precision != 0;
+  } else if (specs.type == 'f' || specs.type == 'F') {
+    fp_specs.format = fp_format::fixed;
+    fp_specs.showpoint |= specs.precision != 0;
+  } else if (specs.type == 'a' || specs.type == 'A') {
+    fp_specs.format = fp_format::hex;
+  }
+  if (fp_specs.format != fp_format::fixed && fp_specs.precision == 0) {
+    fp_specs.precision = 1;  // Calculate at least on significand.
+  }
+  return fp_specs;
+}
+
+inline constexpr char* write_significand(char* out, const char* significand, int significand_size, int integral_size,
+                                         char decimal_point) {
+  std::copy(significand, significand + integral_size, out);
+  out += integral_size;
+  if (!decimal_point) {
+    return out;
+  }
+  *out++ = decimal_point;
+  std::copy(significand + integral_size, significand + significand_size, out);
+  return out + significand_size - integral_size;
+}
+
+inline constexpr char* write_exponent(char* it, int exp) {
+  if (exp < 0) {
+    *it++ = '-';
+    exp = -exp;
+  } else {
+    *it++ = '+';
+  }
+  int cnt = 2;
+  if (exp >= 100) {
+    write_number(to_unsigned(exp), 10, false, it + 3);
+    return it;
+  } else if (exp < 10) {
+    *it++ = '0';
+    cnt -= 1;
+  }
+  write_number(to_unsigned(exp), 10, false, it + cnt);
+  return it;
+}
+
+inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& specs, fp_format_specs& fp_specs,
+                                            bool is_negative, const format_fp_result_t& f) noexcept {
+  const char* significand = f.digits.data();
+  int significand_size = static_cast<int>(f.digits.size());
+  const int output_exp = f.exp - 1;  // 0.1234 x 10^exp => 1.234 x 10^(exp-1)
+  const int abs_output_exp = static_cast<uint16_t>(output_exp >= 0 ? output_exp : -output_exp);
+  const bool has_sign = is_negative || specs.sign == ' ' || specs.sign == '+';
+
+  if (fp_specs.format == fp_format::general && significand_size > 1) {
+    // Remove trailing zeros.
+    auto it = std::find_if(f.digits.rbegin(), f.digits.rend(), [](char c) {
+      return c != '0';
+    });
+    significand_size -= static_cast<int>(it - f.digits.rbegin());
+  }
+
+  const auto use_exp_format = [=]() {
+    if (fp_specs.format == fp_format::exp) return true;
+    if (fp_specs.format != fp_format::general) return false;
+    // Use the fixed notation if the exponent is in [exp_lower, exp_upper),
+    // e.g. 0.0001 instead of 1e-04. Otherwise, use the exponent notation.
+    const int exp_lower = -4, exp_upper = 16;
+    return output_exp < exp_lower || output_exp >= (fp_specs.precision > 0 ? fp_specs.precision : exp_upper);
+  };
+
+  if (specs.zero_flag) {
+    EMIO_TRYV(write_sign(wtr, specs, is_negative));
+  }
+
+  int num_zeros = 0;
+  char decimal_point = '.';
+  size_t total_length = to_unsigned(significand_size);
+
+  if (use_exp_format()) {
+    if (fp_specs.showpoint) {                             // Multiple significands or high precision.
+      num_zeros = fp_specs.precision - significand_size;  // Trailing zeros after an zero only.
+      if (num_zeros < 0) {
+        num_zeros = 0;
+      }
+      total_length += to_unsigned(num_zeros);
+    } else if (significand_size == 1) {  // One significant.
+      decimal_point = char{};
+    }
+    // The else part is general format with significand size less than the exponent.
+
+    const int exp_digits = abs_output_exp >= 100 ? 3 : 2;
+    total_length += to_unsigned((decimal_point ? 1 : 0) + 2 /* sign + e */ + exp_digits);
+
+    return write_padded<alignment::right>(wtr, specs, total_length + has_sign, [&]() -> result<void> {
+      if (!specs.zero_flag) {
+        EMIO_TRYV(write_sign(wtr, specs, is_negative));
+      }
+      EMIO_TRY(auto area, wtr.get_buffer().get_write_area_of(total_length));
+      auto it = area.data();
+
+      it = write_significand(it, significand, significand_size, 1, decimal_point);
+      std::fill_n(it, num_zeros, '0');
+      it += num_zeros;
+      *it++ = fp_specs.upper_case ? 'E' : 'e';
+      write_exponent(it, output_exp);
+
+      return success;
+    });
+  }
+
+  int integral_size = 0;
+  int num_zeros_2 = 0;
+
+  if (output_exp < 0) {              // Only fractional-part.
+    num_zeros = abs_output_exp - 1;  // leading zeros.
+    total_length += 2;
+    if (specs.alternate_form && fp_specs.format == fp_format::general) {
+      num_zeros_2 = fp_specs.precision - significand_size;
+    }
+  } else if ((output_exp + 1) >= significand_size) {  // Only integer-part (including zero).
+    integral_size = significand_size;
+    num_zeros = output_exp - significand_size + 1;  // Trailing zeros.
+    if (fp_specs.showpoint) {                       // Significant is zero but fractional requested.
+      if (num_zeros == 0) {
+        num_zeros_2 = fp_specs.precision;
+      }
+      if (specs.alternate_form && fp_specs.format == fp_format::general) {
+        num_zeros_2 = fp_specs.precision - significand_size - num_zeros;
+      }
+      total_length += 1;
+    } else {  // Digit without zero
+      decimal_point = 0;
+    }
+  } else {  // Both parts. Trailing zeros are part of significands.
+    integral_size = output_exp + 1;
+    total_length += 1;
+    if (specs.alternate_form && fp_specs.format == fp_format::general) {
+      num_zeros = fp_specs.precision - significand_size;
+    }
+  }
+  if (num_zeros < 0) {
+    num_zeros = 0;
+  }
+  if (num_zeros_2 < 0) {
+    num_zeros_2 = 0;
+  }
+  total_length += static_cast<size_t>(num_zeros + num_zeros_2);
+
+  return write_padded<alignment::right>(wtr, specs, total_length + has_sign, [&]() -> result<void> {
+    if (!specs.zero_flag) {
+      EMIO_TRYV(write_sign(wtr, specs, is_negative));
+    }
+
+    EMIO_TRY(auto area, wtr.get_buffer().get_write_area_of(total_length));
+    auto it = area.data();
+
+    if (output_exp < 0) {
+      *it++ = '0';
+      if (decimal_point) {
+        *it++ = decimal_point;
+        std::fill_n(it, num_zeros, '0');
+        it += num_zeros;
+        std::copy_n(significand, significand_size, it);
+        it += significand_size;
+        std::fill_n(it, num_zeros_2, '0');
+      }
+    } else if ((output_exp + 1) >= significand_size) {
+      std::copy(significand, significand + integral_size, it);
+      it += significand_size;
+      if (num_zeros) {
+        std::fill_n(it, num_zeros, '0');
+        it += num_zeros;
+      }
+      if (decimal_point) {
+        *it++ = '.';
+        if (num_zeros_2) {
+          std::fill_n(it, num_zeros_2, '0');
+        }
+      }
+    } else {
+      it = write_significand(it, significand, significand_size, integral_size, decimal_point);
+      if (num_zeros) {
+        std::fill_n(it, num_zeros, '0');
+        it += num_zeros;
+      }
+    }
+
+    return success;
+  });
+}
+
+inline constexpr std::array<char, 1> zero_digit{'0'};
+
+inline constexpr format_fp_result_t format_decimal(buffer<char>& buffer, const fp_format_specs& fp_specs,
+                                                   const decoded_result& decoded) {
+  if (decoded.category == category::zero) {
+    return format_fp_result_t{zero_digit, 1};
+  }
+  switch (fp_specs.format) {
+  case fp_format::general:
+    if (fp_specs.precision == no_precision) {
+      return format_shortest(decoded.finite, buffer);
+    }
+    [[fallthrough]];
+  case fp_format::exp:
+    return format_exact(decoded.finite, buffer, format_exact_mode::significant_digits, fp_specs.precision);
+  case fp_format::fixed: {
+    auto res = format_exact(decoded.finite, buffer, format_exact_mode::decimal_point, fp_specs.precision);
+    if (res.digits.empty()) {
+      return format_fp_result_t{zero_digit, 1};
+    }
+    return res;
+  }
+  case fp_format::hex:
+    std::terminate();
+  }
+  EMIO_Z_INTERNAL_UNREACHABLE;
+}
+
+inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& specs,
+                                            const decoded_result& decoded) noexcept {
+  fp_format_specs fp_specs = parse_fp_format_specs(specs);
+
+  if (decoded.category == category::infinity || decoded.category == category::nan) {
+    size_t total_length = 3;
+    if (decoded.negative || specs.sign == ' ' || specs.sign == '+') {
+      total_length += 1;
+    }
+    if (specs.zero_flag) {  // Words aren't prefixed with zeros.
+      specs.fill = ' ';
+    }
+    return write_padded<alignment::left>(wtr, specs, total_length, [&]() -> result<void> {
+      EMIO_TRYV(write_sign(wtr, specs, decoded.negative));
+      return write_non_finite(wtr, fp_specs.upper_case, decoded.category == category::infinity);
+    });
+  }
+
+  emio::string_buffer buf;
+  format_fp_result_t res = format_decimal(buf, fp_specs, decoded);
+  return write_decimal(wtr, specs, fp_specs, decoded.negative, res);
+}
+
+template <typename Arg>
+  requires(std::is_floating_point_v<Arg> && sizeof(Arg) <= sizeof(double))
+constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const Arg& arg) noexcept {
+  return write_decimal(wtr, specs, decode(arg));
+}
 
 inline constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const std::string_view arg) noexcept {
   if (specs.type != '?') {
@@ -309,13 +557,21 @@ inline constexpr result<void> validate_format_specs(reader<char>& rdr, format_sp
   }
   if (detail::isdigit(c)) {  // Width.
     rdr.unpop();
-    EMIO_TRY(specs.width, rdr.parse_int<int>());
+    EMIO_TRY(uint32_t width, rdr.parse_int<uint32_t>());
+    if (width > (static_cast<uint32_t>(std::numeric_limits<int32_t>::max()))) {
+      return err::invalid_format;
+    }
+    specs.width = static_cast<int32_t>(width);
     EMIO_TRY(c, rdr.read_char());
   } else if (width_required) {  // Width was required.
     return err::invalid_format;
   }
   if (c == '.') {  // Precision.
-    EMIO_TRY(specs.precision, rdr.parse_int<int>());
+    EMIO_TRY(uint32_t precision, rdr.parse_int<uint32_t>());
+    if (precision > (static_cast<uint32_t>(std::numeric_limits<int32_t>::max()))) {
+      return err::invalid_format;
+    }
+    specs.precision = static_cast<int32_t>(precision);
     EMIO_TRY(c, rdr.read_char());
   }
   if (detail::isalpha(c) || c == '?') {  // Type.
@@ -375,11 +631,11 @@ inline constexpr result<void> parse_format_specs(reader<char>& rdr, format_specs
   }
   if (detail::isdigit(c)) {  // Width.
     rdr.unpop();
-    specs.width = rdr.parse_int<int>().assume_value();
+    specs.width = static_cast<int32_t>(rdr.parse_int<uint32_t>().assume_value());
     c = rdr.read_char().assume_value();
   }
   if (c == '.') {  // Precision.
-    specs.precision = rdr.parse_int<int>().assume_value();
+    specs.precision = static_cast<int32_t>(rdr.parse_int<uint32_t>().assume_value());
     c = rdr.read_char().assume_value();
   }
   if (detail::isalpha(c) || c == '?') {  // Type.
@@ -446,12 +702,20 @@ inline constexpr result<void> check_pointer_specs(const format_specs& specs) noe
 }
 
 inline constexpr result<void> check_floating_point_specs(const format_specs& specs) noexcept {
+  if (specs.precision > 1100) {
+    return err::invalid_format;
+  }
+
   switch (specs.type) {
   case no_type:
   case 'f':
+  case 'F':
   case 'e':
+  case 'E':
   case 'g':
+  case 'G':
   case 'a':
+  case 'A':
     return success;
   }
   return err::invalid_format;

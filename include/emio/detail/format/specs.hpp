@@ -38,8 +38,8 @@ struct format_specs {
   char sign{no_sign};
   bool alternate_form{false};
   bool zero_flag{false};
-  int width{0};
-  int precision{no_precision};
+  int32_t width{0};
+  int32_t precision{no_precision};
   char type{no_type};
 };
 
