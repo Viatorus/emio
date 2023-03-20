@@ -1,4 +1,4 @@
-#pragma GCC optimize ("O3")
+#pragma GCC optimize("O3")
 #include <climits>
 
 #include "emio/detail/format/decode.hpp"
@@ -46,13 +46,13 @@ void print_exact_header(double d, int16_t precision) {
   printf("exact of %.17e with a length of %d\r\n", d, precision);
 }
 
-template<typename T>
+template <typename T>
 void print_result(std::string_view name, std::span<T> digits, int16_t k) {
   printf("%.*s -> digits: %.*s k: %d \r\n", static_cast<int>(name.size()), name.data(), static_cast<int>(digits.size()),
          digits.data(), k);
 }
 
-template<typename T>
+template <typename T>
 std::span<T> remove_trailing_zeros(std::span<T> digits) {
   auto it = std::find_if(digits.rbegin(), digits.rend(), [](char c) {
     return c != '0';
@@ -104,8 +104,8 @@ void test_fixed(double d, int16_t precision) {
     }
   } else {
     emio::string_buffer buf;
-    auto [digits, k] =
-        emio::detail::format::format_exact(full_decoded.finite, buf, emio::detail::format::format_exact_mode::decimal_point, precision);
+    auto [digits, k] = emio::detail::format::format_exact(
+        full_decoded.finite, buf, emio::detail::format::format_exact_mode::decimal_point, precision);
     digits = remove_trailing_zeros(digits);
 
     if (!std::equal(rust_digits.begin(), rust_digits.end(), digits.begin(), digits.end()) || rust_k != k) {
@@ -136,8 +136,8 @@ void test_exact(double d, int16_t precision) {
     }
   } else {
     emio::string_buffer buf;
-    auto [digits, k] =
-        emio::detail::format::format_exact(full_decoded.finite, buf, emio::detail::format::format_exact_mode::significant_digits, precision);
+    auto [digits, k] = emio::detail::format::format_exact(
+        full_decoded.finite, buf, emio::detail::format::format_exact_mode::significant_digits, precision);
     digits = remove_trailing_zeros(digits);
 
     if (!std::equal(rust_digits.begin(), rust_digits.end(), digits.begin(), digits.end()) || rust_k != k) {

@@ -56,7 +56,7 @@ struct format_fp_result_t {
 enum class format_exact_mode { significant_digits, decimal_point };
 
 inline constexpr format_fp_result_t format_exact(const decoded& dec, emio::buffer<char>& buf, format_exact_mode mode,
-                                int16_t number_of_digits) {
+                                                 int16_t number_of_digits) {
   // estimate `k_0` from original inputs satisfying `10^(k_0-1) < v <= 10^(k_0+1)`.
   int16_t k = estimate_scaling_factor(dec.mant, dec.exp);
 

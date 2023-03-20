@@ -99,9 +99,7 @@ void check_shortest(double d, std::string_view expected_str, int16_t expected_k)
 }
 
 #define CHECK_SHORTEST(d, exp_str, exp_k) \
-  SECTION(#d) {                           \
-    check_shortest(d, exp_str, exp_k);    \
-  }
+  SECTION(#d) { check_shortest(d, exp_str, exp_k); }
 
 TEST_CASE("format_shortest") {
   // 0.0999999999999999777955395074968691915273...
@@ -206,7 +204,6 @@ TEST_CASE("format_shortest_additional") {
   CHECK_EXPONENT(7.55997183139191130e-306, 4, "7560", -305);
   CHECK_EXPONENT(7.55997183139191130e-306, 5, "75600", -305);
   CHECK_EXPONENT(7.55997183139191130e-306, 6, "755997", -305);
-
 
   CHECK_EXPONENT(9.99999999999982292e-02, 17, "99999999999998229", -1);
 

@@ -117,9 +117,9 @@ TEST_CASE("run") {
   //
 
   {
-//    double d = 1234567890987653.3;
-//    double p = std::nexttoward(d, -INFINITY);
-//    double n = std::nexttoward(d, INFINITY);
+    //    double d = 1234567890987653.3;
+    //    double p = std::nexttoward(d, -INFINITY);
+    //    double n = std::nexttoward(d, INFINITY);
 
     //    WARN(emio::format("{:.10f}", n));
     //    WARN(emio::format("{:.10f}", d));
@@ -127,17 +127,17 @@ TEST_CASE("run") {
     //
     //    WARN(fmt::format("{:.10f}", n));
     //    WARN(fmt::format("{:.10f}", d));
-//    WARN(fmt::format("{:#.0e}", -42.0));
-//    WARN(emio::format("{:#}", std::numeric_limits<double>::min()));
-//    WARN(emio::format("{:f}", 0.0));
+    //    WARN(fmt::format("{:#.0e}", -42.0));
+    //    WARN(emio::format("{:#}", std::numeric_limits<double>::min()));
+    //    WARN(emio::format("{:f}", 0.0));
   }
-//
-//  //  CHECK_EMIO_VS_FMT_SINGLE("{:}", std::nexttoward(1234567890987653.21, -INFINITY));
-//  //  CHECK_EMIO_VS_FMT_SINGLE("{:}", std::nexttoward(1234567890987653.21, -INFINITY));
-//  CHECK_EMIO_VS_FMT_SINGLE("{:#}", -42.0);
-//  CHECK_EMIO_VS_FMT_SINGLE("{:#.0f}", -42.0);
-//  CHECK_EMIO_VS_FMT_SINGLE("{:#.0e}", -42.0);
-//  CHECK_EMIO_VS_FMT_SINGLE("{:#.0g}", -42.0);
+  //
+  //  //  CHECK_EMIO_VS_FMT_SINGLE("{:}", std::nexttoward(1234567890987653.21, -INFINITY));
+  //  //  CHECK_EMIO_VS_FMT_SINGLE("{:}", std::nexttoward(1234567890987653.21, -INFINITY));
+  //  CHECK_EMIO_VS_FMT_SINGLE("{:#}", -42.0);
+  //  CHECK_EMIO_VS_FMT_SINGLE("{:#.0f}", -42.0);
+  //  CHECK_EMIO_VS_FMT_SINGLE("{:#.0e}", -42.0);
+  //  CHECK_EMIO_VS_FMT_SINGLE("{:#.0g}", -42.0);
   //  CHECK_EMIO_VS_FMT_SINGLE("{:}", std::nexttoward(1234567890987653.21, INFINITY));
   //
   //  return;
@@ -178,9 +178,9 @@ TEST_CASE("run") {
       std::numeric_limits<double>::min(),
       std::numeric_limits<double>::max(),
       std::numeric_limits<double>::lowest(),
-//      std::numeric_limits<double>::infinity(),
-//      std::numeric_limits<double>::quiet_NaN(),
-//      std::numeric_limits<double>::signaling_NaN(),
+      //      std::numeric_limits<double>::infinity(),
+      //      std::numeric_limits<double>::quiet_NaN(),
+      //      std::numeric_limits<double>::signaling_NaN(),
       M_PI,
   };
 

@@ -24,7 +24,7 @@ struct decoded_result {
   decoded finite{};
 };
 
-//template <typename T>
+// template <typename T>
 inline constexpr decoded_result decode(double value) {
   using T = double;
   decoded_result res{};
