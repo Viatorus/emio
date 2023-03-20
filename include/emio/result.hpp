@@ -109,7 +109,7 @@ inline constexpr bool exceptions_disabled = true;
     std::terminate();
 #endif
   }
-  __builtin_unreachable();
+  EMIO_Z_INTERNAL_UNREACHABLE;
 }
 
 }  // namespace detail

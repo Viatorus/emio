@@ -8,4 +8,5 @@ DerivePointerAlignment: false
 Standard: c++20
 ColumnLimit: 120
 AllowShortFunctionsOnASingleLine: Empty
+AllowShortLambdasOnASingleLine: None
 IndentRequiresClause: true

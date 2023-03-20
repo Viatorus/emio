@@ -204,14 +204,14 @@ jobs:
       - name: Build
         run: cmake --build build/test/size_test -j $(nproc)
 
-      - name: Build
+      - name: Size-Coverage
         run: cmake --build build -t size-coverage
 
   size-test-embedded:
     runs-on: ubuntu-22.04
 
     env:
-      DOWNLOAD_LINK: https://developer.arm.com/-/media/Files/downloads/gnu-rm/10.3-2021.10/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2
+      DOWNLOAD_LINK: https://developer.arm.com/-/media/Files/downloads/gnu/11.3.rel1/binrel/arm-gnu-toolchain-11.3.rel1-x86_64-arm-none-eabi.tar.xz
 
     steps:
       - uses: actions/checkout@v3
@@ -220,13 +220,13 @@ jobs:
         id: cache-toolchain
         uses: actions/cache@v2
         with:
-          path: gcc-arm-none-eabi-10.3-2021.10
+          path: arm-gnu-toolchain-11.3.rel1-x86_64-arm-none-eabi
           key: ${{ env.DOWNLOAD_LINK }}
 
       - name: Install GCC ARM none eabi
         if: steps.cache-toolchain.outputs.cache-hit != 'true'
         run: |
-          curl -L $DOWNLOAD_LINK | tar xj
+          curl -L $DOWNLOAD_LINK | tar xJ
 
       - name: Configure
         run: cmake --preset=ci-size-coverage-embedded -DCMAKE_BUILD_TYPE=MinSizeRel
@@ -237,8 +237,8 @@ jobs:
       - name: Size-Coverage
         run: cmake --build build -t size-coverage
 
-      - name: Coveralls
-        uses: coverallsapp/github-action@master
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          path-to-lcov: build/test/size_test/size-coverage.info
+#      - name: Coveralls - Doesn't work.
+#        uses: coverallsapp/github-action@master
+#        with:
+#          github-token: ${{ secrets.GITHUB_TOKEN }}
+#          path-to-lcov: build/test/size_test/size-coverage.info
