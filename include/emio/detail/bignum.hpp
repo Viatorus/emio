@@ -57,25 +57,6 @@ class bignum;
 
 inline std::ostream& operator<<(std::ostream& os, const bignum& b);
 
-inline constexpr std::array<uint32_t, 10> POW10 = {1,      10,      100,      1000,      10000,
-                                                   100000, 1000000, 10000000, 100000000, 1000000000};
-inline constexpr std::array<uint32_t, 10> TWOPOW10 = {2,      20,      200,      2000,      20000,
-                                                      200000, 2000000, 20000000, 200000000, 2000000000};
-
-// precalculated arrays of `Digit`s for 10^(2^n)
-inline constexpr std::array<uint32_t, 2> POW10TO16 = {0x6fc10000, 0x2386f2};
-inline constexpr std::array<uint32_t, 4> POW10TO32 = {0, 0x85acef81, 0x2d6d415b, 0x4ee};
-inline constexpr std::array<uint32_t, 7> POW10TO64 = {0, 0, 0xbf6a1f01, 0x6e38ed64, 0xdaa797ed, 0xe93ff9f4, 0x184f03};
-inline constexpr std::array<uint32_t, 14> POW10TO128 = {
-    0,          0,          0,          0,          0x2e953e01, 0x3df9909,  0xf1538fd,
-    0x2374e42f, 0xd3cff5ec, 0xc404dc08, 0xbccdb0da, 0xa6337f19, 0xe91f2603, 0x24e,
-};
-inline constexpr std::array<uint32_t, 27> POW10TO256 = {
-    0,          0,          0,          0,          0,          0,          0,          0,          0x982e7c01,
-    0xbed3875b, 0xd8d99f72, 0x12152f87, 0x6bde50c6, 0xcf4a6e70, 0xd595d80f, 0x26b2716e, 0xadc666b0, 0x1d153624,
-    0x3c42d35a, 0x63ff540e, 0xcc5573c0, 0x65f9ef17, 0x55bc28f2, 0x80dcc7f7, 0xf46eeddc, 0x5fdcefce, 0x553f7,
-};
-
 /// Stack-allocated arbitrary-precision (up to certain limit) integer.
 ///
 /// This is backed by a fixed-size array of given type ("digit").
@@ -330,42 +311,6 @@ class bignum {
         size += 1;
       }
     }
-    return *this;
-  }
-
-  /// Multiplies itself by `10^exp` and returns its own mutable reference.
-  constexpr bignum& mul_pow10(size_t exp) {
-    if ((exp & 7) != 0) {
-      mul_small(POW10[exp & 7]);
-    }
-    if ((exp & 8) != 0) {
-      mul_small(POW10[8]);
-    }
-    if ((exp & 16) != 0) {
-      mul_digits(POW10TO16);
-    }
-    if ((exp & 32) != 0) {
-      mul_digits(POW10TO32);
-    }
-    if ((exp & 64) != 0) {
-      mul_digits(POW10TO64);
-    }
-    if ((exp & 128) != 0) {
-      mul_digits(POW10TO128);
-    }
-    if ((exp & 256) != 0) {
-      mul_digits(POW10TO256);
-    }
-
-    return *this;
-  }
-  constexpr bignum& div_2pow10(size_t n) {
-    const size_t largest = POW10.size() - 1;
-    while (n > largest) {
-      div_rem_small(POW10[largest]);
-      n -= largest;
-    }
-    div_rem_small(TWOPOW10[n]);
     return *this;
   }
 

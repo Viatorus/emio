@@ -1,7 +1,7 @@
 #include <cinttypes>
 #include <string>
 
-int main(int c, char*[] args) {
+int main(int c, char* args[]) {
   std::string s;
   s.resize(42);
   void* null = NULL;
