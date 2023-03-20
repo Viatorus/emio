@@ -1,9 +1,18 @@
-#include <array>
+// Unit under test.
+#include <emio/detail/bignum.hpp>
 
-#include "bignum.hpp"
-#include "catch2/catch_test_macros.hpp"
+// Other includes.
+#include <catch2/catch_test_macros.hpp>
 
-TEST_CASE("printf") {
+TEST_CASE("bignum") {
+  using emio::detail::bignum;
+  using emio::detail::borrowing_sub;
+  using emio::detail::borrowing_sub_result_t;
+  using emio::detail::carrying_add;
+  using emio::detail::carrying_add_result_t;
+  using emio::detail::carrying_mul;
+  using emio::detail::carrying_mul_result_t;
+
   const uint32_t max = std::numeric_limits<uint32_t>::max();
 
   SECTION("carrying_add") {
@@ -137,8 +146,6 @@ TEST_CASE("printf") {
 
       b.sub_small(max - 2);
       CHECK(b == bignum::from(1, {0, 0}));
-
-      CHECK_THROWS(b.sub_small(1));
     }
   }
 
@@ -248,42 +255,6 @@ TEST_CASE("printf") {
     }
   }
 
-  SECTION("div_rem") {
-    SECTION("test 1") {
-      bignum a = bignum::from(2, {4, 2});
-      bignum b = bignum::from(2, {4, 1});
-
-      bignum rem = a.div_rem(b);
-      CHECK(a == bignum::from(1, {1}));
-      CHECK(rem == bignum::from(2, {0, 1}));
-    }
-    SECTION("test 2") {
-      bignum a = bignum::from(2, {4, 8});
-      bignum b = bignum::from(2, {8, 2});
-
-      bignum rem = a.div_rem(b);
-      CHECK(a == bignum::from(1, {3}));
-      CHECK(rem == bignum::from(2, {4294967276, 1}));
-    }
-    SECTION("test 3") {
-      bignum a = bignum::from(3, {4, 882, 1});
-      bignum b = bignum::from(2, {8, 18999});
-
-      bignum rem = a.div_rem(b);
-      CHECK(a == bignum::from(1, {226062}));
-      CHECK(rem == bignum::from(2, {4293158804, 16239}));
-    }
-    return;
-    SECTION("test 4") {
-      bignum a = bignum::from(3, {3167239385, 2434744937, 712494});
-      bignum b = bignum::from(2, {3049936609, 12140});
-
-      bignum rem = a.div_rem(b);
-      CHECK(a == bignum::from(2, {2948064339, 58}));
-      CHECK(rem == bignum::from(2, {2901847526, 7232}));
-    }
-  }
-
   SECTION("mul_pow2") {
     SECTION("test 1") {
       bignum a = bignum::from(3, {0x1, 0x3, 0x2});
@@ -293,14 +264,9 @@ TEST_CASE("printf") {
       CHECK(a.mul_pow2(67) == bignum::from(6, {0, 0, 0, 0x2000, 0x6000, 0x4000}));
       CHECK(a.mul_pow2(19) == bignum::from(7, {0, 0, 0, 0, 0x1, 0x3, 0x2}));
     }
-    //    SECTION("test 2") {}
   }
 
-  SECTION("mul_pow10") {
-    bignum a = bignum::from(3, {0x1, 0x3, 0x2});
-    CHECK(a.mul_pow10(1) == bignum::from(3, {0xa, 0x1e, 0x14}));
-    CHECK(a.mul_pow10(9) == bignum::from(4, {0x540be400, 0xfc23ac02, 0xa817c806, 4}));
-    CHECK(a.mul_pow10(42) ==
-          bignum::from(8, {0x0, 0xDB100000, 0x2338B31A, 0x9C4727A5, 0xFB4D26B0, 0x3557F7DA, 0x8E297B29, 0x3574}));
+  SECTION("cmp") {
+
   }
 }

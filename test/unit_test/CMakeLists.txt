@@ -11,7 +11,7 @@ if (PROJECT_IS_TOP_LEVEL)
 endif ()
 
 add_executable(emio_test
-#        detail/test_bignum.cpp
+        detail/test_bignum.cpp
 #        detail/test_bitset.cpp
 #        detail/test_conversion.cpp
 #        detail/test_ct_basic_string.cpp

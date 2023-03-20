@@ -159,7 +159,7 @@ inline constexpr format_fp_result_t format_exact(const decoded& dec, emio::buffe
   // rounding up if we stop in the middle of digits
   // if the following digits are exactly 5000..., check the prior digit and try to
   // round to even (i.e., avoid rounding up when the prior digit is even).
-  const auto order = mant.cmp(scale.mul_small(5));
+  const auto order = mant <=> (scale.mul_small(5));
   if (order == std::strong_ordering::greater ||
       (order == std::strong_ordering::equal && len > 0 && (dst[len - 1] & 1) == 1)) {
     // if rounding up changes the length, the exponent should also change.
@@ -258,7 +258,7 @@ inline constexpr format_fp_result_t format_shortest(const decoded& dec, emio::bu
   //
   // note that `d[0]` *can* be zero, when `scale - plus < mant < scale`.
   // in this case rounding-up condition (`up` below) will be triggered immediately.
-  if (rounding(scale.cmp(bignum{mant}.add(plus)))) {
+  if (rounding(scale <=> (bignum{mant}.add(plus)))) {
     // equivalent to scaling `scale` by 10
     k += 1;
   } else {
@@ -340,8 +340,8 @@ inline constexpr format_fp_result_t format_shortest(const decoded& dec, emio::bu
     // - stop and round `down` (keep digits as is) when `mant < minus` (or `<=`).
     // - stop and round `up` (increase the last digit) when `scale < mant + plus` (or `<=`).
     // - keep generating otherwise.
-    down = rounding(mant.cmp(minus));
-    up = rounding(scale.cmp(bignum{mant}.add(plus)));
+    down = rounding(mant <=> (minus));
+    up = rounding(scale <=> (bignum{mant}.add(plus)));
     if (down || up) {
       // we have the shortest representation, proceed to the rounding
       break;
