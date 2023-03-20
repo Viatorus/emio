@@ -56,6 +56,7 @@ constexpr char digit_to_char(int digit, int base, bool upper) noexcept {
 }
 
 template <typename T>
+  requires(std::is_unsigned_v<T>)
 constexpr size_t count_digits_10(T number) noexcept {
   size_t count = 1;
   for (;;) {
@@ -80,6 +81,7 @@ constexpr size_t count_digits_10(T number) noexcept {
 }
 
 template <size_t Base, typename T>
+  requires(std::is_unsigned_v<T>)
 constexpr size_t count_digits(T number) noexcept {
   if (number == 0) {
     return 1;

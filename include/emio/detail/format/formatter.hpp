@@ -110,7 +110,9 @@ template <typename Arg>
   requires(std::is_integral_v<Arg> && !std::is_same_v<Arg, bool> && !std::is_same_v<Arg, char>)
 constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const Arg& arg) noexcept {
   if (specs.type == 'c') {
-    return write_padded<alignment::left>(wtr, specs, 1, [&] { return wtr.write_char(static_cast<char>(arg)); });
+    return write_padded<alignment::left>(wtr, specs, 1, [&] {
+      return wtr.write_char(static_cast<char>(arg));
+    });
   }
   EMIO_TRY((auto [prefix, options]), make_write_int_options(specs.type));
 
@@ -193,9 +195,13 @@ constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const A
 
 inline constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const std::string_view arg) noexcept {
   if (specs.type != '?') {
-    return write_padded<alignment::left>(wtr, specs, arg.size(), [&] { return wtr.write_str(arg); });
+    return write_padded<alignment::left>(wtr, specs, arg.size(), [&] {
+      return wtr.write_str(arg);
+    });
   }
-  return write_padded<alignment::left>(wtr, specs, arg.size() + 2U, [&] { return wtr.write_str_escaped(arg); });
+  return write_padded<alignment::left>(wtr, specs, arg.size() + 2U, [&] {
+    return wtr.write_str_escaped(arg);
+  });
 }
 
 template <typename Arg>
@@ -206,9 +212,13 @@ constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const A
     return write_arg(wtr, specs, static_cast<uint8_t>(arg));
   }
   if (specs.type != '?') {
-    return write_padded<alignment::left>(wtr, specs, 1, [&] { return wtr.write_char(arg); });
+    return write_padded<alignment::left>(wtr, specs, 1, [&] {
+      return wtr.write_char(arg);
+    });
   }
-  return write_padded<alignment::left>(wtr, specs, 3, [&] { return wtr.write_char_escaped(arg); });
+  return write_padded<alignment::left>(wtr, specs, 3, [&] {
+    return wtr.write_char_escaped(arg);
+  });
 }
 
 template <typename Arg>
@@ -228,9 +238,13 @@ constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, Arg arg
     return write_arg(wtr, specs, static_cast<uint8_t>(arg));
   }
   if (arg) {
-    return write_padded<alignment::left>(wtr, specs, 4, [&] { return wtr.write_str("true"); });
+    return write_padded<alignment::left>(wtr, specs, 4, [&] {
+      return wtr.write_str("true");
+    });
   }
-  return write_padded<alignment::left>(wtr, specs, 5, [&] { return wtr.write_str("false"); });
+  return write_padded<alignment::left>(wtr, specs, 5, [&] {
+    return wtr.write_str("false");
+  });
 }
 
 //

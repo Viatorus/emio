@@ -285,7 +285,9 @@ TEST_CASE("reader::read_until", "[reader]") {
   SECTION("read_until") {
     emio::reader reader{"a12bcd"};
 
-    auto res = reader.read_until([](char c) { return c == 'b'; });
+    auto res = reader.read_until([](char c) {
+      return c == 'b';
+    });
     CHECK(res == "a12");
   }
 }
