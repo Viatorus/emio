@@ -6,6 +6,7 @@
 // Other includes.
 #include <catch2/benchmark/catch_benchmark.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <cinttypes>
 #include <cmath>
 
 TEST_CASE("simple integer format") {
@@ -26,6 +27,10 @@ TEST_CASE("simple integer format") {
   };
   BENCHMARK("fmt runtime") {
     return fmt::format(fmt::runtime(format_str), arg);
+  };
+  BENCHMARK("snprintf") {
+    std::array<char, 42> buf{};
+    return snprintf(buf.data(), buf.size(), " %d", 1);
   };
 }
 
@@ -48,6 +53,10 @@ TEST_CASE("complex integer format") {
   BENCHMARK("fmt runtime") {
     return fmt::format(fmt::runtime(format_str), arg);
   };
+  BENCHMARK("snprintf") {
+    std::array<char, 42> buf{};
+    return snprintf(buf.data(), buf.size(), "%10" PRIi64 "X", arg);
+  };
 }
 
 TEST_CASE("zero as double format") {
@@ -68,6 +77,10 @@ TEST_CASE("zero as double format") {
   };
   BENCHMARK("fmt runtime") {
     return fmt::format(fmt::runtime(format_str), arg);
+  };
+  BENCHMARK("snprintf") {
+    std::array<char, 42> buf{};
+    return snprintf(buf.data(), buf.size(), "%g", arg);
   };
 }
 
@@ -90,6 +103,10 @@ TEST_CASE("shortest double general format") {
   BENCHMARK("fmt runtime") {
     return fmt::format(fmt::runtime(format_str), arg);
   };
+  BENCHMARK("snprintf (not shortest but general)") {
+    std::array<char, 42> buf{};
+    return snprintf(buf.data(), buf.size(), "%g", arg);
+  };
 }
 
 TEST_CASE("double exponent format") {
@@ -111,6 +128,10 @@ TEST_CASE("double exponent format") {
   BENCHMARK("fmt runtime") {
     return fmt::format(fmt::runtime(format_str), arg);
   };
+  BENCHMARK("snprintf") {
+    std::array<char, 42> buf{};
+    return snprintf(buf.data(), buf.size(), "%e", arg);
+  };
 }
 
 TEST_CASE("double fixed format") {
@@ -131,6 +152,10 @@ TEST_CASE("double fixed format") {
   };
   BENCHMARK("fmt runtime") {
     return fmt::format(fmt::runtime(format_str), arg);
+  };
+  BENCHMARK("snprintf") {
+    std::array<char, 42> buf{};
+    return snprintf(buf.data(), buf.size(), "%f", arg);
   };
 }
 
