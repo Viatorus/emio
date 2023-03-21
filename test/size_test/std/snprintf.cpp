@@ -1,6 +1,6 @@
+#include <array>
 #include <cinttypes>
 #include <cstdio>
-#include <array>
 
 int main(int c, char* args[]) {
   std::array<char, 42> s{};
