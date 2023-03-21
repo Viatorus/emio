@@ -266,7 +266,5 @@ TEST_CASE("bignum") {
     }
   }
 
-  SECTION("cmp") {
-
-  }
+  SECTION("three-way comparison") {}
 }
