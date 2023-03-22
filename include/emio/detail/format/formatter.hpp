@@ -509,7 +509,7 @@ inline constexpr result<void> validate_format_specs(reader<char>& rdr, format_sp
     return err::invalid_format;
   }
 
-  bool width_required = false;
+  bool fill_aligned = false;
   {
     // Parse for alignment specifier.
     EMIO_TRY(const char c2, rdr.peek());
@@ -521,7 +521,7 @@ inline constexpr result<void> validate_format_specs(reader<char>& rdr, format_sp
       } else {
         specs.align = alignment::right;
       }
-      width_required = true;
+      fill_aligned = true;
       specs.fill = c;
       rdr.pop();
       EMIO_TRY(c, rdr.read_char());
@@ -533,7 +533,7 @@ inline constexpr result<void> validate_format_specs(reader<char>& rdr, format_sp
       } else {
         specs.align = alignment::right;
       }
-      width_required = true;
+      fill_aligned = true;
       EMIO_TRY(c, rdr.read_char());
     }
   }
@@ -545,14 +545,13 @@ inline constexpr result<void> validate_format_specs(reader<char>& rdr, format_sp
     specs.alternate_form = true;
     EMIO_TRY(c, rdr.read_char());
   }
-  if (c == '0') {          // Zero flag.
-    if (width_required) {  // Fill and zero flag doesn't make sense.
-      return err::invalid_format;
+  if (c == '0') {           // Zero flag.
+    if (!fill_aligned) {  // If fill/align is used, the zero flag is ignored.
+      specs.fill = '0';
+      specs.align = alignment::right;
+      specs.zero_flag = true;
+      fill_aligned = true;
     }
-    specs.fill = '0';
-    specs.align = alignment::right;
-    specs.zero_flag = true;
-    width_required = true;
     EMIO_TRY(c, rdr.read_char());
   }
   if (detail::isdigit(c)) {  // Width.
@@ -563,8 +562,6 @@ inline constexpr result<void> validate_format_specs(reader<char>& rdr, format_sp
     }
     specs.width = static_cast<int32_t>(width);
     EMIO_TRY(c, rdr.read_char());
-  } else if (width_required) {  // Width was required.
-    return err::invalid_format;
   }
   if (c == '.') {  // Precision.
     EMIO_TRY(uint32_t precision, rdr.parse_int<uint32_t>());
@@ -590,6 +587,7 @@ inline constexpr result<void> parse_format_specs(reader<char>& rdr, format_specs
     return success;
   }
 
+  bool fill_aligned = false;
   {
     // Parse for alignment specifier.
     const char c2 = rdr.peek().assume_value();
@@ -601,6 +599,7 @@ inline constexpr result<void> parse_format_specs(reader<char>& rdr, format_specs
       } else {
         specs.align = alignment::right;
       }
+      fill_aligned = true;
       specs.fill = c;
       rdr.pop();
       c = rdr.read_char().assume_value();
@@ -612,6 +611,7 @@ inline constexpr result<void> parse_format_specs(reader<char>& rdr, format_specs
       } else {
         specs.align = alignment::right;
       }
+      fill_aligned = true;
       c = rdr.read_char().assume_value();
     }
   }
@@ -623,10 +623,12 @@ inline constexpr result<void> parse_format_specs(reader<char>& rdr, format_specs
     specs.alternate_form = true;
     c = rdr.read_char().assume_value();
   }
-  if (c == '0') {  // Zero flag.
-    specs.fill = '0';
-    specs.align = alignment::right;
-    specs.zero_flag = true;
+  if (c == '0') {           // Zero flag.
+    if (!fill_aligned) {  // Ignoreable.
+      specs.fill = '0';
+      specs.align = alignment::right;
+      specs.zero_flag = true;
+    }
     c = rdr.read_char().assume_value();
   }
   if (detail::isdigit(c)) {  // Width.
@@ -737,7 +739,7 @@ template <typename T>
 concept has_validate_function_v = requires {
                                     {
                                       formatter<T>::validate(std::declval<reader<char>&>())
-                                      } -> std::same_as<result<void>>;
+                                    } -> std::same_as<result<void>>;
                                   };
 
 template <typename T>

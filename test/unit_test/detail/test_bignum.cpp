@@ -266,5 +266,61 @@ TEST_CASE("bignum") {
     }
   }
 
-  SECTION("three-way comparison") {}
+  SECTION("three-way comparison") {
+    const bignum a = bignum::from(3, {5, 1, 3});
+    
+    SECTION("with a equal one") {
+      const bignum b = bignum::from(3, {5, 1, 3});
+      
+      CHECK(a >= b);
+      CHECK(a <= b);
+      CHECK(a == b);
+      CHECK_FALSE(a > b);
+      CHECK_FALSE(a < b);
+      CHECK_FALSE(a != b);
+      
+      CHECK(b >= a);
+      CHECK(b <= a);
+      CHECK(b == a);
+      CHECK_FALSE(b > a);
+      CHECK_FALSE(b < a);
+      CHECK_FALSE(b != a);
+    }
+    
+    SECTION("with a smaller one (smaller dimension)") {
+      const bignum b = bignum::from(2, {1, 3});
+      
+      CHECK(a >= b);
+      CHECK_FALSE(a <= b);
+      CHECK_FALSE(a == b);
+      CHECK(a > b);
+      CHECK_FALSE(a < b);
+      CHECK(a != b);
+      
+      CHECK_FALSE(b >= a);
+      CHECK(b <= a);
+      CHECK_FALSE(b == a);
+      CHECK_FALSE(b > a);
+      CHECK(b < a);
+      CHECK(b != a);
+    }
+    
+    SECTION("with a smaller one (same dimension)") {
+      const bignum b = bignum::from(2, {4, 1, 3});
+      
+      CHECK(a >= b);
+      CHECK_FALSE(a <= b);
+      CHECK_FALSE(a == b);
+      CHECK(a > b);
+      CHECK_FALSE(a < b);
+      CHECK(a != b);
+      
+      CHECK_FALSE(b >= a);
+      CHECK(b <= a);
+      CHECK_FALSE(b == a);
+      CHECK_FALSE(b > a);
+      CHECK(b < a);
+      CHECK(b != a);
+    }
+  }
 }
