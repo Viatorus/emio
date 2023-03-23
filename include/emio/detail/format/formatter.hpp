@@ -332,6 +332,10 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
     if (specs.alternate_form && fp_specs.format == fp_format::general) {
       num_zeros = fp_specs.precision - significand_size;
     }
+    if (fp_specs.format == fp_format::fixed && significand_size > integral_size &&
+        significand_size - integral_size < fp_specs.precision) {
+      num_zeros = fp_specs.precision - (significand_size - integral_size);
+    }
   }
   if (num_zeros < 0) {
     num_zeros = 0;
@@ -545,7 +549,7 @@ inline constexpr result<void> validate_format_specs(reader<char>& rdr, format_sp
     specs.alternate_form = true;
     EMIO_TRY(c, rdr.read_char());
   }
-  if (c == '0') {           // Zero flag.
+  if (c == '0') {         // Zero flag.
     if (!fill_aligned) {  // If fill/align is used, the zero flag is ignored.
       specs.fill = '0';
       specs.align = alignment::right;
@@ -623,7 +627,7 @@ inline constexpr result<void> parse_format_specs(reader<char>& rdr, format_specs
     specs.alternate_form = true;
     c = rdr.read_char().assume_value();
   }
-  if (c == '0') {           // Zero flag.
+  if (c == '0') {         // Zero flag.
     if (!fill_aligned) {  // Ignoreable.
       specs.fill = '0';
       specs.align = alignment::right;

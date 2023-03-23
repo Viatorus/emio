@@ -1,4 +1,4 @@
-// #pragma GCC optimize("O3")
+ #pragma GCC optimize("O3")
 
 // Unit under test.
 #include <emio/format.hpp>
@@ -39,6 +39,16 @@ void check_emio_vs_fmt(double value) {
 #define CHECK_EMIO_VS_FMT_SINGLE(x, value) CHECK(emio::format(x, value) == fmt::format(x, value))
 
 TEST_CASE("run") {
+
+//  CHECK(emio::format("{:.3f}", 1.0) == "1.000");
+//  CHECK(emio::format("{:.4f}", 0.99999) == "1");
+//  CHECK(emio::format("{:#.4g}", 0.99999) == "1.000");
+//
+//  CHECK(fmt::format("{:.4g}", 0.99999) == "1.000");
+//  CHECK(fmt::format("{:#.4g}", 0.99999) == "1.000");
+
+//  return;
+
   // TODO: precision < 0?
   // {:#.{}e}
 
@@ -153,10 +163,6 @@ TEST_CASE("run") {
   //
   //  CHECK_EMIO_VS_FMT_SINGLE("{:+15e}", INFINITY);
   //  CHECK_EMIO_VS_FMT_SINGLE("{:015e}", INFINITY);
-  //  CHECK_EMIO_VS_FMT_SINGLE("{:+015e}", INFINITY);
-
-  // Shortest of: 1234567890987653.25 -> 1234567890987653.2 (fmt) != 1234567890987653.3 (emio/rust)
-
   static constexpr std::array values = {
       0.0,
       1.0,
@@ -166,11 +172,13 @@ TEST_CASE("run") {
       12300.0,
       123456789098765.0,
       1234567890987653.0,
+      9.999999999999999e22,
       1.2,
       12.34,
       123.56,
       123456789098765.5,
       1234567890987653.9,
+      0.99999,
       0.1,
       0.012,
       0.00123,
@@ -183,6 +191,10 @@ TEST_CASE("run") {
       //      std::numeric_limits<double>::signaling_NaN(),
       M_PI,
   };
+  //  CHECK_EMIO_VS_FMT_SINGLE("{:+015e}", INFINITY);
+
+  // Shortest of: 1234567890987653.25 -> 1234567890987653.2 (fmt) != 1234567890987653.3 (emio/rust)
+
 
   for (double value : values) {
     check_emio_vs_fmt(value);

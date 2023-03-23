@@ -601,7 +601,7 @@ TEST_CASE("precision_rounding") {
   CHECK(emio::format("{:.3f}", 0.0005) == "0.001");
   CHECK(emio::format("{:.3f}", 0.00149) == "0.001");
   CHECK(emio::format("{:.3f}", 0.0015) == "0.002");
-  //  CHECK(emio::format("{:.3f}", 0.9999) == "1.000"); BUG
+  CHECK(emio::format("{:.3f}", 0.9999) == "1.000");
   CHECK(emio::format("{:.3}", 0.00123) == "0.00123");
   CHECK(emio::format("{:.16g}", 0.1) == "0.1");
   CHECK(emio::format("{:.0}", 1.0) == "1");
