@@ -792,6 +792,17 @@ TEST(format_test, format_explicitly_convertible_to_std_string_view) {
 }
 #endif
 
+TEST_CASE("format at compile-time") {
+  constexpr bool success = [] {
+    std::array<char, 17> arr{};
+    emio::span_buffer buf{arr};
+
+    emio::result<void> res = emio::format_to(buf, "{} {:.2f} {}{}", 42, 42.24, "x,", 'y');
+    return res && buf.view() == "42 42.24 x,y";
+  }();
+  STATIC_CHECK(success);
+}
+
 TEST_CASE("validate_format_string") {
   using emio::detail::format::validate_format_string;
 

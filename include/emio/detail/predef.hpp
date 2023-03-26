@@ -43,4 +43,9 @@ namespace emio::detail {
 #  define EMIO_Z_INTERNAL_UNREACHABLE std::terminate()
 #endif
 
+#define EMIO_Z_DEV_ASSERT(...) \
+  if (!(__VA_ARGS__)) {        \
+    std::terminate();          \
+  }
+
 }  // namespace emio::detail

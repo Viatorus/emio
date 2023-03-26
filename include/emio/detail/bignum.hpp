@@ -96,12 +96,12 @@ class bignum {
   /// Makes a bignum from one digit.
   template <typename T>
     requires(std::is_unsigned_v<T> && sizeof(T) <= sizeof(uint32_t))
-  constexpr explicit bignum(T v) noexcept : size{1}, base{{v}} {}
+  explicit constexpr bignum(T v) noexcept : size{1}, base{{v}} {}
 
   /// Makes a bignum from `u64` value.
   template <typename T>
     requires(std::is_unsigned_v<T> && sizeof(T) == sizeof(uint64_t))
-  constexpr explicit bignum(T v) noexcept : size{1}, base{{static_cast<uint32_t>(v), static_cast<uint32_t>(v >> 32)}} {
+  explicit constexpr bignum(T v) noexcept : size{1}, base{{static_cast<uint32_t>(v), static_cast<uint32_t>(v >> 32)}} {
     size += static_cast<size_t>(base[1] > 0);
   }
 
@@ -114,7 +114,7 @@ class bignum {
 
   /// Returns the `i`-th bit where bit 0 is the least significant one.
   /// In other words, the bit with weight `2^i`.
-  [[nodiscard]] uint8_t get_bit(size_t i) const noexcept {
+  [[nodiscard]] constexpr uint8_t get_bit(size_t i) const noexcept {
     const size_t digitbits = 32;
     const auto d = i / digitbits;
     const auto b = i % digitbits;
@@ -122,7 +122,7 @@ class bignum {
   }
 
   /// Returns `true` if the bignum is zero.
-  [[nodiscard]] bool is_zero() const noexcept {
+  [[nodiscard]] constexpr bool is_zero() const noexcept {
     return std::all_of(base.begin(), base.end(), [](uint32_t v) {
       return v == 0;
     });

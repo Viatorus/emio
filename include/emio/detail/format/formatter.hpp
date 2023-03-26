@@ -306,34 +306,34 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
   int integral_size = 0;
   int num_zeros_2 = 0;
 
-  if (output_exp < 0) {              // Only fractional-part.
-    num_zeros = abs_output_exp - 1;  // leading zeros.
-    total_length += 2;
-    if (specs.alternate_form && fp_specs.format == fp_format::general) {
+  if (output_exp < 0) {                                                   // Only fractional-part.
+    total_length += 2;                                                    // For zero + Decimal point.
+    num_zeros = abs_output_exp - 1;                                       // Leading zeros after dot.
+    if (specs.alternate_form && fp_specs.format == fp_format::general) {  // ({:#g}, 0.1) -> 0.100000 instead 0.1
       num_zeros_2 = fp_specs.precision - significand_size;
     }
   } else if ((output_exp + 1) >= significand_size) {  // Only integer-part (including zero).
     integral_size = significand_size;
     num_zeros = output_exp - significand_size + 1;  // Trailing zeros.
     if (fp_specs.showpoint) {                       // Significant is zero but fractional requested.
-      if (num_zeros == 0) {
+      if (specs.alternate_form && fp_specs.format == fp_format::general) {  // ({:#.4g}, 1) -> 1.000 instead of 1.
+        num_zeros_2 = fp_specs.precision - significand_size - num_zeros;
+      } else if (num_zeros == 0) {  // ({:f}, 0) or ({:.4f}, 1.23e-06) -> 0.000000 instead of 0
         num_zeros_2 = fp_specs.precision;
       }
-      if (specs.alternate_form && fp_specs.format == fp_format::general) {
-        num_zeros_2 = fp_specs.precision - significand_size - num_zeros;
-      }
+      EMIO_Z_DEV_ASSERT(num_zeros >= 0);
       total_length += 1;
     } else {  // Digit without zero
       decimal_point = 0;
     }
   } else {  // Both parts. Trailing zeros are part of significands.
     integral_size = output_exp + 1;
-    total_length += 1;
-    if (specs.alternate_form && fp_specs.format == fp_format::general) {
+    total_length += 1;                                                    // Decimal point.
+    if (specs.alternate_form && fp_specs.format == fp_format::general) {  // ({:#g}, 1.2) -> 1.20000 instead 1.2
       num_zeros = fp_specs.precision - significand_size;
     }
     if (fp_specs.format == fp_format::fixed && significand_size > integral_size &&
-        significand_size - integral_size < fp_specs.precision) {
+        significand_size - integral_size < fp_specs.precision) {  // ({:.4}, 0.99999) -> 1.0000 instead of 1.00
       num_zeros = fp_specs.precision - (significand_size - integral_size);
     }
   }

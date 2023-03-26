@@ -226,8 +226,3 @@ TEST_CASE("format_shortest_additional") {
   CHECK_FIXED(5.41843844705283309e-17, 16, "1", -15);
   CHECK_FIXED(7.55997183139191130e-306, 16, "", -304);
 }
-
-TEST_CASE("direct") {
-  // TODO:
-  CHECK_EXPONENT(-5.57218091692071384e+303, 0, "", 305);
-}
