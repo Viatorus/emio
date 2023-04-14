@@ -34,12 +34,11 @@ jobs:
       - name: Run clang-format
         run: cmake -D FORMAT_COMMAND=clang-format -P cmake/lint.cmake
 
-      - name: Configure
-        if: ${{ !cancelled() }}
-        run: cmake --preset=ci-checks
-
       - name: Run clang-tidy
-        run: cmake --build build/test/static_analysis -j $(nproc)
+        if: ${{ !cancelled() }}
+        run: |
+          cmake --preset=ci-checks
+          cmake --build build/test/static_analysis -j $(nproc)
 
   unit-tests:
     strategy:
