@@ -718,8 +718,8 @@ inline constexpr result<void> check_floating_point_specs(const format_specs& spe
   case 'E':
   case 'g':
   case 'G':
-  case 'a':
-  case 'A':
+    //  case 'a': Not supported yet.
+    //  case 'A':
     return success;
   }
   return err::invalid_format;
@@ -741,7 +741,7 @@ template <typename T>
 concept has_validate_function_v = requires {
                                     {
                                       formatter<T>::validate(std::declval<reader<char>&>())
-                                    } -> std::same_as<result<void>>;
+                                      } -> std::same_as<result<void>>;
                                   };
 
 template <typename T>

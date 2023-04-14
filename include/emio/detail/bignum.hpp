@@ -98,7 +98,8 @@ class bignum {
   /// Makes a bignum from `u64` value.
   template <typename T>
     requires(std::is_unsigned_v<T> && sizeof(T) == sizeof(uint64_t))
-  explicit constexpr bignum(T v) noexcept : size_{1}, base_{{static_cast<uint32_t>(v), static_cast<uint32_t>(v >> 32)}} {
+  explicit constexpr bignum(T v) noexcept
+      : size_{1}, base_{{static_cast<uint32_t>(v), static_cast<uint32_t>(v >> 32)}} {
     size_ += static_cast<size_t>(base_[1] > 0);
   }
 
