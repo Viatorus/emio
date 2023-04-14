@@ -351,7 +351,7 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
     }
 
     EMIO_TRY(auto area, wtr.get_buffer().get_write_area_of(total_length));
-    auto it = area.data();
+    auto* it = area.data();
 
     if (output_exp < 0) {
       *it++ = '0';
@@ -366,21 +366,20 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
     } else if ((output_exp + 1) >= significand_size) {
       std::copy(significand, significand + integral_size, it);
       it += significand_size;
-      if (num_zeros) {
+      if (num_zeros != 0) {
         std::fill_n(it, num_zeros, '0');
         it += num_zeros;
       }
       if (decimal_point) {
         *it++ = '.';
-        if (num_zeros_2) {
+        if (num_zeros_2 != 0) {
           std::fill_n(it, num_zeros_2, '0');
         }
       }
     } else {
       it = write_significand(it, significand, significand_size, integral_size, decimal_point);
-      if (num_zeros) {
+      if (num_zeros != 0) {
         std::fill_n(it, num_zeros, '0');
-        it += num_zeros;
       }
     }
 
@@ -435,7 +434,7 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
   }
 
   emio::string_buffer buf;
-  format_fp_result_t res = format_decimal(buf, fp_specs, decoded);
+  const format_fp_result_t res = format_decimal(buf, fp_specs, decoded);
   return write_decimal(wtr, specs, fp_specs, decoded.negative, res);
 }
 
@@ -554,13 +553,12 @@ inline constexpr result<void> validate_format_specs(reader<char>& rdr, format_sp
       specs.fill = '0';
       specs.align = alignment::right;
       specs.zero_flag = true;
-      fill_aligned = true;
     }
     EMIO_TRY(c, rdr.read_char());
   }
   if (detail::isdigit(c)) {  // Width.
     rdr.unpop();
-    EMIO_TRY(uint32_t width, rdr.parse_int<uint32_t>());
+    EMIO_TRY(const uint32_t width, rdr.parse_int<uint32_t>());
     if (width > (static_cast<uint32_t>(std::numeric_limits<int32_t>::max()))) {
       return err::invalid_format;
     }
@@ -568,7 +566,7 @@ inline constexpr result<void> validate_format_specs(reader<char>& rdr, format_sp
     EMIO_TRY(c, rdr.read_char());
   }
   if (c == '.') {  // Precision.
-    EMIO_TRY(uint32_t precision, rdr.parse_int<uint32_t>());
+    EMIO_TRY(const uint32_t precision, rdr.parse_int<uint32_t>());
     if (precision > (static_cast<uint32_t>(std::numeric_limits<int32_t>::max()))) {
       return err::invalid_format;
     }
@@ -743,7 +741,7 @@ template <typename T>
 concept has_validate_function_v = requires {
                                     {
                                       formatter<T>::validate(std::declval<reader<char>&>())
-                                      } -> std::same_as<result<void>>;
+                                    } -> std::same_as<result<void>>;
                                   };
 
 template <typename T>

@@ -45,7 +45,7 @@ inline constexpr std::optional<char> round_up(std::span<char> d) noexcept {
       d[j] = '0';
     }
     return std::nullopt;
-  } else if (d.size() > 0) {
+  } else if (d.empty()) {
     // 999..999 rounds to 1000..000 with an increased exponent
     d[0] = '1';
     for (char& c : d.subspan(1)) {

@@ -13,6 +13,8 @@
 # readability-else-after-return: allowed since if no else compile-time flow check fails and no optimization in debug
 # bugprone-exception-escape: to many false positives
 # bugprone-unchecked-optional-access: access is assumed and part of the API
+# cppcoreguidelines-pro-bounds-pointer-arithmetic: performance gain in debug
+# cppcoreguidelines-pro-bounds-constant-array-index: performance gain and unit tested
 Checks: >
   bugprone-*,
   concurrency-*,
@@ -42,7 +44,8 @@ Checks: >
   -cppcoreguidelines-pro-type-union-access,
   -readability-else-after-return,
   -bugprone-exception-escape,
-  -bugprone-unchecked-optional-access
+  -bugprone-unchecked-optional-access,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic
 
 WarningsAsErrors: ''
 

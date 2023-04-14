@@ -39,7 +39,7 @@ inline constexpr decode_result_t decode(double value) noexcept {
   decode_result_t res{};
 
   using bits_type = std::conditional_t<sizeof(T) == sizeof(float), uint32_t, uint64_t>;
-  bits_type bits = std::bit_cast<bits_type>(value);
+  const auto bits = std::bit_cast<bits_type>(value);
 
   res.negative = bits >> 63 != 0;
   if (value == 0) {
@@ -47,7 +47,7 @@ inline constexpr decode_result_t decode(double value) noexcept {
   }
 
   // Exponent bias + mantissa shift
-  res.finite.exp = static_cast<int16_t>((bits >> 52) & 0x7ff) - (1023 + 52);
+  res.finite.exp = static_cast<int16_t>(((bits >> 52) & 0x7ff) - (1023 + 52));
   res.finite.mant = res.finite.exp == -1075 ? (bits & 0xfffffffffffff) << 1 : (bits & 0xfffffffffffff);
   res.finite.inclusive = (res.finite.mant & 1) == 0;
 

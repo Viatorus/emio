@@ -81,40 +81,32 @@ inline constexpr carrying_mul_result_t carrying_mul(uint32_t a, uint32_t b, uint
 /// The caller is responsible to use large enough bignum types.
 class bignum {
  public:
-  /// One plus the offset to the maximum "digit" in use.
-  /// This does not decrease, so be aware of the computation order.
-  /// `base[size..]` should be zero.
-  size_t size;
-  /// Digits. `[a, b, c, ...]` represents `a + b*2^W + c*2^(2W) + ...`
-  /// where `W` is the number of bits in the digit type.
-  std::array<uint32_t, 40> base;
-
   static constexpr bignum from(size_t sz, std::array<uint32_t, 40> b) {
     bignum bn{};
-    bn.size = sz;
-    bn.base = b;
+    bn.size_ = sz;
+    bn.base_ = b;
     return bn;
   }
 
-  constexpr explicit bignum() noexcept : size{1}, base{} {}
+  constexpr explicit bignum() noexcept = default;
 
   /// Makes a bignum from one digit.
   template <typename T>
     requires(std::is_unsigned_v<T> && sizeof(T) <= sizeof(uint32_t))
-  explicit constexpr bignum(T v) noexcept : size{1}, base{{v}} {}
+  explicit constexpr bignum(T v) noexcept : size_{1}, base{{v}} {}
 
   /// Makes a bignum from `u64` value.
   template <typename T>
     requires(std::is_unsigned_v<T> && sizeof(T) == sizeof(uint64_t))
-  explicit constexpr bignum(T v) noexcept : size{1}, base{{static_cast<uint32_t>(v), static_cast<uint32_t>(v >> 32)}} {
-    size += static_cast<size_t>(base[1] > 0);
+  explicit constexpr bignum(T v) noexcept : size_{1}, base{{static_cast<uint32_t>(v), static_cast<uint32_t>(v >> 32)}} {
+    size_ += static_cast<size_t>(base[1] > 0);
   }
 
   /// Returns the internal digits as a slice `[a, b, c, ...]` such that the numeric
   /// value is `a + b * 2^W + c * 2^(2W) + ...` where `W` is the number of bits in
   /// the digit type.
   constexpr std::span<uint32_t> digits() noexcept {
-    return {base.data(), size};
+    return {base.data(), size_};
   }
 
   /// Returns the `i`-th bit where bit 0 is the least significant one.
@@ -149,20 +141,20 @@ class bignum {
       base[i] = res.value;
     }
     EMIO_Z_DEV_ASSERT(!res.carry);
-    size = i;
+    size_ = i;
     return *this;
   }
 
   constexpr bignum& add(const bignum& other) noexcept {
     carrying_add_result_t res{0, false};
     size_t i = 0;
-    for (; (i < other.size) || (res.carry && (i < base.size())); i++) {
-      res = carrying_add(base[i], other.base[i], res.carry);
+    for (; (i < other.size_) || (res.carry && (i < base.size())); i++) {
+      res = carrying_add(base[i], other.base_[i], res.carry);
       base[i] = res.value;
     }
     EMIO_Z_DEV_ASSERT(!res.carry);
-    if (i > size) {
-      size = i;
+    if (i > size_) {
+      size_ = i;
     }
     return *this;
   }
@@ -177,29 +169,29 @@ class bignum {
       base[i] = res.value;
     }
     EMIO_Z_DEV_ASSERT(!res.borrow);
-    if (i == size && size != 1) {
-      size -= 1;
+    if (i == size_ && size_ != 1) {
+      size_ -= 1;
     }
     return *this;
   }
 
   /// Subtracts `other` from itself and returns its own mutable reference.
   constexpr bignum& sub(const bignum& other) noexcept {
-    EMIO_Z_DEV_ASSERT(size >= other.size);
-    if (size == 0) {
+    EMIO_Z_DEV_ASSERT(size_ >= other.size_);
+    if (size_ == 0) {
       return *this;
     }
     borrowing_sub_result_t res{0, false};
-    for (size_t i = 0; i < size; i++) {
-      res = borrowing_sub(base[i], other.base[i], res.borrow);
+    for (size_t i = 0; i < size_; i++) {
+      res = borrowing_sub(base[i], other.base_[i], res.borrow);
       base[i] = res.value;
     }
     EMIO_Z_DEV_ASSERT(!res.borrow);
     do {
-      if (base[size - 1] != 0) {
+      if (base[size_ - 1] != 0) {
         break;
       }
-    } while (--size != 0);
+    } while (--size_ != 0);
     return *this;
   }
 
@@ -211,38 +203,38 @@ class bignum {
 
   constexpr bignum& muladd_small(uint32_t other, uint32_t carry) noexcept {
     carrying_mul_result_t res{0, carry};
-    for (size_t i = 0; i < size; i++) {
+    for (size_t i = 0; i < size_; i++) {
       res = carrying_mul(base[i], other, res.carry);
       base[i] = res.value;
     }
     if (res.carry > 0) {
-      base.at(size) = res.carry;
-      size += 1;
+      base.at(size_) = res.carry;
+      size_ += 1;
     }
     return *this;
   }
 
   [[nodiscard]] bignum mul(const bignum& other) const noexcept {
-    const auto& bn_max = size > other.size ? *this : other;
-    const auto& bn_min = size > other.size ? other : *this;
+    const auto& bn_max = size_ > other.size_ ? *this : other;
+    const auto& bn_min = size_ > other.size_ ? other : *this;
 
     bignum prod{};
-    for (size_t i = 0; i < bn_min.size; i++) {
+    for (size_t i = 0; i < bn_min.size_; i++) {
       carrying_mul_result_t res{0, 0};
-      for (size_t j = 0; j < bn_max.size; j++) {
-        res = carrying_mul(bn_min.base[i], bn_max.base[j], res.carry);
+      for (size_t j = 0; j < bn_max.size_; j++) {
+        res = carrying_mul(bn_min.base_[i], bn_max.base_[j], res.carry);
         prod.add_small_at(i + j, res.value);
       }
       if (res.carry > 0) {
-        prod.add_small_at(i + bn_max.size, res.carry);
+        prod.add_small_at(i + bn_max.size_, res.carry);
       }
     }
     return prod;
   }
 
   constexpr bignum& mul_digits(std::span<const uint32_t> other) noexcept {
-    const auto& bn_max = size > other.size() ? digits() : other;
-    const auto& bn_min = size > other.size() ? other : digits();
+    const auto& bn_max = size_ > other.size() ? digits() : other;
+    const auto& bn_min = size_ > other.size() ? other : digits();
 
     bignum prod{};
     for (size_t i = 0; i < bn_min.size(); i++) {
@@ -282,7 +274,7 @@ class bignum {
   /// mutable reference *and* the remainder.
   constexpr uint32_t div_rem_small(uint32_t other) {
     uint64_t borrow = 0;
-    for (size_t i = size; i > 0; i--) {
+    for (size_t i = size_; i > 0; i--) {
       const uint64_t v = (base[i - 1] + (borrow << 32U));
       const uint64_t res = v / other;
       base[i - 1] = static_cast<uint32_t>(res);
@@ -297,42 +289,42 @@ class bignum {
     const size_t bits = exp % 32;
 
     if (digits > 0) {
-      for (size_t i = size; i > 0; --i) {
+      for (size_t i = size_; i > 0; --i) {
         base[i + digits - 1] = base[i - 1];
       }
       for (size_t i = 0; i < digits; i++) {
         base[i] = 0;
       }
-      size += digits;
+      size_ += digits;
     }
     if (bits > 0) {
       uint32_t overflow = 0;
       size_t i = 0;
-      for (; i < size; i++) {
+      for (; i < size_; i++) {
         auto res = static_cast<uint64_t>(base[i]) << bits;
         base[i] = static_cast<uint32_t>(res) + overflow;
         overflow = static_cast<uint32_t>(res >> 32);
       }
       if (overflow > 0) {
         base.at(i) = overflow;
-        size += 1;
+        size_ += 1;
       }
     }
     return *this;
   }
 
   [[nodiscard]] constexpr std::strong_ordering operator<=>(const bignum& other) const noexcept {
-    if (size > other.size) {
+    if (size_ > other.size_) {
       return std::strong_ordering::greater;
     }
-    if (size < other.size) {
+    if (size_ < other.size_) {
       return std::strong_ordering::less;
     }
-    for (size_t i = size; i > 0; i--) {
-      if (base[i - 1] > other.base[i - 1]) {
+    for (size_t i = size_; i > 0; i--) {
+      if (base[i - 1] > other.base_[i - 1]) {
         return std::strong_ordering::greater;
       }
-      if (base[i - 1] < other.base[i - 1]) {
+      if (base[i - 1] < other.base_[i - 1]) {
         return std::strong_ordering::less;
       }
     }
@@ -340,6 +332,15 @@ class bignum {
   }
 
   constexpr bool operator==(const bignum& other) const noexcept = default;
+
+ private:
+  /// One plus the offset to the maximum "digit" in use.
+  /// This does not decrease, so be aware of the computation order.
+  /// `base[size..]` should be zero.
+  size_t size_{1};
+  /// Digits. `[a, b, c, ...]` represents `a + b*2^W + c*2^(2W) + ...`
+  /// where `W` is the number of bits in the digit type.
+  std::array<uint32_t, 40> base_{};
 };
 
 }  // namespace emio::detail
