@@ -45,7 +45,7 @@ inline constexpr std::optional<char> round_up(std::span<char> d) noexcept {
       d[j] = '0';
     }
     return std::nullopt;
-  } else if (d.empty()) {
+  } else if (!d.empty()) {
     // 999..999 rounds to 1000..000 with an increased exponent
     d[0] = '1';
     for (char& c : d.subspan(1)) {
@@ -103,13 +103,7 @@ inline constexpr format_fp_result_t format_exact(const finite_result_t& dec, emi
   mant.mul_pow5(m5);
   mant.mul_pow2(m2);
 
-  // TODO: fixup when `mant + plus >= scale`, where `plus / scale = 10^-buf.len() / 2`.
-  // in order to keep the fixed-size bignum, we actually use `mant + floor(plus) >= scale`.
-  // we are not actually modifying `scale`, since we can skip the initial multiplication instead.
-  // again with the shortest algorithm, `d[0]` can be zero but will be eventually rounded up.
-  // if we are working with the last-digit limitation, we need to shorten the buffer
-  // before the actual rendering in order to avoid double rounding.
-  // note that we have to enlarge the buffer again when rounding up happens!
+  // calculate required buffer size
   size_t len{};
   size_t extra_len{};
   if (mode == format_exact_mode::significand_digits) {
@@ -119,6 +113,13 @@ inline constexpr format_fp_result_t format_exact(const finite_result_t& dec, emi
     extra_len = 1;
   }
 
+  // fixup estimation
+  // in order to keep the fixed-size bignum, we actually use `mant + floor(plus) >= scale`.
+  // we are not actually modifying `scale`, since we can skip the initial multiplication instead.
+  // again with the shortest algorithm, `d[0]` can be zero but will be eventually rounded up.
+  // if we are working with the last-digit limitation, we need to shorten the buffer
+  // before the actual rendering in order to avoid double rounding.
+  // note that we have to enlarge the buffer again when rounding up happens!
   if (mant >= scale) {
     k += 1;
     len += extra_len;
@@ -296,8 +297,8 @@ inline constexpr format_fp_result_t format_shortest(const finite_result_t& dec, 
 
   auto dst = buf.get_write_area_of(std::numeric_limits<double>::max_digits10).value();
 
-  bool down{};
-  bool up{};
+  bool down;
+  bool up;
   size_t i{};
   while (true) {
     // invariants, where `d[0..n-1]` are digits generated so far:

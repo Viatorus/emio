@@ -45,11 +45,13 @@ namespace emio::detail {
 
 #if defined(EMIO_ENABLE_DEV_ASSERT)
 #  define EMIO_Z_DEV_ASSERT(...) \
-    if (!(__VA_ARGS__)) {        \
-      std::terminate();          \
-    }
+    do {                         \
+      if (!(__VA_ARGS__)) {      \
+        std::terminate();        \
+      }                          \
+    } while (0)
 #else
-#  define EMIO_Z_DEV_ASSERT(...)
+#  define EMIO_Z_DEV_ASSERT(...) void()
 #endif
 
 }  // namespace emio::detail
