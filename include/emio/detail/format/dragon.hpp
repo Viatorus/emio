@@ -224,9 +224,9 @@ inline constexpr format_fp_result_t format_shortest(const finite_result_t& dec, 
   // `a.cmp(&b) < rounding` is `if d.inclusive {a <= b} else {a < b}`
   const auto rounding = [&](std::strong_ordering ordering) {
     if (dec.inclusive) {
-      return ordering <= 0;
+      return ordering <= 0;  // NOLINT(modernize-use-nullptr): false positive
     }
-    return ordering < 0;
+    return ordering < 0;  // NOLINT(modernize-use-nullptr): false positive
   };
 
   // estimate `k_0` from original inputs satisfying `10^(k_0-1) < high <= 10^(k_0+1)`.
@@ -297,8 +297,8 @@ inline constexpr format_fp_result_t format_shortest(const finite_result_t& dec, 
 
   auto dst = buf.get_write_area_of(std::numeric_limits<double>::max_digits10).value();
 
-  bool down;
-  bool up;
+  bool down{};
+  bool up{};
   size_t i{};
   while (true) {
     // invariants, where `d[0..n-1]` are digits generated so far:

@@ -33,12 +33,10 @@ struct decode_result_t {
   finite_result_t finite{};  // Only valid if category is finite.
 };
 
-// template <typename T>
 inline constexpr decode_result_t decode(double value) noexcept {
-  using T = double;
   decode_result_t res{};
 
-  using bits_type = std::conditional_t<sizeof(T) == sizeof(float), uint32_t, uint64_t>;
+  using bits_type = uint64_t;
   const auto bits = std::bit_cast<bits_type>(value);
 
   res.negative = bits >> 63 != 0;
@@ -63,7 +61,7 @@ inline constexpr decode_result_t decode(double value) noexcept {
     res.finite.plus = 1;
     if (res.finite.exp != -1075) {  // Norm.
       res.finite.mant |= 0x10000000000000;
-      constexpr auto minnorm = std::bit_cast<bits_type>(std::numeric_limits<T>::min());
+      constexpr auto minnorm = std::bit_cast<bits_type>(std::numeric_limits<double>::min());
       if (res.finite.mant == minnorm) {
         res.finite.plus = 2;
         res.finite.mant <<= 2;

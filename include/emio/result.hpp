@@ -282,7 +282,7 @@ class [[nodiscard]] result<Value> {
    * @return The value.
    */
   [[nodiscard]] constexpr const Value& value() const& noexcept(detail::exceptions_disabled) {
-    if (has_value()) [[likely]] {
+    if (value_.has_value()) [[likely]] {
       return *value_;
     }
     detail::throw_bad_result_access_or_terminate(error_);
@@ -293,7 +293,7 @@ class [[nodiscard]] result<Value> {
    * @return The value.
    */
   constexpr Value&& value() && noexcept(detail::exceptions_disabled) {
-    if (has_value()) [[likely]] {
+    if (value_.has_value()) [[likely]] {
       return std::move(*value_);
     }
     detail::throw_bad_result_access_or_terminate(error_);

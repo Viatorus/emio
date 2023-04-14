@@ -211,7 +211,7 @@ inline constexpr char* write_significand(char* out, const char* significand, int
                                          char decimal_point) {
   std::copy(significand, significand + integral_size, out);
   out += integral_size;
-  if (!decimal_point) {
+  if (decimal_point == 0) {
     return out;
   }
   *out++ = decimal_point;
@@ -263,7 +263,8 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
     }
     // Use the fixed notation if the exponent is in [exp_lower, exp_upper),
     // e.g. 0.0001 instead of 1e-04. Otherwise, use the exponent notation.
-    const int exp_lower = -4, exp_upper = 16;
+    constexpr int exp_lower = -4;
+    constexpr int exp_upper = 16;
     return output_exp < exp_lower || output_exp >= (fp_specs.precision > 0 ? fp_specs.precision : exp_upper);
   };
 
@@ -283,7 +284,7 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
       }
       total_length += to_unsigned(num_zeros);
     } else if (significand_size == 1) {  // One significand.
-      decimal_point = char{};
+      decimal_point = 0;
     }
     // The else part is general format with significand size less than the exponent.
 
@@ -361,7 +362,7 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
 
         if (output_exp < 0) {
           *it++ = '0';
-          if (decimal_point) {
+          if (decimal_point != 0) {
             *it++ = decimal_point;
             std::fill_n(it, num_zeros, '0');
             it += num_zeros;
@@ -376,7 +377,7 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
             std::fill_n(it, num_zeros, '0');
             it += num_zeros;
           }
-          if (decimal_point) {
+          if (decimal_point != 0) {
             *it++ = '.';
             if (num_zeros_2 != 0) {
               std::fill_n(it, num_zeros_2, '0');
@@ -747,7 +748,7 @@ template <typename T>
 concept has_validate_function_v = requires {
                                     {
                                       formatter<T>::validate(std::declval<reader<char>&>())
-                                    } -> std::same_as<result<void>>;
+                                      } -> std::same_as<result<void>>;
                                   };
 
 template <typename T>
