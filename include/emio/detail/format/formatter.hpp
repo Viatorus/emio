@@ -278,7 +278,7 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
         num_zeros = 0;
       }
       total_length += to_unsigned(num_zeros);
-    } else if (significand_size == 1) {  // One significant.
+    } else if (significand_size == 1) {  // One significand.
       decimal_point = char{};
     }
     // The else part is general format with significand size less than the exponent.
@@ -315,7 +315,7 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
   } else if ((output_exp + 1) >= significand_size) {  // Only integer-part (including zero).
     integral_size = significand_size;
     num_zeros = output_exp - significand_size + 1;  // Trailing zeros.
-    if (fp_specs.showpoint) {                       // Significant is zero but fractional requested.
+    if (fp_specs.showpoint) {                       // Significand is zero but fractional requested.
       if (specs.alternate_form && fp_specs.format == fp_format::general) {  // ({:#.4g}, 1) -> 1.000 instead of 1.
         num_zeros_2 = fp_specs.precision - significand_size - num_zeros;
       } else if (num_zeros == 0) {  // ({:f}, 0) or ({:.4f}, 1.23e-06) -> 0.000000 instead of 0
@@ -402,7 +402,7 @@ inline constexpr format_fp_result_t format_decimal(buffer<char>& buffer, const f
     }
     [[fallthrough]];
   case fp_format::exp:
-    return format_exact(decoded.finite, buffer, format_exact_mode::significant_digits, fp_specs.precision);
+    return format_exact(decoded.finite, buffer, format_exact_mode::significand_digits, fp_specs.precision);
   case fp_format::fixed: {
     auto res = format_exact(decoded.finite, buffer, format_exact_mode::decimal_point, fp_specs.precision);
     if (res.digits.empty()) {

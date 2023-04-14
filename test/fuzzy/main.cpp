@@ -137,7 +137,7 @@ void test_exact(double d, int16_t precision) {
   } else {
     emio::string_buffer buf;
     auto [digits, k] = emio::detail::format::format_exact(
-        full_decoded.finite, buf, emio::detail::format::format_exact_mode::significant_digits, precision);
+        full_decoded.finite, buf, emio::detail::format::format_exact_mode::significand_digits, precision);
     digits = remove_trailing_zeros(digits);
 
     if (!std::equal(rust_digits.begin(), rust_digits.end(), digits.begin(), digits.end()) || rust_k != k) {

@@ -62,7 +62,7 @@ struct format_fp_result_t {
   int16_t exp;
 };
 
-enum class format_exact_mode { significant_digits, decimal_point };
+enum class format_exact_mode { significand_digits, decimal_point };
 
 inline constexpr format_fp_result_t format_exact(const finite_result_t& dec, emio::buffer<char>& buf,
                                                  format_exact_mode mode, int16_t number_of_digits) noexcept {
@@ -112,7 +112,7 @@ inline constexpr format_fp_result_t format_exact(const finite_result_t& dec, emi
   // note that we have to enlarge the buffer again when rounding up happens!
   size_t len{};
   size_t extra_len{};
-  if (mode == format_exact_mode::significant_digits) {
+  if (mode == format_exact_mode::significand_digits) {
     len = static_cast<size_t>(number_of_digits);
   } else if ((k + number_of_digits) >= 0) {
     len = static_cast<size_t>(k + number_of_digits);

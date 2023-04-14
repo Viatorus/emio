@@ -11,7 +11,7 @@ static void check_exact_one(const emf::finite_result_t& decoded, std::string_vie
   SECTION("exponent") {
     emio::string_buffer<char> buf;
     const auto number_of_digits = static_cast<int16_t>(expected_str.size());
-    auto [str, k] = emf::format_exact(decoded, buf, emf::format_exact_mode::significant_digits, number_of_digits);
+    auto [str, k] = emf::format_exact(decoded, buf, emf::format_exact_mode::significand_digits, number_of_digits);
     CHECK(std::string_view(str.begin(), str.end()) == expected_str);
     CHECK(k == expected_k);
   }
@@ -211,7 +211,7 @@ void check_fixed(const emf::finite_result_t& finite, int16_t precision, std::str
 void check_exponent(const emf::finite_result_t& finite, int16_t precision, std::string_view expected_str,
                     int16_t expected_k) {
   emio::string_buffer<char> buf;
-  auto [str, k] = emf::format_exact(finite, buf, emf::format_exact_mode::significant_digits, precision);
+  auto [str, k] = emf::format_exact(finite, buf, emf::format_exact_mode::significand_digits, precision);
 
   CHECK(std::string_view(str.begin(), str.end()) == expected_str);
   CHECK(k == expected_k);
@@ -250,7 +250,7 @@ TEST_CASE("format_shortest_additional") {
   CHECK_EXPONENT(-4.57218091692071384e+303, 3, "457", 304);
 
   // The following test case results into "" instead of "1" if executed with Rust's dragon implementation.
-  // Because k estimation + zero significants is an unusual edge case which doesn't make much sense.
+  // Because zero significand digits is an unusual edge case which doesn't make much sense.
   CHECK_EXPONENT(-5.57218091692071384e+303, 0, "1", 305);
 
   CHECK_EXPONENT(-5.57218091692071384e+303, 1, "6", 304);
