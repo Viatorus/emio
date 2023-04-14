@@ -35,7 +35,7 @@ jobs:
         run: cmake -D FORMAT_COMMAND=clang-format -P cmake/lint.cmake
 
       - name: Configure
-        if: !cancelled()
+        if: ${{ !cancelled() }}
         run: cmake --preset=ci-checks
 
       - name: Run clang-tidy
