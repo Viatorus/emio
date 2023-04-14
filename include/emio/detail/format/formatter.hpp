@@ -391,7 +391,7 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
 inline constexpr std::array<char, 1> zero_digit{'0'};
 
 inline constexpr format_fp_result_t format_decimal(buffer<char>& buffer, const fp_format_specs& fp_specs,
-                                                   const decoded_result& decoded) {
+                                                   const decode_result_t& decoded) {
   if (decoded.category == category::zero) {
     return format_fp_result_t{zero_digit, 1};
   }
@@ -417,7 +417,7 @@ inline constexpr format_fp_result_t format_decimal(buffer<char>& buffer, const f
 }
 
 inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& specs,
-                                            const decoded_result& decoded) noexcept {
+                                            const decode_result_t& decoded) noexcept {
   fp_format_specs fp_specs = parse_fp_format_specs(specs);
 
   if (decoded.category == category::infinity || decoded.category == category::nan) {
@@ -743,7 +743,7 @@ template <typename T>
 concept has_validate_function_v = requires {
                                     {
                                       formatter<T>::validate(std::declval<reader<char>&>())
-                                    } -> std::same_as<result<void>>;
+                                      } -> std::same_as<result<void>>;
                                   };
 
 template <typename T>

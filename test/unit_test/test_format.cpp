@@ -60,6 +60,7 @@ TEST_CASE("empty_specs") {
 }
 
 TEST_CASE("left align") {
+  CHECK(emio::format("{0:<}", 42) == "42");
   CHECK(emio::format("{0:<4}", 42) == "42  ");
   CHECK(emio::format("{0:<4o}", 042) == "42  ");
   CHECK(emio::format("{0:<4x}", 0x42) == "42  ");
@@ -76,6 +77,7 @@ TEST_CASE("left align") {
 }
 
 TEST_CASE("right align") {
+  CHECK(emio::format("{0:>}", 42) == "42");
   CHECK(emio::format("{0:>4}", 42) == "  42");
   CHECK(emio::format("{0:>4o}", 042) == "  42");
   CHECK(emio::format("{0:>4x}", 0x42) == "  42");
@@ -92,6 +94,7 @@ TEST_CASE("right align") {
 }
 
 TEST_CASE("center align") {
+  CHECK(emio::format("{0:^}", 42) == "42");
   CHECK(emio::format("{0:^5}", 42) == " 42  ");
   CHECK(emio::format("{0:^5o}", 042) == " 42  ");
   CHECK(emio::format("{0:^5x}", 0x42) == " 42  ");
@@ -825,7 +828,7 @@ TEST_CASE("validate_format_string") {
   CHECK(validate_format_string<int>("{:<<10}"sv));
   CHECK(validate_format_string<int>("{:^^10}"sv));
   CHECK(validate_format_string<int>("{:>>10}"sv));
-  CHECK(!validate_format_string<int>("{:<}"sv));
+  CHECK(validate_format_string<int>("{:<}"sv));
 
   CHECK(validate_format_string<int>("{:a<10}"sv));
   CHECK(validate_format_string<int>("{:a^10}"sv));

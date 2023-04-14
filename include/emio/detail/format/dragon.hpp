@@ -21,7 +21,7 @@
 
 namespace emio::detail::format {
 
-inline constexpr int16_t estimate_scaling_factor(uint64_t mant, int16_t exp) {
+inline constexpr int16_t estimate_scaling_factor(uint64_t mant, int16_t exp) noexcept {
   // 2^(nbits-1) < mant <= 2^nbits if mant > 0
   const int nbits = 64 - std::countl_zero(mant - 1);
   // 1292913986 = floor(2^32 * log_10 2)
@@ -29,7 +29,7 @@ inline constexpr int16_t estimate_scaling_factor(uint64_t mant, int16_t exp) {
   return static_cast<int16_t>((static_cast<int64_t>(nbits + exp) * 1292913986) >> 32);
 }
 
-inline constexpr std::optional<char> round_up(std::span<char> d) {
+inline constexpr std::optional<char> round_up(std::span<char> d) noexcept {
   const auto end = d.rend();
   auto it = std::find_if(d.rbegin(), end, [](char c) {
     return c != '9';
@@ -61,8 +61,8 @@ struct format_fp_result_t {
 
 enum class format_exact_mode { significant_digits, decimal_point };
 
-inline constexpr format_fp_result_t format_exact(const decoded& dec, emio::buffer<char>& buf, format_exact_mode mode,
-                                                 int16_t number_of_digits) {
+inline constexpr format_fp_result_t format_exact(const finite_result_t& dec, emio::buffer<char>& buf,
+                                                 format_exact_mode mode, int16_t number_of_digits) noexcept {
   // estimate `k_0` from original inputs satisfying `10^(k_0-1) < v <= 10^(k_0+1)`.
   int16_t k = estimate_scaling_factor(dec.mant, dec.exp);
 
@@ -140,7 +140,7 @@ inline constexpr format_fp_result_t format_exact(const decoded& dec, emio::buffe
         return {dst, k};
       }
 
-      int d = 0;
+      size_t d = 0;
       if (mant >= scale8) {
         mant.sub(scale8);
         d += 8;
@@ -157,6 +157,7 @@ inline constexpr format_fp_result_t format_exact(const decoded& dec, emio::buffe
         mant.sub(scale);
         d += 1;
       }
+      EMIO_Z_DEV_ASSERT(d < 10);
       dst[i] = static_cast<char>('0' + d);
       mant.mul_small(10);
     }
@@ -194,7 +195,7 @@ inline constexpr format_fp_result_t format_exact(const decoded& dec, emio::buffe
   return {dst.subspan(0, len), k};
 }
 
-inline constexpr format_fp_result_t format_shortest(const decoded& dec, emio::buffer<char>& buf) {
+inline constexpr format_fp_result_t format_shortest(const finite_result_t& dec, emio::buffer<char>& buf) noexcept {
   // the number `v` to format is known to be:
   // - equal to `mant * 2^exp`;
   // - preceded by `(mant - 2 * minus) * 2^exp` in the original type; and
@@ -295,7 +296,7 @@ inline constexpr format_fp_result_t format_shortest(const decoded& dec, emio::bu
     // where `d[i..j]` is a shorthand for `d[i] * 10^(j-i) + ... + d[j-1] * 10 + d[j]`.
 
     // generate one digit: `d[n] = floor(mant / scale) < 10`.
-    int d = 0;
+    size_t d = 0;
     if (mant >= scale8) {
       mant.sub(scale8);
       d += 8;
@@ -312,6 +313,7 @@ inline constexpr format_fp_result_t format_shortest(const decoded& dec, emio::bu
       mant.sub(scale);
       d += 1;
     }
+    EMIO_Z_DEV_ASSERT(d < 10);
     dst[i] = static_cast<char>('0' + d);
     i += 1;
 

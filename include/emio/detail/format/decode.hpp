@@ -14,7 +14,7 @@
 
 namespace emio::detail::format {
 
-struct decoded {
+struct finite_result_t {
   uint64_t mant{};
   uint64_t minus{};
   uint64_t plus{};
@@ -24,16 +24,16 @@ struct decoded {
 
 enum class category { zero, finite, infinity, nan };
 
-struct decoded_result {
+struct decode_result_t {
   bool negative{};
   format::category category{};
-  decoded finite{};
+  finite_result_t finite{};  // Only valid if category is finite.
 };
 
 // template <typename T>
-inline constexpr decoded_result decode(double value) {
+inline constexpr decode_result_t decode(double value) noexcept {
   using T = double;
-  decoded_result res{};
+  decode_result_t res{};
 
   using bits_type = std::conditional_t<sizeof(T) == sizeof(float), uint32_t, uint64_t>;
   bits_type bits = std::bit_cast<bits_type>(value);

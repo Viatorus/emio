@@ -7,38 +7,77 @@
 #include "catch2/catch_test_macros.hpp"
 
 TEST_CASE("decode") {
+  using emio::detail::format::category;
+  using emio::detail::format::decode;
+  using emio::detail::format::decode_result_t;
+  using emio::detail::format::finite_result_t;
+
   SECTION("nan") {
     double value = std::numeric_limits<double>::quiet_NaN();
-    emiod::decoded_result res = emiod::decode(value);
-    CHECK(res.category == emiod::category::nan);
+    decode_result_t res = decode(value);
+    CHECK(res.category == category::nan);
 
     value = std::numeric_limits<double>::signaling_NaN();
-    res = emiod::decode(value);
-    CHECK(res.category == emiod::category::nan);
+    res = decode(value);
+    CHECK(res.category == category::nan);
   }
 
   SECTION("infinity") {
     double value = std::numeric_limits<double>::infinity();
-    emiod::decoded_result res = emiod::decode(value);
-    CHECK(res.category == emiod::category::infinity);
+    decode_result_t res = decode(value);
+    CHECK(res.category == category::infinity);
     CHECK(res.negative == false);
 
     value = -std::numeric_limits<double>::infinity();
-    res = emiod::decode(value);
-    CHECK(res.category == emiod::category::infinity);
+    res = decode(value);
+    CHECK(res.category == category::infinity);
     CHECK(res.negative == true);
   }
   SECTION("denormalized") {
     double value = std::numeric_limits<double>::denorm_min();
-    emiod::decoded_result res = emiod::decode(value);
-    CHECK(res.category == emiod::category::finite);
-    //    CHECK(res.finite.exp == 0);
+    decode_result_t res = decode(value);
+    CHECK(res.category == category::finite);
+    finite_result_t finite = res.finite;
+    CHECK(finite.exp == -1075);
+    CHECK(finite.mant == 2);
+    CHECK(finite.minus == 1);
+    CHECK(finite.plus == 1);
+    CHECK(finite.inclusive == true);
   }
 
-  SECTION("normalized") {
+  SECTION("zero") {
+    double value = 0.0;
+    decode_result_t res = decode(value);
+    CHECK(res.category == category::zero);
+    CHECK(res.negative == false);
+
+    value = -0.0;
+    res = decode(value);
+    CHECK(res.category == category::zero);
+    CHECK(res.negative == true);
+  }
+
+  SECTION("normalized (1)") {
     double value = std::numeric_limits<double>::min();
-    emiod::decoded_result res = emiod::decode(value);
-    CHECK(res.category == emiod::category::finite);
-    //    CHECK(res.finite.exp == 0);
+    decode_result_t res = decode(value);
+    CHECK(res.category == category::finite);
+    finite_result_t finite = res.finite;
+    CHECK(finite.exp == -1076);
+    CHECK(finite.mant == 0x40000000000000);
+    CHECK(finite.minus == 1);
+    CHECK(finite.plus == 2);
+    CHECK(finite.inclusive == true);
+  }
+
+  SECTION("normalized (2)") {
+    double value = std::numeric_limits<double>::max();
+    decode_result_t res = decode(value);
+    CHECK(res.category == category::finite);
+    finite_result_t finite = res.finite;
+    CHECK(finite.exp == 970);
+    CHECK(finite.mant == 0x3ffffffffffffe);
+    CHECK(finite.minus == 1);
+    CHECK(finite.plus == 1);
+    CHECK(finite.inclusive == false);
   }
 }

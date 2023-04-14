@@ -5,11 +5,13 @@
 #include "catch2/catch_test_macros.hpp"
 #include "catch2/generators/catch_generators_all.hpp"
 
-void check_exact_one(const emiod::decoded& decoded, std::string_view expected_str, int16_t expected_k) {
+namespace emf = emio::detail::format;
+
+static void check_exact_one(const emf::finite_result_t& decoded, std::string_view expected_str, int16_t expected_k) {
   SECTION("exponent") {
     emio::string_buffer<char> buf;
     const auto number_of_digits = static_cast<int16_t>(expected_str.size());
-    auto [str, k] = emiod::format_exact(decoded, buf, emiod::format_exact_mode::significant_digits, number_of_digits);
+    auto [str, k] = emf::format_exact(decoded, buf, emf::format_exact_mode::significant_digits, number_of_digits);
     CHECK(std::string_view(str.begin(), str.end()) == expected_str);
     CHECK(k == expected_k);
   }
@@ -17,23 +19,23 @@ void check_exact_one(const emiod::decoded& decoded, std::string_view expected_st
   SECTION("fixed") {
     emio::string_buffer<char> buf;
     const auto number_of_digits = static_cast<int16_t>(-expected_k + static_cast<int16_t>(expected_str.size()));
-    auto [str, k] = emiod::format_exact(decoded, buf, emiod::format_exact_mode::decimal_point, number_of_digits);
+    auto [str, k] = emf::format_exact(decoded, buf, emf::format_exact_mode::decimal_point, number_of_digits);
 
     CHECK(std::string_view(str.begin(), str.end()) == expected_str);
     CHECK(k == expected_k);
   }
 }
 
-#define CHECK_EXACT(d, exp_str, exp_k)                      \
-  SECTION(std::to_string(d)) {                              \
-    const emiod::decoded_result decoded = emiod::decode(d); \
-    REQUIRE(decoded.category == emiod::category::finite);   \
-    check_exact_one(decoded.finite, exp_str, exp_k);        \
+#define CHECK_EXACT(d, exp_str, exp_k)                  \
+  SECTION(std::to_string(d)) {                          \
+    const emf::decoded_result decoded = emf::decode(d); \
+    REQUIRE(decoded.category == emf::category::finite); \
+    check_exact_one(decoded.finite, exp_str, exp_k);    \
   }
 
 #define CHECK_EXACT_ONE(mant_, exp_, exp_str, exp_k)                  \
   SECTION(std::to_string(mant_) + " * 2 ^ " + std::to_string(exp_)) { \
-    const emiod::decoded decoded{.mant = mant_, .exp = exp_};         \
+    const emf::finite_result_t decoded{.mant = mant_, .exp = exp_};           \
     check_exact_one(decoded, exp_str, exp_k);                         \
   }
 
@@ -88,18 +90,19 @@ TEST_CASE("format_exact") {
 }
 
 void check_shortest(double d, std::string_view expected_str, int16_t expected_k) {
-  const emiod::decoded_result decoded = emiod::decode(d);
-  REQUIRE(decoded.category == emiod::category::finite);
-  auto dec = decoded.finite;
+  const auto decoded = emf::decode(d);
+  REQUIRE(decoded.category == emf::category::finite);
 
   emio::string_buffer<char> buf;
-  auto [str, k] = emiod::format_shortest(dec, buf);
+  auto [str, k] = emf::format_shortest(decoded.finite, buf);
   CHECK(std::string_view(str.begin(), str.end()) == expected_str);
   CHECK(k == expected_k);
 }
 
 #define CHECK_SHORTEST(d, exp_str, exp_k) \
-  SECTION(#d) { check_shortest(d, exp_str, exp_k); }
+  SECTION(#d) {                           \
+    check_shortest(d, exp_str, exp_k);    \
+  }
 
 TEST_CASE("format_shortest") {
   // 0.0999999999999999777955395074968691915273...
@@ -163,18 +166,19 @@ TEST_CASE("format_shortest") {
   CHECK_SHORTEST(ldexp(1.0, -1074), "5", -323);
 }
 
-void check_fixed(const emiod::decoded& decoded, int16_t precision, std::string_view expected_str, int16_t expected_k) {
+void check_fixed(const emf::finite_result_t& finite, int16_t precision, std::string_view expected_str,
+                 int16_t expected_k) {
   emio::string_buffer<char> buf;
-  auto [str, k] = emiod::format_exact(decoded, buf, emiod::format_exact_mode::decimal_point, precision);
+  auto [str, k] = emf::format_exact(finite, buf, emf::format_exact_mode::decimal_point, precision);
 
   CHECK(std::string_view(str.begin(), str.end()) == expected_str);
   CHECK(k == expected_k);
 }
 
-void check_exponent(const emiod::decoded& decoded, int16_t precision, std::string_view expected_str,
+void check_exponent(const emf::finite_result_t& finite, int16_t precision, std::string_view expected_str,
                     int16_t expected_k) {
   emio::string_buffer<char> buf;
-  auto [str, k] = emiod::format_exact(decoded, buf, emiod::format_exact_mode::significant_digits, precision);
+  auto [str, k] = emf::format_exact(finite, buf, emf::format_exact_mode::significant_digits, precision);
 
   CHECK(std::string_view(str.begin(), str.end()) == expected_str);
   CHECK(k == expected_k);
@@ -182,15 +186,15 @@ void check_exponent(const emiod::decoded& decoded, int16_t precision, std::strin
 
 #define CHECK_FIXED(d, prec, exp_str, exp_k)                      \
   SECTION(std::to_string(d) + " prec: " + std::to_string(prec)) { \
-    const emiod::decoded_result decoded = emiod::decode(d);       \
-    REQUIRE(decoded.category == emiod::category::finite);         \
+    const auto decoded = emf::decode(d);                          \
+    REQUIRE(decoded.category == emf::category::finite);           \
     check_fixed(decoded.finite, prec, exp_str, exp_k);            \
   }
 
 #define CHECK_EXPONENT(d, prec, exp_str, exp_k)                   \
   SECTION(std::to_string(d) + " prec: " + std::to_string(prec)) { \
-    const emiod::decoded_result decoded = emiod::decode(d);       \
-    REQUIRE(decoded.category == emiod::category::finite);         \
+    const auto decoded = emf::decode(d);                          \
+    REQUIRE(decoded.category == emf::category::finite);           \
     check_exponent(decoded.finite, prec, exp_str, exp_k);         \
   }
 

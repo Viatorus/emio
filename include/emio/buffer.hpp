@@ -160,7 +160,7 @@ class string_buffer final : public buffer<Char> {
 
  private:
   size_t used_{};
-//  detail::basic_string_union<Char> data_{};
+  //  detail::basic_string_union<Char> data_{};
   detail::ct_basic_string<Char> data_{};
 };
 
