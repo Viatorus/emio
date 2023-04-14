@@ -66,10 +66,6 @@ inline constexpr carrying_mul_result_t carrying_mul(uint32_t a, uint32_t b, uint
   return {v2, carry1};
 }
 
-// class bignum;
-//
-// inline std::ostream& operator<<(std::ostream& os, const bignum& b);
-
 /// Stack-allocated arbitrary-precision (up to certain limit) integer.
 ///
 /// This is backed by a fixed-size array of given type ("digit").
@@ -93,13 +89,12 @@ class bignum {
   /// Makes a bignum from one digit.
   template <typename T>
     requires(std::is_unsigned_v<T> && sizeof(T) <= sizeof(uint32_t))
-  explicit constexpr bignum(T v) noexcept : size_{1}, base_{{v}} {}
+  explicit constexpr bignum(T v) noexcept : base_{{v}} {}
 
   /// Makes a bignum from `u64` value.
   template <typename T>
     requires(std::is_unsigned_v<T> && sizeof(T) == sizeof(uint64_t))
-  explicit constexpr bignum(T v) noexcept
-      : size_{1}, base_{{static_cast<uint32_t>(v), static_cast<uint32_t>(v >> 32)}} {
+  explicit constexpr bignum(T v) noexcept : base_{{static_cast<uint32_t>(v), static_cast<uint32_t>(v >> 32)}} {
     size_ += static_cast<size_t>(base_[1] > 0);
   }
 

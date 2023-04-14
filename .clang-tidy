@@ -12,6 +12,8 @@
 # cppcoreguidelines-pro-type-union-access: allowed since it is used because of performance and compile-time reasons
 # readability-else-after-return: allowed since if no else compile-time flow check fails and no optimization in debug
 # bugprone-exception-escape: to many false positives
+# cppcoreguidelines-pro-bounds-pointer-arithmetic: performance in debug
+# cppcoreguidelines-pro-bounds-constant-array-index:: performance
 Checks: >
   bugprone-*,
   concurrency-*,
@@ -40,7 +42,9 @@ Checks: >
   -misc-non-private-member-variables-in-classes,
   -cppcoreguidelines-pro-type-union-access,
   -readability-else-after-return,
-  -bugprone-exception-escape
+  -bugprone-exception-escape,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-pro-bounds-constant-array-index,
 
 WarningsAsErrors: ''
 

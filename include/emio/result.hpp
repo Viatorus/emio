@@ -165,7 +165,7 @@ class [[nodiscard]] result<Value> {
    * @return True if it holds a value, otherwise false.
    */
   [[nodiscard]] constexpr bool has_value() const noexcept {
-    return error_ == err{};
+    return value_.has_value();
   }
 
   /**
@@ -236,7 +236,7 @@ class [[nodiscard]] result<Value> {
    * @return The value.
    */
   [[nodiscard]] constexpr Value& assume_value() & noexcept {
-    return *value_;
+    return *value_;  // NOLINT(bugprone-unchecked-optional-access): assumed
   }
 
   /**
@@ -245,7 +245,7 @@ class [[nodiscard]] result<Value> {
    * @return The value.
    */
   [[nodiscard]] constexpr const Value& assume_value() const& noexcept {
-    return *value_;
+    return *value_;  // NOLINT(bugprone-unchecked-optional-access): assumed
   }
 
   /**
@@ -254,7 +254,7 @@ class [[nodiscard]] result<Value> {
    * @return The value.
    */
   [[nodiscard]] constexpr Value&& assume_value() && noexcept {
-    return std::move(*value_);
+    return std::move(*value_);  // NOLINT(bugprone-unchecked-optional-access): assumed
   }
 
   /**
@@ -263,7 +263,7 @@ class [[nodiscard]] result<Value> {
    * @return The value.
    */
   [[nodiscard]] constexpr const Value&& assume_value() const&& noexcept {
-    return std::move(*value_);
+    return std::move(*value_);  // NOLINT(bugprone-unchecked-optional-access): assumed
   }
 
   /**
@@ -281,8 +281,7 @@ class [[nodiscard]] result<Value> {
    * Returns a const reference to the value.
    * @return The value.
    */
-  // NOLINTNEXTLINE(modernize-use-nodiscard): access check
-  constexpr const Value& value() const& noexcept(detail::exceptions_disabled) {
+  [[nodiscard]] constexpr const Value& value() const& noexcept(detail::exceptions_disabled) {
     if (has_value()) [[likely]] {
       return *value_;
     }
