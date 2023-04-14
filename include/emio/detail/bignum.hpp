@@ -1,8 +1,11 @@
 //
-// Copyright (c) 2021 - present, Toni Neubert
+// Copyright (c) 2023 - present, Toni Neubert
 // All rights reserved.
 //
 // For the license information refer to emio.hpp
+
+// This implementation is based on:
+// https://github.com/rust-lang/rust/blob/71ef9ecbdedb67c32f074884f503f8e582855c2f/library/core/src/num/bignum.rs
 
 #pragma once
 
@@ -11,6 +14,8 @@
 #include <cstdint>
 #include <exception>
 #include <span>
+
+#include "predef.hpp"
 
 namespace emio::detail {
 
@@ -143,9 +148,7 @@ class bignum {
       res = carrying_add(base[i], 0, res.carry);
       base[i] = res.value;
     }
-    if (res.carry) {
-      std::terminate();
-    }
+    EMIO_Z_DEV_ASSERT(!res.carry);
     size = i;
     return *this;
   }
@@ -157,9 +160,7 @@ class bignum {
       res = carrying_add(base[i], other.base[i], res.carry);
       base[i] = res.value;
     }
-    if (res.carry) {
-      std::terminate();
-    }
+    EMIO_Z_DEV_ASSERT(!res.carry);
     if (i > size) {
       size = i;
     }
@@ -175,9 +176,7 @@ class bignum {
       res = borrowing_sub(base[i], 0, res.borrow);
       base[i] = res.value;
     }
-    if (res.borrow) {
-      std::terminate();
-    }
+    EMIO_Z_DEV_ASSERT(!res.borrow);
     if (i == size && size != 1) {
       size -= 1;
     }
@@ -186,9 +185,7 @@ class bignum {
 
   /// Subtracts `other` from itself and returns its own mutable reference.
   constexpr bignum& sub(const bignum& other) noexcept {
-    if (size < other.size) {
-      std::terminate();
-    }
+    EMIO_Z_DEV_ASSERT(size >= other.size);
     if (size == 0) {
       return *this;
     }
@@ -197,9 +194,7 @@ class bignum {
       res = borrowing_sub(base[i], other.base[i], res.borrow);
       base[i] = res.value;
     }
-    if (res.borrow) {
-      std::terminate();
-    }
+    EMIO_Z_DEV_ASSERT(!res.borrow);
     do {
       if (base[size - 1] != 0) {
         break;
@@ -265,7 +260,7 @@ class bignum {
   }
 
   /// Multiplies itself by `5^e` and returns its own mutable reference.
-  constexpr bignum& pow5mul(size_t k) noexcept {
+  constexpr bignum& mul_pow5(size_t k) noexcept {
     // Multiply with the largest single-digit power as long as possible.
     while (k >= 13) {
       mul_small(1220703125);
@@ -346,15 +341,5 @@ class bignum {
 
   constexpr bool operator==(const bignum& other) const noexcept = default;
 };
-
-// inline std::ostream& operator<<(std::ostream& os, const bignum& b) {
-//   os << "size: " << b.size << " base: [";
-//   os << b.base[0];
-//   for (size_t i = 1; i < b.size && i < b.base.size(); i++) {
-//     os << ", " << b.base[i];
-//   }
-//   os << "]\n";
-//   return os;
-// }
 
 }  // namespace emio::detail

@@ -1,8 +1,11 @@
 //
-// Copyright (c) 2021 - present, Toni Neubert
+// Copyright (c) 2023 - present, Toni Neubert
 // All rights reserved.
 //
 // For the license information refer to emio.hpp
+
+// This implementation is based on:
+// https://github.com/rust-lang/rust/blob/71ef9ecbdedb67c32f074884f503f8e582855c2f/library/core/src/num/flt2dec/strategy/dragon.rs
 
 #pragma once
 
@@ -63,6 +66,10 @@ enum class format_exact_mode { significant_digits, decimal_point };
 
 inline constexpr format_fp_result_t format_exact(const finite_result_t& dec, emio::buffer<char>& buf,
                                                  format_exact_mode mode, int16_t number_of_digits) noexcept {
+  EMIO_Z_DEV_ASSERT(dec.mant > 0);
+  EMIO_Z_DEV_ASSERT(dec.minus > 0);
+  EMIO_Z_DEV_ASSERT(dec.plus > 0);
+
   // estimate `k_0` from original inputs satisfying `10^(k_0-1) < v <= 10^(k_0+1)`.
   int16_t k = estimate_scaling_factor(dec.mant, dec.exp);
 
@@ -90,10 +97,10 @@ inline constexpr format_fp_result_t format_exact(const finite_result_t& dec, emi
     m5 += static_cast<size_t>(-k);
   }
 
-  scale.pow5mul(s5);
+  scale.mul_pow5(s5);
   scale.mul_pow2(s2);
 
-  mant.pow5mul(m5);
+  mant.mul_pow5(m5);
   mant.mul_pow2(m2);
 
   // TODO: fixup when `mant + plus >= scale`, where `plus / scale = 10^-buf.len() / 2`.
@@ -157,6 +164,7 @@ inline constexpr format_fp_result_t format_exact(const finite_result_t& dec, emi
         mant.sub(scale);
         d += 1;
       }
+      EMIO_Z_DEV_ASSERT(mant < scale);
       EMIO_Z_DEV_ASSERT(d < 10);
       dst[i] = static_cast<char>('0' + d);
       mant.mul_small(10);
@@ -207,6 +215,10 @@ inline constexpr format_fp_result_t format_shortest(const finite_result_t& dec, 
   // this also means that any number between `low = (mant - minus) * 2^exp` and
   // `high = (mant + plus) * 2^exp` will map to this exact floating point number,
   // with bounds included when the original mantissa was even (i.e., `!mant_was_odd`).
+  EMIO_Z_DEV_ASSERT(dec.mant > 0);
+  EMIO_Z_DEV_ASSERT(dec.minus > 0);
+  EMIO_Z_DEV_ASSERT(dec.plus > 0);
+  //  EMIO_Z_DEV_ASSERT(buf.() >= MAX_SIG_DIGITS);
 
   // `a.cmp(&b) < rounding` is `if d.inclusive {a <= b} else {a < b}`
   const auto rounding = [&](std::strong_ordering ordering) {
@@ -249,14 +261,14 @@ inline constexpr format_fp_result_t format_shortest(const finite_result_t& dec, 
     m5 += static_cast<size_t>(-k);
   }
 
-  scale.pow5mul(s5);
+  scale.mul_pow5(s5);
   scale.mul_pow2(s2);
 
-  mant.pow5mul(m5);
+  mant.mul_pow5(m5);
   mant.mul_pow2(m2);
-  minus.pow5mul(m5);
+  minus.mul_pow5(m5);
   minus.mul_pow2(m2);
-  plus.pow5mul(m5);
+  plus.mul_pow5(m5);
   plus.mul_pow2(m2);
 
   // fixup when `mant + plus > scale` (or `>=`).
@@ -313,6 +325,7 @@ inline constexpr format_fp_result_t format_shortest(const finite_result_t& dec, 
       mant.sub(scale);
       d += 1;
     }
+    EMIO_Z_DEV_ASSERT(mant < scale);
     EMIO_Z_DEV_ASSERT(d < 10);
     dst[i] = static_cast<char>('0' + d);
     i += 1;

@@ -1,9 +1,5 @@
 include(cmake/folders.cmake)
 
-add_definitions(
-        -DEMIO_ENABLE_DEV_ASSERT
-)
-
 set_property(GLOBAL PROPERTY CTEST_TARGETS_ADDED 1)
 include(CTest)
 

@@ -206,18 +206,18 @@ TEST_CASE("bignum") {
     }
   }
 
-  SECTION("pow5mul") {
+  SECTION("mul_pow5") {
     SECTION("test 1") {
       bignum a = bignum::from(1, {2});
-      CHECK(a.pow5mul(5) == bignum::from(1, {6250}));
+      CHECK(a.mul_pow5(5) == bignum::from(1, {6250}));
     }
     SECTION("test 2") {
       bignum a = bignum::from(2, {1898, 125});
-      CHECK(a.pow5mul(13) == bignum::from(3, {1907158706, 2264035804, 35}));
+      CHECK(a.mul_pow5(13) == bignum::from(3, {1907158706, 2264035804, 35}));
     }
     SECTION("test 3") {
       bignum a = bignum::from(2, {79581, 498859848});
-      CHECK(a.pow5mul(57) ==
+      CHECK(a.mul_pow5(57) ==
             bignum::from(7, {2630842737, 672537777, 2761821040, 1492594830, 2410358682, 1582604142, 2}));
     }
   }

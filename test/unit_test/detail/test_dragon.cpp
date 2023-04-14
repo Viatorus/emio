@@ -28,18 +28,53 @@ static void check_exact_one(const emf::finite_result_t& decoded, std::string_vie
 
 #define CHECK_EXACT(d, exp_str, exp_k)                  \
   SECTION(std::to_string(d)) {                          \
-    const emf::decoded_result decoded = emf::decode(d); \
+    const auto decoded = emf::decode(d);                \
     REQUIRE(decoded.category == emf::category::finite); \
     check_exact_one(decoded.finite, exp_str, exp_k);    \
   }
 
 #define CHECK_EXACT_ONE(mant_, exp_, exp_str, exp_k)                  \
   SECTION(std::to_string(mant_) + " * 2 ^ " + std::to_string(exp_)) { \
-    const emf::finite_result_t decoded{.mant = mant_, .exp = exp_};           \
-    check_exact_one(decoded, exp_str, exp_k);                         \
+    const auto decoded = emf::decode(std::ldexp(mant_, exp_));        \
+    REQUIRE(decoded.category == emf::category::finite);               \
+    check_exact_one(decoded.finite, exp_str, exp_k);                  \
   }
 
 TEST_CASE("format_exact") {
+  CHECK_EXACT(0.1, "1000000000000000055511151231257827021182", 0);
+  CHECK_EXACT(0.45, "4500000000000000111022302462515654042363", 0);
+  CHECK_EXACT(0.5, "5000000000000000000000000000000000000000", 0);
+  CHECK_EXACT(0.95, "9499999999999999555910790149937383830547", 0);
+  CHECK_EXACT(100.0, "1000000000000000000000000000000000000000", 3);
+  CHECK_EXACT(999.5, "9995000000000000000000000000000000000000", 3);
+  CHECK_EXACT(1.0 / 3.0, "3333333333333333148296162562473909929395", 0);
+  CHECK_EXACT(3.141592, "3141592000000000162174274009885266423225", 1);
+  CHECK_EXACT(3.141592e17, "3141592000000000000000000000000000000000", 18);
+  CHECK_EXACT(1.0e23, "9999999999999999161139200000000000000000", 23);
+  CHECK_EXACT(std::numeric_limits<double>::max(), "1797693134862315708145274237317043567981", 309);
+  CHECK_EXACT(std::numeric_limits<double>::min(), "2225073858507201383090232717332404064219", -307);
+  CHECK_EXACT(std::ldexp(1.0, -1074),
+              "4940656458412465441765687928682213723650"
+              "5980261432476442558568250067550727020875"
+              "1865299836361635992379796564695445717730"
+              "9266567103559397963987747960107818781263"
+              "0071319031140452784581716784898210368871"
+              "8636056998730723050006387409153564984387"
+              "3124733972731696151400317153853980741262"
+              "3856559117102665855668676818703956031062"
+              "4931945271591492455329305456544401127480"
+              "1297099995419319894090804165633245247571"
+              "4786901472678015935523861155013480352649"
+              "3472019379026810710749170333222684475333"
+              "5720832431936092382893458368060106011506"
+              "1698097530783422773183292479049825247307"
+              "7637592724787465608477820373446969953364"
+              "7017972677717585125660551199131504891101"
+              "4510378627381672509558373897335989936648"
+              "0994116420570263709027924276754456522908"
+              "7538682506419718265533447265625000000000",
+              -323);
+
   // [1], Table 3: Stress Inputs for Converting 53-bit Binary to Decimal, < 1/2 ULP
   CHECK_EXACT_ONE(8511030020275656, -342, "9", -87);
   CHECK_EXACT_ONE(5201988407066741, -824, "46", -232);
@@ -100,9 +135,7 @@ void check_shortest(double d, std::string_view expected_str, int16_t expected_k)
 }
 
 #define CHECK_SHORTEST(d, exp_str, exp_k) \
-  SECTION(#d) {                           \
-    check_shortest(d, exp_str, exp_k);    \
-  }
+  SECTION(#d) { check_shortest(d, exp_str, exp_k); }
 
 TEST_CASE("format_shortest") {
   // 0.0999999999999999777955395074968691915273...
@@ -217,8 +250,8 @@ TEST_CASE("format_shortest_additional") {
   CHECK_EXPONENT(-4.57218091692071384e+303, 3, "457", 304);
 
   // The following test case results into "" instead of "1" if executed with Rust's dragon implementation.
-  // Because k estimation + zero is an unused edge case.
-  CHECK_EXPONENT(-5.57218091692071384e+303, 0, "", 305);
+  // Because k estimation + zero significants is an unusual edge case which doesn't make much sense.
+  CHECK_EXPONENT(-5.57218091692071384e+303, 0, "1", 305);
 
   CHECK_EXPONENT(-5.57218091692071384e+303, 1, "6", 304);
   CHECK_EXPONENT(-5.57218091692071384e+303, 2, "56", 304);

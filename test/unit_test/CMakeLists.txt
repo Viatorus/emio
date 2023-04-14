@@ -30,7 +30,7 @@ add_executable(emio_test
         test_result.cpp
         test_format_emio_vs_fmt.cpp
         #test_simple3.cpp
-        #        test_writer.cpp
+        test_writer.cpp
         )
 
 target_link_libraries(emio_test
@@ -40,6 +40,10 @@ target_link_libraries(emio_test
         )
 
 target_compile_features(emio_test PRIVATE cxx_std_20)
+
+target_compile_definitions(emio_test PRIVATE
+        EMIO_ENABLE_DEV_ASSERT
+        )
 
 add_test(NAME emio_test COMMAND emio_test)
 

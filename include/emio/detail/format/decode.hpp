@@ -1,8 +1,11 @@
 //
-// Copyright (c) 2021 - present, Toni Neubert
+// Copyright (c) 2023 - present, Toni Neubert
 // All rights reserved.
 //
 // For the license information refer to emio.hpp
+
+// This implementation is based on:
+// https://github.com/rust-lang/rust/blob/71ef9ecbdedb67c32f074884f503f8e582855c2f/library/core/src/num/flt2dec/decoder.rs
 
 #pragma once
 
