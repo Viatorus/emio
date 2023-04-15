@@ -246,6 +246,15 @@ TEST_CASE("zero_flag_and_align") {
   CHECK(emio::format("{0:>05}", -42) == "  -42");
 }
 
+TEST_CASE("zero_flag_sign_and_prefix") {
+  CHECK(emio::format("{0:#8x}", 42) == "    0x2a");
+  CHECK(emio::format("{0:+#8x}", 42) == "   +0x2a");
+  CHECK(emio::format("{0:#08x}", 42) == "0x00002a");
+  CHECK(emio::format("{0:+#08x}", 42) == "+0x0002a");
+  CHECK(emio::format("{0:#8x}", -42) == "   -0x2a");
+  CHECK(emio::format("{0:#08x}", -42) == "-0x0002a");
+}
+
 TEST_CASE("width") {
   /*char format_str[buffer_size];
   safe_sprintf(format_str, "{0:%u", UINT_MAX);

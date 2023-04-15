@@ -94,20 +94,31 @@ inline constexpr result<std::pair<std::string_view, writer<char>::write_int_opti
   return std::pair{prefix, options};
 }
 
-inline constexpr result<void> write_sign(writer<char>& wtr, const format_specs& specs, bool negative) {
-  if (negative) {
-    EMIO_TRYV(wtr.write_char('-'));
+inline constexpr result<char> try_write_sign(writer<char>& wtr, const format_specs& specs, bool is_negative) {
+  char sign_to_write = no_sign;
+  if (is_negative) {
+    sign_to_write = '-';
   } else if (specs.sign == '+' || specs.sign == ' ') {
-    EMIO_TRYV(wtr.write_char(specs.sign));
+    sign_to_write = specs.sign;
   }
-  return success;
+  if (sign_to_write != no_sign && specs.zero_flag) {
+    EMIO_TRYV(wtr.write_char(sign_to_write));
+    return no_sign;
+  }
+  return sign_to_write;
 }
 
-inline constexpr result<void> write_prefix(writer<char>& wtr, const format_specs& specs, std::string_view prefix) {
-  if (specs.alternate_form && !prefix.empty()) {
+inline constexpr result<std::string_view> try_write_prefix(writer<char>& wtr, const format_specs& specs,
+                                                           std::string_view prefix) {
+  bool write_prefix = specs.alternate_form && !prefix.empty();
+  if (write_prefix && specs.zero_flag) {
     EMIO_TRYV(wtr.write_str(prefix));
+    return "";
   }
-  return success;
+  if (write_prefix) {
+    return prefix;
+  }
+  return "";
 }
 
 template <typename Arg>
@@ -128,31 +139,32 @@ constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const A
   const bool is_negative = detail::is_negative(arg);
   const size_t number_of_digits = detail::get_number_of_digits(abs_number, options.base);
 
-  size_t total_length = number_of_digits;
+  EMIO_TRY(const char sign_to_write, try_write_sign(wtr, specs, is_negative));
+  EMIO_TRY(const std::string_view prefix_to_write, try_write_prefix(wtr, specs, prefix));
+
+  size_t total_width = number_of_digits;
   if (specs.alternate_form) {
-    total_length += prefix.size();
+    total_width += prefix.size();
   }
   if (is_negative || specs.sign == ' ' || specs.sign == '+') {
-    total_length += 1;
+    total_width += 1;
   }
 
-  if (specs.zero_flag) {
-    EMIO_TRYV(write_sign(wtr, specs, is_negative));
-    EMIO_TRYV(write_prefix(wtr, specs, prefix));
-  }
-
-  return write_padded<alignment::right>(
-      wtr, specs, total_length, [&, &prefix = prefix, &options = options]() -> result<void> {
-        if (!specs.zero_flag) {
-          EMIO_TRYV(write_sign(wtr, specs, is_negative));
-          EMIO_TRYV(write_prefix(wtr, specs, prefix));
-        }
-
-        auto& buf = wtr.get_buffer();
-        EMIO_TRY(auto area, buf.get_write_area_of(number_of_digits));
-        write_number(abs_number, options.base, options.upper_case, area.begin() + detail::to_signed(number_of_digits));
-        return success;
-      });
+  return write_padded<alignment::right>(wtr, specs, total_width, [&, &options = options]() -> result<void> {
+    const size_t area_size =
+        number_of_digits + static_cast<size_t>(sign_to_write != no_sign) + static_cast<size_t>(prefix_to_write.size());
+    EMIO_TRY(auto area, wtr.get_buffer().get_write_area_of(area_size));
+    auto* it = area.data();
+    if (sign_to_write != no_sign) {
+      *it++ = sign_to_write;
+    }
+    if (!prefix_to_write.empty()) {
+      std::copy(prefix_to_write.begin(), prefix_to_write.end(), it);
+      it += prefix_to_write.size();
+    }
+    write_number(abs_number, options.base, options.upper_case, it + detail::to_signed(number_of_digits));
+    return success;
+  });
 }
 
 inline constexpr result<void> write_non_finite(writer<char>& wtr, bool upper_case, bool is_inf) {
@@ -268,13 +280,12 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
     return output_exp < exp_lower || output_exp >= (fp_specs.precision > 0 ? fp_specs.precision : exp_upper);
   };
 
-  if (specs.zero_flag) {
-    EMIO_TRYV(write_sign(wtr, specs, is_negative));
-  }
+  EMIO_TRY(const char sign_to_write, try_write_sign(wtr, specs, is_negative));
 
   int num_zeros = 0;
   char decimal_point = '.';
-  size_t total_length = to_unsigned(significand_size);
+  size_t total_width = static_cast<uint32_t>(has_sign);
+  size_t number_of_digits = to_unsigned(significand_size);
 
   if (use_exp_format()) {
     if (fp_specs.showpoint) {                             // Multiple significands or high precision.
@@ -282,38 +293,39 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
       if (num_zeros < 0) {
         num_zeros = 0;
       }
-      total_length += to_unsigned(num_zeros);
+      number_of_digits += to_unsigned(num_zeros);
     } else if (significand_size == 1) {  // One significand.
       decimal_point = 0;
     }
     // The else part is general format with significand size less than the exponent.
 
     const int exp_digits = abs_output_exp >= 100 ? 3 : 2;
-    total_length += to_unsigned((decimal_point != 0 ? 1 : 0) + 2 /* sign + e */ + exp_digits);
+    number_of_digits += to_unsigned((decimal_point != 0 ? 1 : 0) + 2 /* sign + e */ + exp_digits);
+    total_width += number_of_digits;
 
-    return write_padded<alignment::right>(wtr, specs, total_length + static_cast<uint32_t>(has_sign),
-                                          [&]() -> result<void> {
-                                            if (!specs.zero_flag) {
-                                              EMIO_TRYV(write_sign(wtr, specs, is_negative));
-                                            }
-                                            EMIO_TRY(auto area, wtr.get_buffer().get_write_area_of(total_length));
-                                            auto* it = area.data();
+    return write_padded<alignment::right>(wtr, specs, total_width, [&]() -> result<void> {
+      const size_t area_size = number_of_digits + static_cast<size_t>(sign_to_write != no_sign);
+      EMIO_TRY(auto area, wtr.get_buffer().get_write_area_of(area_size));
+      auto* it = area.data();
+      if (sign_to_write != no_sign) {
+        *it++ = sign_to_write;
+      }
 
-                                            it = write_significand(it, significand, significand_size, 1, decimal_point);
-                                            std::fill_n(it, num_zeros, '0');
-                                            it += num_zeros;
-                                            *it++ = fp_specs.upper_case ? 'E' : 'e';
-                                            write_exponent(it, output_exp);
+      it = write_significand(it, significand, significand_size, 1, decimal_point);
+      std::fill_n(it, num_zeros, '0');
+      it += num_zeros;
+      *it++ = fp_specs.upper_case ? 'E' : 'e';
+      write_exponent(it, output_exp);
 
-                                            return success;
-                                          });
+      return success;
+    });
   }
 
   int integral_size = 0;
   int num_zeros_2 = 0;
 
   if (output_exp < 0) {                                                   // Only fractional-part.
-    total_length += 2;                                                    // For zero + Decimal point.
+    number_of_digits += 2;                                                // For zero + Decimal point.
     num_zeros = abs_output_exp - 1;                                       // Leading zeros after dot.
     if (specs.alternate_form && fp_specs.format == fp_format::general) {  // ({:#g}, 0.1) -> 0.100000 instead 0.1
       num_zeros_2 = fp_specs.precision - significand_size;
@@ -328,13 +340,13 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
         num_zeros_2 = fp_specs.precision;
       }
       EMIO_Z_DEV_ASSERT(num_zeros >= 0);
-      total_length += 1;
+      number_of_digits += 1;
     } else {  // Digit without zero
       decimal_point = 0;
     }
   } else {  // Both parts. Trailing zeros are part of significands.
     integral_size = output_exp + 1;
-    total_length += 1;                                                    // Decimal point.
+    number_of_digits += 1;                                                // Decimal point.
     if (specs.alternate_form && fp_specs.format == fp_format::general) {  // ({:#g}, 1.2) -> 1.20000 instead 1.2
       num_zeros = fp_specs.precision - significand_size;
     }
@@ -349,49 +361,49 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
   if (num_zeros_2 < 0) {
     num_zeros_2 = 0;
   }
-  total_length += static_cast<size_t>(num_zeros + num_zeros_2);
+  number_of_digits += static_cast<size_t>(num_zeros + num_zeros_2);
+  total_width += number_of_digits;
 
-  return write_padded<alignment::right>(
-      wtr, specs, total_length + static_cast<uint32_t>(has_sign), [&]() -> result<void> {
-        if (!specs.zero_flag) {
-          EMIO_TRYV(write_sign(wtr, specs, is_negative));
+  return write_padded<alignment::right>(wtr, specs, total_width, [&]() -> result<void> {
+    const size_t area_size = number_of_digits + static_cast<size_t>(sign_to_write != no_sign);
+    EMIO_TRY(auto area, wtr.get_buffer().get_write_area_of(area_size));
+    auto* it = area.data();
+    if (sign_to_write != no_sign) {
+      *it++ = sign_to_write;
+    }
+
+    if (output_exp < 0) {
+      *it++ = '0';
+      if (decimal_point != 0) {
+        *it++ = decimal_point;
+        std::fill_n(it, num_zeros, '0');
+        it += num_zeros;
+        std::copy_n(significand, significand_size, it);
+        it += significand_size;
+        std::fill_n(it, num_zeros_2, '0');
+      }
+    } else if ((output_exp + 1) >= significand_size) {
+      std::copy(significand, significand + integral_size, it);
+      it += significand_size;
+      if (num_zeros != 0) {
+        std::fill_n(it, num_zeros, '0');
+        it += num_zeros;
+      }
+      if (decimal_point != 0) {
+        *it++ = '.';
+        if (num_zeros_2 != 0) {
+          std::fill_n(it, num_zeros_2, '0');
         }
+      }
+    } else {
+      it = write_significand(it, significand, significand_size, integral_size, decimal_point);
+      if (num_zeros != 0) {
+        std::fill_n(it, num_zeros, '0');
+      }
+    }
 
-        EMIO_TRY(auto area, wtr.get_buffer().get_write_area_of(total_length));
-        auto* it = area.data();
-
-        if (output_exp < 0) {
-          *it++ = '0';
-          if (decimal_point != 0) {
-            *it++ = decimal_point;
-            std::fill_n(it, num_zeros, '0');
-            it += num_zeros;
-            std::copy_n(significand, significand_size, it);
-            it += significand_size;
-            std::fill_n(it, num_zeros_2, '0');
-          }
-        } else if ((output_exp + 1) >= significand_size) {
-          std::copy(significand, significand + integral_size, it);
-          it += significand_size;
-          if (num_zeros != 0) {
-            std::fill_n(it, num_zeros, '0');
-            it += num_zeros;
-          }
-          if (decimal_point != 0) {
-            *it++ = '.';
-            if (num_zeros_2 != 0) {
-              std::fill_n(it, num_zeros_2, '0');
-            }
-          }
-        } else {
-          it = write_significand(it, significand, significand_size, integral_size, decimal_point);
-          if (num_zeros != 0) {
-            std::fill_n(it, num_zeros, '0');
-          }
-        }
-
-        return success;
-      });
+    return success;
+  });
 }
 
 inline constexpr std::array<char, 1> zero_digit{'0'};
@@ -427,15 +439,17 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
   fp_format_specs fp_specs = parse_fp_format_specs(specs);
 
   if (decoded.category == category::infinity || decoded.category == category::nan) {
-    size_t total_length = 3;
-    if (decoded.negative || specs.sign == ' ' || specs.sign == '+') {
-      total_length += 1;
-    }
     if (specs.zero_flag) {  // Words aren't prefixed with zeros.
       specs.fill = ' ';
+      specs.zero_flag = false;
     }
+    EMIO_TRY(const char sign_to_write, try_write_sign(wtr, specs, decoded.negative));
+
+    const size_t total_length = 3 + static_cast<uint32_t>(sign_to_write != no_sign);
     return write_padded<alignment::left>(wtr, specs, total_length, [&]() -> result<void> {
-      EMIO_TRYV(write_sign(wtr, specs, decoded.negative));
+      if (sign_to_write != no_sign) {
+        EMIO_TRYV(wtr.write_char(sign_to_write));
+      }
       return write_non_finite(wtr, fp_specs.upper_case, decoded.category == category::infinity);
     });
   }
