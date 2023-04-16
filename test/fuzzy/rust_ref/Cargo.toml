@@ -1,0 +1,13 @@
+[package]
+name = "rust_ref"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type   = ["cdylib"]
+
+#[unstable]
+#mtime-on-use = true
+#build-std = ["core", "alloc"]
+
+[dependencies]

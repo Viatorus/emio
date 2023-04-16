@@ -330,6 +330,7 @@ class [[nodiscard]] result<Value> {
       return error_;
     }
     detail::throw_bad_result_access_or_terminate(error_);
+    return {};  // afl-c++ requires a return statement.
   }
 
  private:
@@ -434,6 +435,7 @@ class [[nodiscard]] result<void> {
       return error_;
     }
     detail::throw_bad_result_access_or_terminate(error_);
+    return {};  // afl-c++ requires a return statement.
   }
 
  private:

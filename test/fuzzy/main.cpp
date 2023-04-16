@@ -1,4 +1,3 @@
-#pragma GCC optimize("O3")
 #include <climits>
 
 #include "emio/detail/format/decode.hpp"
@@ -175,6 +174,3 @@ int main() {
 
   return 0;
 }
-
-// afl-c++ main.cpp -I../../include -std=c++20
-// afl-fuzz -i seeds_dir/ -o output_dir/  -- ./a.out
