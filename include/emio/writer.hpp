@@ -57,7 +57,7 @@ class writer {
     size_t remaining_size = n;
     while (remaining_size != 0) {
       EMIO_TRY(const auto area, buf_.get_write_area_of_max(remaining_size));
-      std::fill_n(area.data(), area.size(), c);
+      detail::fill_n(area.data(), area.size(), c);
       remaining_size -= area.size();
     }
     return success;
@@ -90,7 +90,7 @@ class writer {
     size_t remaining_size = sv.size();
     while (remaining_size != 0) {
       EMIO_TRY(const auto area, buf_.get_write_area_of_max(remaining_size));
-      std::copy_n(ptr, area.size(), area.data());
+      detail::copy_n(ptr, area.size(), area.data());
       remaining_size -= area.size();
     }
     return success;

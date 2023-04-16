@@ -110,7 +110,7 @@ inline constexpr result<char> try_write_sign(writer<char>& wtr, const format_spe
 
 inline constexpr result<std::string_view> try_write_prefix(writer<char>& wtr, const format_specs& specs,
                                                            std::string_view prefix) {
-  bool write_prefix = specs.alternate_form && !prefix.empty();
+  const bool write_prefix = specs.alternate_form && !prefix.empty();
   if (write_prefix && specs.zero_flag) {
     EMIO_TRYV(wtr.write_str(prefix));
     return "";
@@ -137,12 +137,12 @@ constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const A
 
   const auto abs_number = detail::to_absolute(arg);
   const bool is_negative = detail::is_negative(arg);
-  const size_t number_of_digits = detail::get_number_of_digits(abs_number, options.base);
+  const size_t num_digits = detail::get_number_of_digits(abs_number, options.base);
 
   EMIO_TRY(const char sign_to_write, try_write_sign(wtr, specs, is_negative));
   EMIO_TRY(const std::string_view prefix_to_write, try_write_prefix(wtr, specs, prefix));
 
-  size_t total_width = number_of_digits;
+  size_t total_width = num_digits;
   if (specs.alternate_form) {
     total_width += prefix.size();
   }
@@ -152,17 +152,16 @@ constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const A
 
   return write_padded<alignment::right>(wtr, specs, total_width, [&, &options = options]() -> result<void> {
     const size_t area_size =
-        number_of_digits + static_cast<size_t>(sign_to_write != no_sign) + static_cast<size_t>(prefix_to_write.size());
+        num_digits + static_cast<size_t>(sign_to_write != no_sign) + static_cast<size_t>(prefix_to_write.size());
     EMIO_TRY(auto area, wtr.get_buffer().get_write_area_of(area_size));
     auto* it = area.data();
     if (sign_to_write != no_sign) {
       *it++ = sign_to_write;
     }
     if (!prefix_to_write.empty()) {
-      std::copy(prefix_to_write.begin(), prefix_to_write.end(), it);
-      it += prefix_to_write.size();
+      it = copy_n(prefix_to_write.data(), prefix_to_write.size(), it);
     }
-    write_number(abs_number, options.base, options.upper_case, it + detail::to_signed(number_of_digits));
+    write_number(abs_number, options.base, options.upper_case, it + detail::to_signed(num_digits));
     return success;
   });
 }
@@ -221,14 +220,12 @@ inline constexpr fp_format_specs parse_fp_format_specs(const format_specs& specs
 
 inline constexpr char* write_significand(char* out, const char* significand, int significand_size, int integral_size,
                                          char decimal_point) {
-  std::copy(significand, significand + integral_size, out);
-  out += integral_size;
+  out = copy_n(significand, integral_size, out);
   if (decimal_point == 0) {
     return out;
   }
   *out++ = decimal_point;
-  std::copy(significand + integral_size, significand + significand_size, out);
-  return out + significand_size - integral_size;
+  return copy_n(significand + integral_size, significand_size - integral_size, out);
 }
 
 inline constexpr char* write_exponent(char* it, int exp) {
@@ -285,7 +282,7 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
   int num_zeros = 0;
   char decimal_point = '.';
   size_t total_width = static_cast<uint32_t>(has_sign);
-  size_t number_of_digits = to_unsigned(significand_size);
+  size_t num_digits = to_unsigned(significand_size);
 
   if (use_exp_format()) {
     if (fp_specs.showpoint) {                             // Multiple significands or high precision.
@@ -293,18 +290,18 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
       if (num_zeros < 0) {
         num_zeros = 0;
       }
-      number_of_digits += to_unsigned(num_zeros);
+      num_digits += to_unsigned(num_zeros);
     } else if (significand_size == 1) {  // One significand.
       decimal_point = 0;
     }
     // The else part is general format with significand size less than the exponent.
 
     const int exp_digits = abs_output_exp >= 100 ? 3 : 2;
-    number_of_digits += to_unsigned((decimal_point != 0 ? 1 : 0) + 2 /* sign + e */ + exp_digits);
-    total_width += number_of_digits;
+    num_digits += to_unsigned((decimal_point != 0 ? 1 : 0) + 2 /* sign + e */ + exp_digits);
+    total_width += num_digits;
 
     return write_padded<alignment::right>(wtr, specs, total_width, [&]() -> result<void> {
-      const size_t area_size = number_of_digits + static_cast<size_t>(sign_to_write != no_sign);
+      const size_t area_size = num_digits + static_cast<size_t>(sign_to_write != no_sign);
       EMIO_TRY(auto area, wtr.get_buffer().get_write_area_of(area_size));
       auto* it = area.data();
       if (sign_to_write != no_sign) {
@@ -312,8 +309,7 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
       }
 
       it = write_significand(it, significand, significand_size, 1, decimal_point);
-      std::fill_n(it, num_zeros, '0');
-      it += num_zeros;
+      it = fill_n(it, num_zeros, '0');
       *it++ = fp_specs.upper_case ? 'E' : 'e';
       write_exponent(it, output_exp);
 
@@ -325,7 +321,7 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
   int num_zeros_2 = 0;
 
   if (output_exp < 0) {                                                   // Only fractional-part.
-    number_of_digits += 2;                                                // For zero + Decimal point.
+    num_digits += 2;                                                      // For zero + Decimal point.
     num_zeros = abs_output_exp - 1;                                       // Leading zeros after dot.
     if (specs.alternate_form && fp_specs.format == fp_format::general) {  // ({:#g}, 0.1) -> 0.100000 instead 0.1
       num_zeros_2 = fp_specs.precision - significand_size;
@@ -340,13 +336,13 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
         num_zeros_2 = fp_specs.precision;
       }
       EMIO_Z_DEV_ASSERT(num_zeros >= 0);
-      number_of_digits += 1;
+      num_digits += 1;
     } else {  // Digit without zero
       decimal_point = 0;
     }
   } else {  // Both parts. Trailing zeros are part of significands.
     integral_size = output_exp + 1;
-    number_of_digits += 1;                                                // Decimal point.
+    num_digits += 1;                                                      // Decimal point.
     if (specs.alternate_form && fp_specs.format == fp_format::general) {  // ({:#g}, 1.2) -> 1.20000 instead 1.2
       num_zeros = fp_specs.precision - significand_size;
     }
@@ -361,11 +357,11 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
   if (num_zeros_2 < 0) {
     num_zeros_2 = 0;
   }
-  number_of_digits += static_cast<size_t>(num_zeros + num_zeros_2);
-  total_width += number_of_digits;
+  num_digits += static_cast<size_t>(num_zeros + num_zeros_2);
+  total_width += num_digits;
 
   return write_padded<alignment::right>(wtr, specs, total_width, [&]() -> result<void> {
-    const size_t area_size = number_of_digits + static_cast<size_t>(sign_to_write != no_sign);
+    const size_t area_size = num_digits + static_cast<size_t>(sign_to_write != no_sign);
     EMIO_TRY(auto area, wtr.get_buffer().get_write_area_of(area_size));
     auto* it = area.data();
     if (sign_to_write != no_sign) {
@@ -376,29 +372,25 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
       *it++ = '0';
       if (decimal_point != 0) {
         *it++ = decimal_point;
-        std::fill_n(it, num_zeros, '0');
-        it += num_zeros;
-        std::copy_n(significand, significand_size, it);
-        it += significand_size;
-        std::fill_n(it, num_zeros_2, '0');
+        it = fill_n(it, num_zeros, '0');  // TODO: simplify fill_n/copy/copy/n + it
+        it = copy_n(significand, significand_size, it);
+        fill_n(it, num_zeros_2, '0');
       }
     } else if ((output_exp + 1) >= significand_size) {
-      std::copy(significand, significand + integral_size, it);
-      it += significand_size;
+      it = copy_n(significand, integral_size, it);
       if (num_zeros != 0) {
-        std::fill_n(it, num_zeros, '0');
-        it += num_zeros;
+        it = fill_n(it, num_zeros, '0');
       }
       if (decimal_point != 0) {
         *it++ = '.';
         if (num_zeros_2 != 0) {
-          std::fill_n(it, num_zeros_2, '0');
+          fill_n(it, num_zeros_2, '0');
         }
       }
     } else {
       it = write_significand(it, significand, significand_size, integral_size, decimal_point);
       if (num_zeros != 0) {
-        std::fill_n(it, num_zeros, '0');
+        fill_n(it, num_zeros, '0');
       }
     }
 

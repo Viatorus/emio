@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <string>
 
+#include "conversion.hpp"
 #include "predef.hpp"
 
 namespace emio::detail {
@@ -40,13 +41,13 @@ class ct_basic_string {
       capacity_ = new_size;
     } else if (capacity_ < new_size) {
       // NOLINTNEXTLINE(bugprone-unhandled-exception-at-new): char types cannot throw
-      Char* new_data = new Char[new_size]{};      // NOLINT(cppcoreguidelines-owning-memory)
-      std::copy(data_, data_ + size_, new_data);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      Char* new_data = new Char[new_size]{};  // NOLINT(cppcoreguidelines-owning-memory)
+      copy_n(data_, size_, new_data);         // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
       std::swap(new_data, data_);
       capacity_ = new_size;
       delete[] new_data;  // NOLINT(cppcoreguidelines-owning-memory)
     } else if (size_ < new_size) {
-      std::fill(data_ + size_, data_ + new_size, Char{});  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      fill_n(data_ + size_, new_size - size_, Char{});  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     }
     size_ = new_size;
   }

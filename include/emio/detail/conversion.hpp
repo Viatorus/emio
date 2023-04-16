@@ -8,10 +8,13 @@
 
 #include <bit>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <optional>
 #include <string_view>
 #include <type_traits>
+
+#include "predef.hpp"
 
 namespace emio::detail {
 
@@ -205,6 +208,32 @@ constexpr std::basic_string_view<Char> unchecked_substr(const std::basic_string_
                                                         size_t n = npos) noexcept {
   const size_t rlen = std::min(n, str.length() - pos);
   return {str.data() + pos, rlen};
+}
+
+template <typename Size>
+constexpr char* fill_n(char* out, Size count, char value) {
+  if (Y_EMIO_IS_CONST_EVAL) {
+    for (Size i = 0; i < count; i++) {
+      *out++ = value;
+    }
+    return out;
+  } else {
+    std::memset(out, value, to_unsigned(count));
+    return out + count;
+  }
+}
+
+template <typename Size>
+constexpr char* copy_n(const char* in, Size count, char* out) {
+  if (Y_EMIO_IS_CONST_EVAL) {
+    for (Size i = 0; i < count; i++) {
+      *out++ = *in++;
+    }
+    return out;
+  } else {
+    std::memcpy(out, in, to_unsigned(count));
+    return out + count;
+  }
 }
 
 }  // namespace emio::detail
