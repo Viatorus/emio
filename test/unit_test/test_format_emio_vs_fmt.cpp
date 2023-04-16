@@ -1,5 +1,3 @@
-#pragma GCC optimize("O3")
-
 // Unit under test.
 #include <emio/format.hpp>
 
