@@ -17,7 +17,7 @@ TEST_CASE("ct_basic_string") {
     constexpr bool success = [] {
       bool result = true;
 
-      ct_basic_string<char> str;
+      ct_basic_string<char, 0> str;
       result &= str.size() == 0;
       result &= str.capacity() == 0;
 
