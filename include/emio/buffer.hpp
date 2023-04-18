@@ -105,7 +105,7 @@ class buffer {
 };
 
 /**
- * This class fulfills the buffer API by providing either the internal storage or heap.
+ * This class fulfills the buffer API by providing an endless growing buffer.
  * @tparam Char The character type.
  * @tparam StorageSize The size of the inlined storage.
  */
@@ -123,7 +123,7 @@ class memory_buffer final : public buffer<Char> {
    */
   constexpr explicit memory_buffer(const size_t capacity) {
     // Request at least the internal storage size.
-    static_cast<void>(request_write_area(0, std::max(data_.capacity(), capacity)));
+    static_cast<void>(request_write_area(0, std::max(vec_.capacity(), capacity)));
   }
 
   constexpr memory_buffer(const memory_buffer&) = default;
@@ -137,7 +137,7 @@ class memory_buffer final : public buffer<Char> {
    * @return The view.
    */
   [[nodiscard]] constexpr std::basic_string_view<Char> view() const noexcept {
-    return {data_.data(), used_ + this->get_used_count()};
+    return {vec_.data(), used_ + this->get_used_count()};
   }
 
   /**
@@ -150,17 +150,17 @@ class memory_buffer final : public buffer<Char> {
 
  protected:
   constexpr result<std::span<Char>> request_write_area(const size_t used, const size_t size) noexcept override {
-    const size_t new_size = data_.size() + size;
-    data_.reserve(new_size);
+    const size_t new_size = vec_.size() + size;
+    vec_.reserve(new_size);
     used_ += used;
-    const std::span<Char> area{data_.data() + used_, size};
+    const std::span<Char> area{vec_.data() + used_, size};
     this->set_write_area(area);
     return area;
   }
 
  private:
   size_t used_{};
-  detail::ct_vector<Char, StorageSize> data_{};
+  detail::ct_vector<Char, StorageSize> vec_{};
 };
 
 /**
