@@ -20,7 +20,7 @@ namespace emio::detail {
  * A constexpr basic_string with the bare minimum implementation.
  * @tparam Char The character type.
  */
-template <typename Char, size_t InternalStorageSize = 32>
+template <typename Char, size_t storage_size = 32>
 class ct_basic_string {
  public:
   constexpr ct_basic_string() {
@@ -41,7 +41,7 @@ class ct_basic_string {
   }
 
   constexpr void reserve(size_t new_size) noexcept {
-    if (new_size < InternalStorageSize && !hold_external()) {
+    if (new_size < storage_size && !hold_external()) {
       size_ = new_size;
       return;
     }
@@ -50,7 +50,11 @@ class ct_basic_string {
     if (capacity_ < new_size) {
       // NOLINTNEXTLINE(bugprone-unhandled-exception-at-new): char types cannot throw
       Char* new_data = new Char[new_size];  // NOLINT(cppcoreguidelines-owning-memory)
-      copy_n(data_, size_, new_data);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      copy_n(data_, size_, new_data);       // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      if (Y_EMIO_IS_CONST_EVAL) {
+        // Required at compile-time because another reserve could happen without previous write to the data.
+        fill_n(new_data + size_, new_size - size_, 0);
+      }
       std::swap(new_data, data_);
       capacity_ = new_size;
       if (new_data != storage_.data()) {
@@ -81,10 +85,10 @@ class ct_basic_string {
     return data_ != storage_.data() && data_ != nullptr;
   }
 
+  std::array<char, storage_size> storage_;
   Char* data_{storage_.data()};
   size_t size_{};
-  size_t capacity_{InternalStorageSize};
-  std::array<char, InternalStorageSize> storage_;
+  size_t capacity_{storage_size};
 };
 
 }  // namespace emio::detail

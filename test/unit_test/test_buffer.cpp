@@ -102,10 +102,10 @@ TEST_CASE("memory_buffer at compile-time", "[buffer]") {
   constexpr size_t second_size{5};
   constexpr size_t third_size{8};
 
-//  constexpr bool success = [] {
+  constexpr bool success = [] {
     bool result = true;
 
-    emio::memory_buffer buf{};
+    emio::memory_buffer<char, 1> buf{};
     result &= buf.view().empty();
 
     emio::result<std::span<char>> area = buf.get_write_area_of(first_size);
@@ -126,10 +126,9 @@ TEST_CASE("memory_buffer at compile-time", "[buffer]") {
     result &= buf.view().size() == first_size + second_size + third_size;
     result &= buf.view() == "xxxxxxxyyyyyzzzzzzzz";
 
-//    return result;
-//  }();
-//  STATIC_CHECK(success);
-  CHECK(result);
+    return result;
+  }();
+  STATIC_CHECK(success);
 }
 
 TEST_CASE("span_buffer", "[buffer]") {

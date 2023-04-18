@@ -107,9 +107,9 @@ class buffer {
 /**
  * This class fulfills the buffer API by providing either the internal storage or heap.
  * @tparam Char The character type.
- * @tparam internal_storage_size The size of the internal storage.
+ * @tparam storage_size The size of the inlined storage.
  */
-template <typename Char = char, size_t internal_storage_size = 1>
+template <typename Char = char, size_t storage_size = 32>
 class memory_buffer final : public buffer<Char> {
  public:
   /**
@@ -160,7 +160,7 @@ class memory_buffer final : public buffer<Char> {
 
  private:
   size_t used_{};
-  detail::ct_basic_string<Char, internal_storage_size> data_{};
+  detail::ct_basic_string<Char, storage_size> data_{};
 };
 
 /**
