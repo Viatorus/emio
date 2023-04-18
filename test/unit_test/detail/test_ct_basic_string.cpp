@@ -75,7 +75,7 @@ TEST_CASE("ct_basic_string") {
 
     ct_basic_string<char, InternalStorageSize> str;
     CHECK(str.size() == 0);
-    CHECK(str.capacity() == 0);
+    CHECK(str.capacity() == get_capacity(0));
 
     str.resize(5);
     CHECK(str.size() == 5);
