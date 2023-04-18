@@ -67,17 +67,11 @@ inline constexpr carrying_mul_result_t carrying_mul(uint32_t a, uint32_t b, uint
 }
 
 /// Stack-allocated arbitrary-precision (up to certain limit) integer.
-///
-/// This is backed by a fixed-size array of given type ("digit").
-/// While the array is not very large (normally some hundred bytes),
-/// copying it recklessly may result in the performance hit.
-/// Thus this is intentionally not `Copy`.
-///
-/// All operations available to bignums panic in the case of overflows.
-/// The caller is responsible to use large enough bignum types.
 class bignum {
  public:
-  static constexpr bignum from(size_t sz, std::array<uint32_t, 40> b) {
+  static constexpr size_t MaxBlocks = 34;
+
+  static constexpr bignum from(size_t sz, const std::array<uint32_t, MaxBlocks>& b) {
     bignum bn{};
     bn.size_ = sz;
     bn.base_ = b;
@@ -111,7 +105,7 @@ class bignum {
     const size_t digitbits = 32;
     const auto d = i / digitbits;
     const auto b = i % digitbits;
-    return static_cast<uint8_t>((base_.at(d) >> b) & 1U);
+    return static_cast<uint8_t>((base_[d] >> b) & 1U);
   }
 
   /// Returns `true` if the bignum is zero.
@@ -129,7 +123,7 @@ class bignum {
 
   constexpr bignum& add_small_at(size_t index, uint32_t other) noexcept {
     size_t i = index;
-    auto res = carrying_add(base_.at(i), other, false);
+    auto res = carrying_add(base_[i], other, false);
     base_[i] = res.value;
     i += 1;
     for (; res.carry && (i < base_.size()); i++) {
@@ -204,7 +198,7 @@ class bignum {
       base_[i] = res.value;
     }
     if (res.carry > 0) {
-      base_.at(size_) = res.carry;
+      base_[size_] = res.carry;
       size_ += 1;
     }
     return *this;
@@ -302,7 +296,7 @@ class bignum {
         overflow = static_cast<uint32_t>(res >> 32);
       }
       if (overflow > 0) {
-        base_.at(i) = overflow;
+        base_[i] = overflow;
         size_ += 1;
       }
     }
@@ -334,7 +328,7 @@ class bignum {
   size_t size_{1};
   /// Digits. `[a, b, c, ...]` represents `a + b*2^W + c*2^(2W) + ...`
   /// where `W` is the number of bits in the digit type.
-  std::array<uint32_t, 40> base_{};
+  std::array<uint32_t, MaxBlocks> base_{};
 };
 
 }  // namespace emio::detail
