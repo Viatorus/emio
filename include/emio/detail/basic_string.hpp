@@ -7,6 +7,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <string>
 
@@ -39,7 +40,6 @@ class ct_basic_string {
     if (new_size < InternalStorageSize && !hold_external()) {
       if (data_ == nullptr) {
         data_ = storage_.data();
-        fill_n(data_, new_size, Char{});
       } else if (size_ < new_size) {
         fill_n(data_ + size_, new_size - size_, Char{});
       }
@@ -92,7 +92,7 @@ class ct_basic_string {
   Char* data_{};
   size_t size_{};
   size_t capacity_{InternalStorageSize};
-  std::array<char, InternalStorageSize> storage_;
+  std::array<char, InternalStorageSize> storage_{};
 };
 
 /**
