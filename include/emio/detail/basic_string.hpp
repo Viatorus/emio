@@ -19,7 +19,7 @@ namespace emio::detail {
  * A constexpr basic_string with the bare minimum implementation.
  * @tparam Char The character type.
  */
-template <typename Char>
+template <typename Char, size_t InternalStorageSize = 32>
 class ct_basic_string {
  public:
   constexpr ct_basic_string() = default;
@@ -30,10 +30,24 @@ class ct_basic_string {
   ct_basic_string& operator=(ct_basic_string&&) = delete;
 
   constexpr ~ct_basic_string() noexcept {
-    delete[] data_;  // NOLINT(cppcoreguidelines-owning-memory)
+    if (hold_external()) {
+      delete[] data_;  // NOLINT(cppcoreguidelines-owning-memory)
+    }
   }
 
   constexpr void resize(size_t new_size) noexcept {
+    if (new_size < InternalStorageSize && !hold_external()) {
+      if (data_ == nullptr) {
+        data_ = storage_.data();
+        fill_n(data_, new_size, Char{});
+      } else if (size_ < new_size) {
+        fill_n(data_ + size_, new_size - size_, Char{});
+      }
+      capacity_ = InternalStorageSize;
+      size_ = new_size;
+      return;
+    }
+
     // Heavy pointer arithmetic because high level containers are not yet ready to use at constant evaluation.
     if (data_ == nullptr) {
       // NOLINTNEXTLINE(bugprone-unhandled-exception-at-new): char types cannot throw
@@ -69,9 +83,14 @@ class ct_basic_string {
   }
 
  private:
+  [[nodiscard]] constexpr bool hold_external() const noexcept {
+    return data_ != storage_.data() && data_ != nullptr;
+  }
+
   Char* data_{};
   size_t size_{};
   size_t capacity_{};
+  std::array<char, InternalStorageSize> storage_;
 };
 
 /**

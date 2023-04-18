@@ -29,7 +29,6 @@ add_executable(emio_test
         test_reader.cpp
         test_result.cpp
         test_format_emio_vs_fmt.cpp
-        #test_simple3.cpp
         test_writer.cpp
         )
 

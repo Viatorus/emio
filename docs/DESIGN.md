@@ -1,6 +1,6 @@
 # Design
 
-This is a short design overview of *emio*. 
+This is a short design overview of *emio*.
 
 **Note:** [fmtlib/fmt](https://github.com/fmtlib/fmt) is an awesome library with great concepts and implementations
 which are partly reused in this library. All statements made here by comparing *emio* with *fmt* are only objective and
@@ -18,24 +18,27 @@ bool, int64_t, int128_t, long double...) even if only int32_t should be formatte
 string is validated at compile-time and runtime.
 
 Take the following code snippet as example which is compiled and statically linked.
+
 ```cpp
 format("{}", 1);
 ```
 
-If compiled with *fmt*, **190 kBytes** of flash memory is required. If *emio* is used, only **4.5 kBytes** are requires.
-This is **42 times** less! Keep in mind that flash memory of many microcontrollers is between 32 kBytes and 2 MBytes.
+If compiled with *fmt*, **352 kBytes** of flash memory is required. If *emio* is used, only **28 kBytes** are requires.
+This is **12.5 times** less! If only integers should be formatted, *emio* does only require **20 kBytes**, so **17.5**
+less than *fmt.* Keep in mind that flash memory of many microcontrollers is between 32 kBytes and 2 MBytes.
 
 This huge advantage of *emio* comes with a price: *emio* doesn't support all features of *fmt*. But these features are
 likely not so important for embedded systems. The missing features are:
 
 - no std::locale support (no internationalization)
 - if a runtime format string is used, validation and parsing happens sequential (performance overhead)
-- some features cannot be API compatible and have to be done differently (e.g. make_format_args or dynamic precision)
+- some features cannot be API compatible and have to be done differently (e.g. make_format_args requires the format
+  string or dynamic precision is not supported)
 
 ## Result type
 
 Instead of C++-exceptions, `emio:result` is used for returning and propagating errors. It is similar to `std::expected`,
-`boost::outcome` or Rust `Result`.
+`boost::outcome` or Rust's `Result`.
 
 `emio::result<T>` does either holds the expected value of type T or an unexpected error of type `emio::err`. Through
 observer methods, the state and the value or the error can be visited.
