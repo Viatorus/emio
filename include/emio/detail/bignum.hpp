@@ -69,9 +69,9 @@ inline constexpr carrying_mul_result_t carrying_mul(uint32_t a, uint32_t b, uint
 /// Stack-allocated arbitrary-precision (up to certain limit) integer.
 class bignum {
  public:
-  static constexpr size_t MaxBlocks = 34;
+  static constexpr size_t max_blocks = 34;
 
-  static constexpr bignum from(size_t sz, const std::array<uint32_t, MaxBlocks>& b) {
+  static constexpr bignum from(size_t sz, const std::array<uint32_t, max_blocks>& b) {
     bignum bn{};
     bn.size_ = sz;
     bn.base_ = b;
@@ -328,7 +328,7 @@ class bignum {
   size_t size_{1};
   /// Digits. `[a, b, c, ...]` represents `a + b*2^W + c*2^(2W) + ...`
   /// where `W` is the number of bits in the digit type.
-  std::array<uint32_t, MaxBlocks> base_{};
+  std::array<uint32_t, max_blocks> base_{};
 };
 
 }  // namespace emio::detail

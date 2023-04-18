@@ -17,31 +17,32 @@
 namespace emio::detail {
 
 /**
- * A constexpr basic_string with the bare minimum implementation.
+ * A constexpr vector with the bare minimum implementation and inlined storage.
  * @tparam Char The character type.
+ * @tparam StorageSize The size of the inlined storage.
  */
-template <typename Char, size_t storage_size = 32>
-class ct_basic_string {
+template <typename Char, size_t StorageSize = 32>
+class ct_vector {
  public:
-  constexpr ct_basic_string() {
+  constexpr ct_vector() {
     if (Y_EMIO_IS_CONST_EVAL) {
       fill_n(storage_.data(), storage_.size(), 0);
     }
   }
 
-  ct_basic_string(const ct_basic_string&) = delete;
-  ct_basic_string(ct_basic_string&&) = delete;
-  ct_basic_string& operator=(const ct_basic_string&) = delete;
-  ct_basic_string& operator=(ct_basic_string&&) = delete;
+  ct_vector(const ct_vector&) = delete;
+  ct_vector(ct_vector&&) = delete;
+  ct_vector& operator=(const ct_vector&) = delete;
+  ct_vector& operator=(ct_vector&&) = delete;
 
-  constexpr ~ct_basic_string() noexcept {
+  constexpr ~ct_vector() noexcept {
     if (hold_external()) {
       delete[] data_;  // NOLINT(cppcoreguidelines-owning-memory)
     }
   }
 
   constexpr void reserve(size_t new_size) noexcept {
-    if (new_size < storage_size && !hold_external()) {
+    if (new_size < StorageSize && !hold_external()) {
       size_ = new_size;
       return;
     }
@@ -85,10 +86,10 @@ class ct_basic_string {
     return data_ != storage_.data() && data_ != nullptr;
   }
 
-  std::array<char, storage_size> storage_;
+  std::array<char, StorageSize> storage_;
   Char* data_{storage_.data()};
   size_t size_{};
-  size_t capacity_{storage_size};
+  size_t capacity_{StorageSize};
 };
 
 }  // namespace emio::detail

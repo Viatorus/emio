@@ -1,23 +1,23 @@
 // Unit under test.
-#include <emio/detail/basic_string.hpp>
+#include <emio/detail/ct_vector.hpp>
 
 // Other includes.
 #include <catch2/catch_test_macros.hpp>
 
 using namespace std::string_view_literals;
 
-TEST_CASE("ct_basic_string") {
+TEST_CASE("ct_vector") {
   // Test strategy:
-  // * Construct, reserve, write into a ct_basic_string.
+  // * Construct, reserve, write into a ct_vector.
   // Expected: Memory is correctly managed.
 
-  using emio::detail::ct_basic_string;
+  using emio::detail::ct_vector;
 
   SECTION("compile-time") {
     constexpr bool success = [] {
       bool result = true;
 
-      ct_basic_string<char, 0> str;
+      ct_vector<char, 0> str;
       result &= str.size() == 0;
       result &= str.capacity() == 0;
 
@@ -77,7 +77,7 @@ TEST_CASE("ct_basic_string") {
       return reserve;
     };
 
-    ct_basic_string<char, InternalStorageSize> str;
+    ct_vector<char, InternalStorageSize> str;
     CHECK(str.size() == 0);
     CHECK(str.capacity() == get_capacity(0));
 
