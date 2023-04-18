@@ -59,7 +59,9 @@ class ct_basic_string {
       copy_n(data_, size_, new_data);         // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
       std::swap(new_data, data_);
       capacity_ = new_size;
-      delete[] new_data;  // NOLINT(cppcoreguidelines-owning-memory)
+      if (new_data != storage_.data()) {
+        delete[] new_data;  // NOLINT(cppcoreguidelines-owning-memory)
+      }
     } else if (size_ < new_size) {
       fill_n(data_ + size_, new_size - size_, Char{});  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     }
@@ -89,7 +91,7 @@ class ct_basic_string {
 
   Char* data_{};
   size_t size_{};
-  size_t capacity_{};
+  size_t capacity_{InternalStorageSize};
   std::array<char, InternalStorageSize> storage_;
 };
 
