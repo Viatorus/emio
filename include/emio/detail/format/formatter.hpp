@@ -446,7 +446,7 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
     });
   }
 
-  emio::string_buffer buf;
+  emio::memory_buffer buf;
   const format_fp_result_t res = format_decimal(buf, fp_specs, decoded);
   return write_decimal(wtr, specs, fp_specs, decoded.negative, res);
 }

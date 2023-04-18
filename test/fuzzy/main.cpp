@@ -73,7 +73,7 @@ void test_shortest(double d) {
       abort();
     }
   } else {
-    emio::string_buffer buf;
+    emio::memory_buffer buf;
     auto [digits, k] = emio::detail::format::format_shortest(full_decoded.finite, buf);
     if (!std::equal(rust_digits.begin(), rust_digits.end(), digits.begin(), digits.end()) || rust_k != k) {
       print_shortest_header(d);
@@ -102,7 +102,7 @@ void test_fixed(double d, int16_t precision) {
       abort();
     }
   } else {
-    emio::string_buffer buf;
+    emio::memory_buffer buf;
     auto [digits, k] = emio::detail::format::format_exact(
         full_decoded.finite, buf, emio::detail::format::format_exact_mode::decimal_point, precision);
     digits = remove_trailing_zeros(digits);
@@ -134,7 +134,7 @@ void test_exact(double d, int16_t precision) {
       abort();
     }
   } else {
-    emio::string_buffer buf;
+    emio::memory_buffer buf;
     auto [digits, k] = emio::detail::format::format_exact(
         full_decoded.finite, buf, emio::detail::format::format_exact_mode::significand_digits, precision);
     digits = remove_trailing_zeros(digits);

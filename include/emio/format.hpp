@@ -181,7 +181,7 @@ constexpr result<OutputIt> format_to(OutputIt out, format_string<Args...> format
  * failed.
  */
 inline result<std::string> vformat(const format_args& args) noexcept {
-  string_buffer<char> buf;
+  memory_buffer<char> buf;
   if (auto res = detail::format::vformat_to(buf, args); !res) {
     return res.assume_error();
   }

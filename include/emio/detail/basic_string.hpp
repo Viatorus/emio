@@ -23,7 +23,11 @@ namespace emio::detail {
 template <typename Char, size_t InternalStorageSize = 32>
 class ct_basic_string {
  public:
-  constexpr ct_basic_string() = default;
+  constexpr ct_basic_string() {
+    if (Y_EMIO_IS_CONST_EVAL) {
+      fill_n(storage_.data(), storage_.size(), 0);
+    }
+  }
 
   ct_basic_string(const ct_basic_string&) = delete;
   ct_basic_string(ct_basic_string&&) = delete;
@@ -36,34 +40,22 @@ class ct_basic_string {
     }
   }
 
-  constexpr void resize(size_t new_size) noexcept {
+  constexpr void reserve(size_t new_size) noexcept {
     if (new_size < InternalStorageSize && !hold_external()) {
-      if (data_ == nullptr) {
-        data_ = storage_.data();
-      } else if (size_ < new_size) {
-        fill_n(data_ + size_, new_size - size_, Char{});
-      }
-      capacity_ = InternalStorageSize;
       size_ = new_size;
       return;
     }
 
     // Heavy pointer arithmetic because high level containers are not yet ready to use at constant evaluation.
-    if (data_ == nullptr) {
+    if (capacity_ < new_size) {
       // NOLINTNEXTLINE(bugprone-unhandled-exception-at-new): char types cannot throw
-      data_ = new Char[new_size]{};  // NOLINT(cppcoreguidelines-owning-memory)
-      capacity_ = new_size;
-    } else if (capacity_ < new_size) {
-      // NOLINTNEXTLINE(bugprone-unhandled-exception-at-new): char types cannot throw
-      Char* new_data = new Char[new_size]{};  // NOLINT(cppcoreguidelines-owning-memory)
-      copy_n(data_, size_, new_data);         // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      Char* new_data = new Char[new_size];  // NOLINT(cppcoreguidelines-owning-memory)
+      copy_n(data_, size_, new_data);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
       std::swap(new_data, data_);
       capacity_ = new_size;
       if (new_data != storage_.data()) {
         delete[] new_data;  // NOLINT(cppcoreguidelines-owning-memory)
       }
-    } else if (size_ < new_size) {
-      fill_n(data_ + size_, new_size - size_, Char{});  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     }
     size_ = new_size;
   }
@@ -89,82 +81,10 @@ class ct_basic_string {
     return data_ != storage_.data() && data_ != nullptr;
   }
 
-  Char* data_{};
+  Char* data_{storage_.data()};
   size_t size_{};
   size_t capacity_{InternalStorageSize};
-  std::array<char, InternalStorageSize> storage_{};
-};
-
-/**
- * This union unites std::basic_string for runtime and ct_basic_string for compile-time.
- * @tparam Char The character type.
- */
-template <typename Char>
-union basic_string_union {
-  constexpr basic_string_union() noexcept {
-    if (Y_EMIO_IS_CONST_EVAL) {
-      std::construct_at(&ct_str_);
-    } else {
-      std::construct_at(&str_);
-    }
-  }
-
-  constexpr basic_string_union(const basic_string_union&) = delete;
-  constexpr basic_string_union(basic_string_union&&) noexcept = delete;
-  constexpr basic_string_union& operator=(const basic_string_union&) = delete;
-  constexpr basic_string_union& operator=(basic_string_union&&) noexcept = default;
-
-  constexpr ~basic_string_union() noexcept {
-    if (Y_EMIO_IS_CONST_EVAL) {
-      ct_str_.~ct_basic_string();
-    } else {
-      str_.~basic_string();
-    }
-  }
-
-  [[nodiscard]] constexpr size_t capacity() noexcept {
-    if (Y_EMIO_IS_CONST_EVAL) {
-      return ct_str_.capacity();
-    } else {
-      return str_.capacity();
-    }
-  }
-
-  constexpr void resize(size_t size) noexcept {
-    if (Y_EMIO_IS_CONST_EVAL) {
-      ct_str_.resize(size);
-    } else {
-      str_.resize(size);
-    }
-  }
-
-  constexpr Char* data() noexcept {
-    if (Y_EMIO_IS_CONST_EVAL) {
-      return ct_str_.data();
-    } else {
-      return str_.data();
-    }
-  }
-
-  [[nodiscard]] constexpr const Char* data() const noexcept {
-    if (Y_EMIO_IS_CONST_EVAL) {
-      return ct_str_.data();
-    } else {
-      return str_.data();
-    }
-  }
-
-  [[nodiscard]] constexpr size_t size() const noexcept {
-    if (Y_EMIO_IS_CONST_EVAL) {
-      return ct_str_.size();
-    } else {
-      return str_.size();
-    }
-  }
-
- private:
-  std::basic_string<Char> str_;
-  detail::ct_basic_string<Char> ct_str_;
+  std::array<char, InternalStorageSize> storage_;
 };
 
 }  // namespace emio::detail

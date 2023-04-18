@@ -105,31 +105,32 @@ class buffer {
 };
 
 /**
- * This class fulfills the buffer API by internal using a string object.
+ * This class fulfills the buffer API by providing either the internal storage or heap.
  * @tparam Char The character type.
+ * @tparam internal_storage_size The size of the internal storage.
  */
-template <typename Char = char>
-class string_buffer final : public buffer<Char> {
+template <typename Char = char, size_t internal_storage_size = 1>
+class memory_buffer final : public buffer<Char> {
  public:
   /**
-   * Constructs and initializes the buffer with the basic capacity a string.
+   * Constructs and initializes the buffer with the internal storage size.
    */
-  constexpr string_buffer() : string_buffer{0} {}
+  constexpr memory_buffer() : memory_buffer{0} {}
 
   /**
    * Constructs and initializes the buffer with the given capacity.
-   * @param capacity The initial capacity of the string.
+   * @param capacity The initial capacity.
    */
-  constexpr explicit string_buffer(const size_t capacity) {
-    // Request at least the SBO capacity.
+  constexpr explicit memory_buffer(const size_t capacity) {
+    // Request at least the internal storage size.
     static_cast<void>(request_write_area(0, std::max(data_.capacity(), capacity)));
   }
 
-  constexpr string_buffer(const string_buffer&) = default;
-  constexpr string_buffer(string_buffer&&) noexcept = default;
-  constexpr string_buffer& operator=(const string_buffer&) = default;
-  constexpr string_buffer& operator=(string_buffer&&) noexcept = default;
-  constexpr ~string_buffer() override = default;
+  constexpr memory_buffer(const memory_buffer&) = default;
+  constexpr memory_buffer(memory_buffer&&) noexcept = default;
+  constexpr memory_buffer& operator=(const memory_buffer&) = default;
+  constexpr memory_buffer& operator=(memory_buffer&&) noexcept = default;
+  constexpr ~memory_buffer() override = default;
 
   /**
    * Obtains a view over the underlying string object.
@@ -150,9 +151,8 @@ class string_buffer final : public buffer<Char> {
  protected:
   constexpr result<std::span<Char>> request_write_area(const size_t used, const size_t size) noexcept override {
     const size_t new_size = data_.size() + size;
-    data_.resize(new_size);
+    data_.reserve(new_size);
     used_ += used;
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): Performance in debug.
     const std::span<Char> area{data_.data() + used_, size};
     this->set_write_area(area);
     return area;
@@ -160,8 +160,7 @@ class string_buffer final : public buffer<Char> {
 
  private:
   size_t used_{};
-  //  detail::basic_string_union<Char> data_{};
-  detail::ct_basic_string<Char> data_{};
+  detail::ct_basic_string<Char, internal_storage_size> data_{};
 };
 
 /**

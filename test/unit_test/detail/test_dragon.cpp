@@ -9,7 +9,7 @@ namespace emf = emio::detail::format;
 
 static void check_exact_one(const emf::finite_result_t& decoded, std::string_view expected_str, int16_t expected_k) {
   SECTION("exponent") {
-    emio::string_buffer<char> buf;
+    emio::memory_buffer<char> buf;
     const auto number_of_digits = static_cast<int16_t>(expected_str.size());
     auto [str, k] = emf::format_exact(decoded, buf, emf::format_exact_mode::significand_digits, number_of_digits);
     CHECK(std::string_view(str.begin(), str.end()) == expected_str);
@@ -17,7 +17,7 @@ static void check_exact_one(const emf::finite_result_t& decoded, std::string_vie
   }
 
   SECTION("fixed") {
-    emio::string_buffer<char> buf;
+    emio::memory_buffer<char> buf;
     const auto number_of_digits = static_cast<int16_t>(-expected_k + static_cast<int16_t>(expected_str.size()));
     auto [str, k] = emf::format_exact(decoded, buf, emf::format_exact_mode::decimal_point, number_of_digits);
 
@@ -128,7 +128,7 @@ void check_shortest(double d, std::string_view expected_str, int16_t expected_k)
   const auto decoded = emf::decode(d);
   REQUIRE(decoded.category == emf::category::finite);
 
-  emio::string_buffer<char> buf;
+  emio::memory_buffer<char> buf;
   auto [str, k] = emf::format_shortest(decoded.finite, buf);
   CHECK(std::string_view(str.begin(), str.end()) == expected_str);
   CHECK(k == expected_k);
@@ -201,7 +201,7 @@ TEST_CASE("format_shortest") {
 
 void check_fixed(const emf::finite_result_t& finite, int16_t precision, std::string_view expected_str,
                  int16_t expected_k) {
-  emio::string_buffer<char> buf;
+  emio::memory_buffer<char> buf;
   auto [str, k] = emf::format_exact(finite, buf, emf::format_exact_mode::decimal_point, precision);
 
   CHECK(std::string_view(str.begin(), str.end()) == expected_str);
@@ -210,7 +210,7 @@ void check_fixed(const emf::finite_result_t& finite, int16_t precision, std::str
 
 void check_exponent(const emf::finite_result_t& finite, int16_t precision, std::string_view expected_str,
                     int16_t expected_k) {
-  emio::string_buffer<char> buf;
+  emio::memory_buffer<char> buf;
   auto [str, k] = emf::format_exact(finite, buf, emf::format_exact_mode::significand_digits, precision);
 
   CHECK(std::string_view(str.begin(), str.end()) == expected_str);

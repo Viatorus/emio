@@ -71,7 +71,7 @@ An abstract class which provides functionality for receiving a contiguous memory
 
 There exist multiple implementation of a buffer, all fulfilling a different use case.
 
-### string_buffer
+### memory_buffer
 - Endless growing buffer.
 
 ### span_buffer
