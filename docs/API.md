@@ -142,10 +142,10 @@ The following functions use a format string syntax which is nearly identical to 
 
 Things that are missing:
 - UTF-8 support (planned)
-- floating-point, range and chrono syntax (planned)
+- range and chrono syntax (planned)
 - dynamic width and precision (planned but not via format string syntax)
 - using an identifier as arg_id: `fmt::format("{nbr}", fmt::arg("nbr", 42)` (TBD)
-- `'L'` options for locale (not planned)
+- `'L'` options for locale (somehow possible but not with std::locale)
 
 The grammar for the replacement field is as follows:
 

@@ -426,8 +426,8 @@ inline constexpr format_fp_result_t format_decimal(buffer<char>& buffer, const f
   EMIO_Z_INTERNAL_UNREACHABLE;
 }
 
-inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& specs,
-                                            const decode_result_t& decoded) noexcept {
+inline constexpr result<void> format_and_write_decimal(writer<char>& wtr, format_specs& specs,
+                                                       const decode_result_t& decoded) noexcept {
   fp_format_specs fp_specs = parse_fp_format_specs(specs);
 
   if (decoded.category == category::infinity || decoded.category == category::nan) {
@@ -454,7 +454,7 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
 template <typename Arg>
   requires(std::is_floating_point_v<Arg> && sizeof(Arg) <= sizeof(double))
 constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const Arg& arg) noexcept {
-  return write_decimal(wtr, specs, decode(arg));
+  return format_and_write_decimal(wtr, specs, decode(arg));
 }
 
 inline constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const std::string_view arg) noexcept {
