@@ -237,13 +237,13 @@ inline constexpr char* write_exponent(char* it, int exp) {
   }
   int cnt = 2;
   if (exp >= 100) {
-    write_number(to_unsigned(exp), 10, false, it + 3);
+    write_decimal(to_unsigned(exp), it + 3);
     return it;
   } else if (exp < 10) {
     *it++ = '0';
     cnt -= 1;
   }
-  write_number(to_unsigned(exp), 10, false, it + cnt);
+  write_decimal(to_unsigned(exp), it + cnt);
   return it;
 }
 
