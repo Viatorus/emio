@@ -90,8 +90,23 @@
 // For the license information refer to emio.hpp
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <string>
+
+//
+// Copyright (c) 2021 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+
+#include <bit>
+#include <cstdint>
+#include <cstring>
+#include <limits>
+#include <optional>
+#include <string_view>
+#include <type_traits>
 
 //
 // Copyright (c) 2021 - present, Toni Neubert
@@ -136,43 +151,288 @@ namespace emio::detail {
 #  define EMIO_Z_INTERNAL_UNREACHABLE std::terminate()
 #endif
 
+#if defined(EMIO_ENABLE_DEV_ASSERT)
+#  define EMIO_Z_DEV_ASSERT(...) \
+    do {                         \
+      if (!(__VA_ARGS__)) {      \
+        std::terminate();        \
+      }                          \
+    } while (0)
+#else
+#  define EMIO_Z_DEV_ASSERT(...) void()
+#endif
+
+}  // namespace emio::detail
+
+namespace emio::detail {
+
+constexpr bool isalpha(char c) {
+  return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+}
+
+constexpr bool isdigit(char c) {
+  return (c >= '0' && c <= '9');
+}
+
+constexpr bool is_valid_number_base(int base) noexcept {
+  return base >= 2 && base <= 36;
+}
+
+constexpr std::optional<int> char_to_digit(char c, int base) noexcept {
+  if (c < '0') {
+    return std::nullopt;
+  }
+  int res{};
+  if (c >= 'a') {
+    res = c - 'a' + 10;
+  } else if (c >= 'A') {
+    res = c - 'A' + 10;
+  } else {
+    res = c - '0';
+  }
+  if (res < base) {
+    return res;
+  }
+  return std::nullopt;
+}
+
+constexpr char digit_to_char(int digit, int base, bool upper) noexcept {
+  if (base >= 1 && digit >= 10) {
+    if (upper) {
+      return static_cast<char>(static_cast<int>('A') + (digit - 10));
+    }
+    return static_cast<char>(static_cast<int>('a') + (digit - 10));
+  }
+  return static_cast<char>(static_cast<int>('0') + digit);
+}
+
+template <typename T>
+  requires(std::is_unsigned_v<T>)
+constexpr size_t count_digits_10(T number) noexcept {
+  size_t count = 1;
+  for (;;) {
+    // Integer division is slow so do it for a group of four digits instead
+    // of for every digit. The idea comes from the talk by Alexandrescu
+    // "Three Optimization Tips for C++".
+    if (number < 10) {
+      return count;
+    }
+    if (number < 100) {
+      return count + 1;
+    }
+    if (number < 1000) {
+      return count + 2;
+    }
+    if (number < 10000) {
+      return count + 3;
+    }
+    number /= 10000U;
+    count += 4;
+  }
+}
+
+template <size_t Base, typename T>
+  requires(std::is_unsigned_v<T>)
+constexpr size_t count_digits(T number) noexcept {
+  if (number == 0) {
+    return 1;
+  }
+
+  if constexpr (Base == 10) {
+    return count_digits_10(number);
+  } else if constexpr (Base == 2) {
+    return std::bit_width(number);
+  } else if constexpr (Base == 8) {
+    return (std::bit_width(number) + 2) / 3;
+  } else if constexpr (Base == 16) {
+    return (std::bit_width(number) + 3) / 4;
+  } else {
+    size_t digit_cnt{1};
+    for (number /= static_cast<T>(Base); number; number /= static_cast<T>(Base)) {
+      ++digit_cnt;
+    }
+    return digit_cnt;
+  }
+}
+
+template <typename T>
+  requires(std::is_unsigned_v<T>)
+constexpr size_t get_number_of_digits(T number, int base) noexcept {
+  if (number == 0) {
+    return 1;
+  }
+  if (base == 10) {
+    return count_digits<10>(number);
+  }
+  if (base == 16) {
+    return count_digits<16>(number);
+  }
+  if (base == 2) {
+    return count_digits<2>(number);
+  }
+  if (base == 8) {
+    return count_digits<8>(number);
+  }
+  size_t digit_cnt{1};
+  for (number /= static_cast<T>(base); number; number /= static_cast<T>(base)) {
+    ++digit_cnt;
+  }
+  return digit_cnt;
+}
+
+template <typename T>
+constexpr bool is_negative(T value) noexcept {
+  if constexpr (std::is_signed_v<T>) {
+    return value < 0;
+  } else {
+    return false;
+  }
+}
+
+template <typename T>
+constexpr int num_bits() noexcept {
+  return std::numeric_limits<T>::digits;
+}
+
+template <typename T>
+using int32_or_64 = std::conditional_t<num_bits<T>() <= 32, int32_t, int64_t>;
+
+template <typename T>
+using uint32_or_64 = std::conditional_t<num_bits<T>() <= 32, uint32_t, uint64_t>;
+
+template <typename T>
+  requires(std::is_integral_v<T>)
+constexpr auto integer_upcast(T integer) {
+  if constexpr (std::is_signed_v<T>) {
+    return static_cast<int32_or_64<T>>(integer);
+  } else {
+    return static_cast<uint32_or_64<T>>(integer);
+  }
+}
+
+template <typename T>
+constexpr uint32_or_64<T> to_absolute(T number) noexcept {
+  if constexpr (std::is_unsigned_v<T>) {
+    return number;
+  } else {
+    if (is_negative(number)) {
+      auto abs = static_cast<uint32_or_64<T>>(number);
+      abs = T{} - abs;
+      return abs;
+    }
+    return static_cast<uint32_or_64<T>>(number);
+  }
+}
+
+template <typename T>
+constexpr std::make_unsigned_t<T> to_unsigned(T number) noexcept {
+  return static_cast<std::make_unsigned_t<T>>(number);
+}
+
+template <typename T>
+constexpr std::make_signed_t<T> to_signed(T number) noexcept {
+  return static_cast<std::make_signed_t<T>>(number);
+}
+
+template <typename T, typename OutputIt>
+  requires(std::is_unsigned_v<T>)
+constexpr OutputIt write_number(T abs_number, int base, bool upper, OutputIt next) {
+  if (abs_number == 0) {
+    *(--next) = '0';  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic): performance
+    return next;
+  }
+  // Write number from right to left.
+  for (; abs_number; abs_number /= static_cast<T>(base)) {
+    const char c = digit_to_char(static_cast<int>(abs_number % static_cast<T>(base)), base, upper);
+    *(--next) = c;  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic): performance
+  }
+  return next;
+}
+
+inline constexpr size_t npos = std::string_view::npos;
+
+template <typename Char>
+constexpr std::basic_string_view<Char> unchecked_substr(const std::basic_string_view<Char>& str, size_t pos,
+                                                        size_t n = npos) noexcept {
+  const size_t rlen = std::min(n, str.length() - pos);
+  return {str.data() + pos, rlen};
+}
+
+template <typename Size>
+constexpr char* fill_n(char* out, Size count, char value) {
+  if (Y_EMIO_IS_CONST_EVAL) {
+    for (Size i = 0; i < count; i++) {
+      *out++ = value;
+    }
+    return out;
+  } else {
+    std::memset(out, value, to_unsigned(count));
+    return out + count;
+  }
+}
+
+template <typename Size>
+constexpr char* copy_n(const char* in, Size count, char* out) {
+  if (Y_EMIO_IS_CONST_EVAL) {
+    for (Size i = 0; i < count; i++) {
+      *out++ = *in++;
+    }
+    return out;
+  } else {
+    std::memcpy(out, in, to_unsigned(count));
+    return out + count;
+  }
+}
+
 }  // namespace emio::detail
 
 namespace emio::detail {
 
 /**
- * A constexpr basic_string with the bare minimum implementation.
+ * A constexpr vector with the bare minimum implementation and inlined storage.
  * @tparam Char The character type.
+ * @tparam StorageSize The size of the inlined storage.
  */
-template <typename Char>
-class ct_basic_string {
+template <typename Char, size_t StorageSize = 32>
+class ct_vector {
  public:
-  constexpr ct_basic_string() = default;
-
-  ct_basic_string(const ct_basic_string&) = delete;
-  ct_basic_string(ct_basic_string&&) = delete;
-  ct_basic_string& operator=(const ct_basic_string&) = delete;
-  ct_basic_string& operator=(ct_basic_string&&) = delete;
-
-  constexpr ~ct_basic_string() noexcept {
-    delete[] data_;  // NOLINT(cppcoreguidelines-owning-memory)
+  constexpr ct_vector() {
+    if (Y_EMIO_IS_CONST_EVAL) {
+      fill_n(storage_.data(), storage_.size(), 0);
+    }
   }
 
-  constexpr void resize(size_t new_size) noexcept {
+  ct_vector(const ct_vector&) = delete;
+  ct_vector(ct_vector&&) = delete;
+  ct_vector& operator=(const ct_vector&) = delete;
+  ct_vector& operator=(ct_vector&&) = delete;
+
+  constexpr ~ct_vector() noexcept {
+    if (hold_external()) {
+      delete[] data_;  // NOLINT(cppcoreguidelines-owning-memory)
+    }
+  }
+
+  constexpr void reserve(size_t new_size) noexcept {
+    if (new_size < StorageSize && !hold_external()) {
+      size_ = new_size;
+      return;
+    }
+
     // Heavy pointer arithmetic because high level containers are not yet ready to use at constant evaluation.
-    if (data_ == nullptr) {
+    if (capacity_ < new_size) {
       // NOLINTNEXTLINE(bugprone-unhandled-exception-at-new): char types cannot throw
-      data_ = new Char[new_size]{};  // NOLINT(cppcoreguidelines-owning-memory)
-      capacity_ = new_size;
-    } else if (capacity_ < new_size) {
-      // NOLINTNEXTLINE(bugprone-unhandled-exception-at-new): char types cannot throw
-      Char* new_data = new Char[new_size]{};      // NOLINT(cppcoreguidelines-owning-memory)
-      std::copy(data_, data_ + size_, new_data);  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      Char* new_data = new Char[new_size];  // NOLINT(cppcoreguidelines-owning-memory)
+      copy_n(data_, size_, new_data);       // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      if (Y_EMIO_IS_CONST_EVAL) {
+        // Required at compile-time because another reserve could happen without previous write to the data.
+        fill_n(new_data + size_, new_size - size_, 0);
+      }
       std::swap(new_data, data_);
       capacity_ = new_size;
-      delete[] new_data;  // NOLINT(cppcoreguidelines-owning-memory)
-    } else if (size_ < new_size) {
-      std::fill(data_ + size_, data_ + new_size, Char{});  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      if (new_data != storage_.data()) {
+        delete[] new_data;  // NOLINT(cppcoreguidelines-owning-memory)
+      }
     }
     size_ = new_size;
   }
@@ -194,81 +454,14 @@ class ct_basic_string {
   }
 
  private:
-  Char* data_{};
+  [[nodiscard]] constexpr bool hold_external() const noexcept {
+    return data_ != storage_.data() && data_ != nullptr;
+  }
+
+  std::array<char, StorageSize> storage_;
+  Char* data_{storage_.data()};
   size_t size_{};
-  size_t capacity_{};
-};
-
-/**
- * This union unites std::basic_string for runtime and ct_basic_string for compile-time.
- * @tparam Char The character type.
- */
-template <typename Char>
-union basic_string_union {
-  constexpr basic_string_union() noexcept {
-    if (Y_EMIO_IS_CONST_EVAL) {
-      std::construct_at(&ct_str_);
-    } else {
-      std::construct_at(&str_);
-    }
-  }
-
-  constexpr basic_string_union(const basic_string_union&) = delete;
-  constexpr basic_string_union(basic_string_union&&) noexcept = delete;
-  constexpr basic_string_union& operator=(const basic_string_union&) = delete;
-  constexpr basic_string_union& operator=(basic_string_union&&) noexcept = default;
-
-  constexpr ~basic_string_union() noexcept {
-    if (Y_EMIO_IS_CONST_EVAL) {
-      ct_str_.~ct_basic_string();
-    } else {
-      str_.~basic_string();
-    }
-  }
-
-  [[nodiscard]] constexpr size_t capacity() noexcept {
-    if (Y_EMIO_IS_CONST_EVAL) {
-      return ct_str_.capacity();
-    } else {
-      return str_.capacity();
-    }
-  }
-
-  constexpr void resize(size_t size) noexcept {
-    if (Y_EMIO_IS_CONST_EVAL) {
-      ct_str_.resize(size);
-    } else {
-      str_.resize(size);
-    }
-  }
-
-  constexpr Char* data() noexcept {
-    if (Y_EMIO_IS_CONST_EVAL) {
-      return ct_str_.data();
-    } else {
-      return str_.data();
-    }
-  }
-
-  [[nodiscard]] constexpr const Char* data() const noexcept {
-    if (Y_EMIO_IS_CONST_EVAL) {
-      return ct_str_.data();
-    } else {
-      return str_.data();
-    }
-  }
-
-  [[nodiscard]] constexpr size_t size() const noexcept {
-    if (Y_EMIO_IS_CONST_EVAL) {
-      return ct_str_.size();
-    } else {
-      return str_.size();
-    }
-  }
-
- private:
-  std::basic_string<Char> str_;
-  detail::ct_basic_string<Char> ct_str_;
+  size_t capacity_{StorageSize};
 };
 
 }  // namespace emio::detail
@@ -436,7 +629,7 @@ class [[nodiscard]] result<Value> {
    * @return True if it holds a value, otherwise false.
    */
   [[nodiscard]] constexpr bool has_value() const noexcept {
-    return error_ == err{};
+    return value_.has_value();
   }
 
   /**
@@ -507,7 +700,7 @@ class [[nodiscard]] result<Value> {
    * @return The value.
    */
   [[nodiscard]] constexpr Value& assume_value() & noexcept {
-    return *value_;
+    return *value_;  // NOLINT(bugprone-unchecked-optional-access): assumed
   }
 
   /**
@@ -516,7 +709,7 @@ class [[nodiscard]] result<Value> {
    * @return The value.
    */
   [[nodiscard]] constexpr const Value& assume_value() const& noexcept {
-    return *value_;
+    return *value_;  // NOLINT(bugprone-unchecked-optional-access): assumed
   }
 
   /**
@@ -525,7 +718,7 @@ class [[nodiscard]] result<Value> {
    * @return The value.
    */
   [[nodiscard]] constexpr Value&& assume_value() && noexcept {
-    return std::move(*value_);
+    return std::move(*value_);  // NOLINT(bugprone-unchecked-optional-access): assumed
   }
 
   /**
@@ -534,7 +727,7 @@ class [[nodiscard]] result<Value> {
    * @return The value.
    */
   [[nodiscard]] constexpr const Value&& assume_value() const&& noexcept {
-    return std::move(*value_);
+    return std::move(*value_);  // NOLINT(bugprone-unchecked-optional-access): assumed
   }
 
   /**
@@ -552,9 +745,8 @@ class [[nodiscard]] result<Value> {
    * Returns a const reference to the value.
    * @return The value.
    */
-  // NOLINTNEXTLINE(modernize-use-nodiscard): access check
-  constexpr const Value& value() const& noexcept(detail::exceptions_disabled) {
-    if (has_value()) [[likely]] {
+  [[nodiscard]] constexpr const Value& value() const& noexcept(detail::exceptions_disabled) {
+    if (value_.has_value()) [[likely]] {
       return *value_;
     }
     detail::throw_bad_result_access_or_terminate(error_);
@@ -565,7 +757,7 @@ class [[nodiscard]] result<Value> {
    * @return The value.
    */
   constexpr Value&& value() && noexcept(detail::exceptions_disabled) {
-    if (has_value()) [[likely]] {
+    if (value_.has_value()) [[likely]] {
       return std::move(*value_);
     }
     detail::throw_bad_result_access_or_terminate(error_);
@@ -602,6 +794,7 @@ class [[nodiscard]] result<Value> {
       return error_;
     }
     detail::throw_bad_result_access_or_terminate(error_);
+    return {};  // afl-c++ requires a return statement.
   }
 
  private:
@@ -706,6 +899,7 @@ class [[nodiscard]] result<void> {
       return error_;
     }
     detail::throw_bad_result_access_or_terminate(error_);
+    return {};  // afl-c++ requires a return statement.
   }
 
  private:
@@ -875,38 +1069,39 @@ class buffer {
 };
 
 /**
- * This class fulfills the buffer API by internal using a string object.
+ * This class fulfills the buffer API by providing an endless growing buffer.
  * @tparam Char The character type.
+ * @tparam StorageSize The size of the inlined storage.
  */
-template <typename Char = char>
-class string_buffer final : public buffer<Char> {
+template <typename Char = char, size_t StorageSize = 32>
+class memory_buffer final : public buffer<Char> {
  public:
   /**
-   * Constructs and initializes the buffer with the basic capacity a string.
+   * Constructs and initializes the buffer with the internal storage size.
    */
-  constexpr string_buffer() : string_buffer{0} {}
+  constexpr memory_buffer() : memory_buffer{0} {}
 
   /**
    * Constructs and initializes the buffer with the given capacity.
-   * @param capacity The initial capacity of the string.
+   * @param capacity The initial capacity.
    */
-  constexpr explicit string_buffer(const size_t capacity) {
-    // Request at least the SBO capacity.
-    static_cast<void>(request_write_area(0, std::max(data_.capacity(), capacity)));
+  constexpr explicit memory_buffer(const size_t capacity) {
+    // Request at least the internal storage size.
+    static_cast<void>(request_write_area(0, std::max(vec_.capacity(), capacity)));
   }
 
-  constexpr string_buffer(const string_buffer&) = default;
-  constexpr string_buffer(string_buffer&&) noexcept = default;
-  constexpr string_buffer& operator=(const string_buffer&) = default;
-  constexpr string_buffer& operator=(string_buffer&&) noexcept = default;
-  constexpr ~string_buffer() override = default;
+  constexpr memory_buffer(const memory_buffer&) = default;
+  constexpr memory_buffer(memory_buffer&&) noexcept = default;
+  constexpr memory_buffer& operator=(const memory_buffer&) = default;
+  constexpr memory_buffer& operator=(memory_buffer&&) noexcept = default;
+  constexpr ~memory_buffer() override = default;
 
   /**
    * Obtains a view over the underlying string object.
    * @return The view.
    */
   [[nodiscard]] constexpr std::basic_string_view<Char> view() const noexcept {
-    return {data_.data(), used_ + this->get_used_count()};
+    return {vec_.data(), used_ + this->get_used_count()};
   }
 
   /**
@@ -919,18 +1114,17 @@ class string_buffer final : public buffer<Char> {
 
  protected:
   constexpr result<std::span<Char>> request_write_area(const size_t used, const size_t size) noexcept override {
-    const size_t new_size = data_.size() + size;
-    data_.resize(new_size);
+    const size_t new_size = vec_.size() + size;
+    vec_.reserve(new_size);
     used_ += used;
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): Performance in debug.
-    const std::span<Char> area{data_.data() + used_, size};
+    const std::span<Char> area{vec_.data() + used_, size};
     this->set_write_area(area);
     return area;
   }
 
  private:
   size_t used_{};
-  detail::basic_string_union<Char> data_{};
+  detail::ct_vector<Char, StorageSize> vec_{};
 };
 
 /**
@@ -1271,215 +1465,6 @@ class basic_counting_buffer final : public buffer<Char> {
 //
 // For the license information refer to emio.hpp
 
-#include <bit>
-#include <cstdint>
-#include <limits>
-#include <optional>
-#include <string_view>
-#include <type_traits>
-
-namespace emio::detail {
-
-constexpr bool isalpha(char c) {
-  return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
-}
-
-constexpr bool isdigit(char c) {
-  return (c >= '0' && c <= '9');
-}
-
-constexpr bool is_valid_number_base(int base) noexcept {
-  return base >= 2 && base <= 36;
-}
-
-constexpr std::optional<int> char_to_digit(char c, int base) noexcept {
-  if (c < '0') {
-    return std::nullopt;
-  }
-  int res{};
-  if (c >= 'a') {
-    res = c - 'a' + 10;
-  } else if (c >= 'A') {
-    res = c - 'A' + 10;
-  } else {
-    res = c - '0';
-  }
-  if (res < base) {
-    return res;
-  }
-  return std::nullopt;
-}
-
-constexpr char digit_to_char(int digit, int base, bool upper) noexcept {
-  if (base >= 1 && digit >= 10) {
-    if (upper) {
-      return static_cast<char>(static_cast<int>('A') + (digit - 10));
-    }
-    return static_cast<char>(static_cast<int>('a') + (digit - 10));
-  }
-  return static_cast<char>(static_cast<int>('0') + digit);
-}
-
-template <typename T>
-  requires(std::is_unsigned_v<T>)
-constexpr size_t count_digits_10(T number) noexcept {
-  size_t count = 1;
-  for (;;) {
-    // Integer division is slow so do it for a group of four digits instead
-    // of for every digit. The idea comes from the talk by Alexandrescu
-    // "Three Optimization Tips for C++".
-    if (number < 10) {
-      return count;
-    }
-    if (number < 100) {
-      return count + 1;
-    }
-    if (number < 1000) {
-      return count + 2;
-    }
-    if (number < 10000) {
-      return count + 3;
-    }
-    number /= 10000U;
-    count += 4;
-  }
-}
-
-template <size_t Base, typename T>
-  requires(std::is_unsigned_v<T>)
-constexpr size_t count_digits(T number) noexcept {
-  if (number == 0) {
-    return 1;
-  }
-
-  if constexpr (Base == 10) {
-    return count_digits_10(number);
-  } else if constexpr (Base == 2) {
-    return std::bit_width(number);
-  } else if constexpr (Base == 8) {
-    return (std::bit_width(number) + 2) / 3;
-  } else if constexpr (Base == 16) {
-    return (std::bit_width(number) + 3) / 4;
-  } else {
-    size_t digit_cnt{1};
-    for (number /= static_cast<T>(Base); number; number /= static_cast<T>(Base)) {
-      ++digit_cnt;
-    }
-    return digit_cnt;
-  }
-}
-
-template <typename T>
-  requires(std::is_unsigned_v<T>)
-constexpr size_t get_number_of_digits(T number, int base) noexcept {
-  if (number == 0) {
-    return 1;
-  }
-  if (base == 10) {
-    return count_digits<10>(number);
-  }
-  if (base == 16) {
-    return count_digits<16>(number);
-  }
-  if (base == 2) {
-    return count_digits<2>(number);
-  }
-  if (base == 8) {
-    return count_digits<8>(number);
-  }
-  size_t digit_cnt{1};
-  for (number /= static_cast<T>(base); number; number /= static_cast<T>(base)) {
-    ++digit_cnt;
-  }
-  return digit_cnt;
-}
-
-template <typename T>
-constexpr bool is_negative(T value) noexcept {
-  if constexpr (std::is_signed_v<T>) {
-    return value < 0;
-  } else {
-    return false;
-  }
-}
-
-template <typename T>
-constexpr int num_bits() noexcept {
-  return std::numeric_limits<T>::digits;
-}
-
-template <typename T>
-using int32_or_64 = std::conditional_t<num_bits<T>() <= 32, int32_t, int64_t>;
-
-template <typename T>
-using uint32_or_64 = std::conditional_t<num_bits<T>() <= 32, uint32_t, uint64_t>;
-
-template <typename T>
-  requires(std::is_integral_v<T>)
-constexpr auto integer_upcast(T integer) {
-  if constexpr (std::is_signed_v<T>) {
-    return static_cast<int32_or_64<T>>(integer);
-  } else {
-    return static_cast<uint32_or_64<T>>(integer);
-  }
-}
-
-template <typename T>
-constexpr uint32_or_64<T> to_absolute(T number) noexcept {
-  if constexpr (std::is_unsigned_v<T>) {
-    return number;
-  } else {
-    if (is_negative(number)) {
-      auto abs = static_cast<uint32_or_64<T>>(number);
-      abs = T{} - abs;
-      return abs;
-    }
-    return static_cast<uint32_or_64<T>>(number);
-  }
-}
-
-template <typename T>
-constexpr std::make_unsigned_t<T> to_unsigned(T number) noexcept {
-  return static_cast<std::make_unsigned_t<T>>(number);
-}
-
-template <typename T>
-constexpr std::make_signed_t<T> to_signed(T number) noexcept {
-  return static_cast<std::make_signed_t<T>>(number);
-}
-
-template <typename T, typename OutputIt>
-  requires(std::is_unsigned_v<T>)
-constexpr OutputIt write_number(T abs_number, int base, bool upper, OutputIt next) {
-  if (abs_number == 0) {
-    *(--next) = '0';  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic): performance
-    return next;
-  }
-  // Write number from right to left.
-  for (; abs_number; abs_number /= static_cast<T>(base)) {
-    const char c = digit_to_char(static_cast<int>(abs_number % static_cast<T>(base)), base, upper);
-    *(--next) = c;  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic): performance
-  }
-  return next;
-}
-
-inline constexpr size_t npos = std::string_view::npos;
-
-template <typename Char>
-constexpr std::basic_string_view<Char> unchecked_substr(const std::basic_string_view<Char>& str, size_t pos,
-                                                        size_t n = npos) noexcept {
-  const size_t rlen = std::min(n, str.length() - pos);
-  return {str.data() + pos, rlen};
-}
-
-}  // namespace emio::detail
-
-//
-// Copyright (c) 2021 - present, Toni Neubert
-// All rights reserved.
-//
-// For the license information refer to emio.hpp
-
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
@@ -1604,7 +1589,7 @@ class writer {
     size_t remaining_size = n;
     while (remaining_size != 0) {
       EMIO_TRY(const auto area, buf_.get_write_area_of_max(remaining_size));
-      std::fill_n(area.data(), area.size(), c);
+      detail::fill_n(area.data(), area.size(), c);
       remaining_size -= area.size();
     }
     return success;
@@ -1637,7 +1622,7 @@ class writer {
     size_t remaining_size = sv.size();
     while (remaining_size != 0) {
       EMIO_TRY(const auto area, buf_.get_write_area_of_max(remaining_size));
-      std::copy_n(ptr, area.size(), area.data());
+      detail::copy_n(ptr, area.size(), area.data());
       remaining_size -= area.size();
     }
     return success;
@@ -2266,8 +2251,8 @@ struct format_specs {
   char sign{no_sign};
   bool alternate_form{false};
   bool zero_flag{false};
-  int width{0};
-  int precision{no_precision};
+  int32_t width{0};
+  int32_t precision{no_precision};
   char type{no_type};
 };
 
@@ -2450,6 +2435,807 @@ class parser_base<Char, input_validation::disabled> {
 
 }  // namespace emio::detail
 
+//
+// Copyright (c) 2023 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+
+// This implementation is based on:
+// https://github.com/rust-lang/rust/blob/71ef9ecbdedb67c32f074884f503f8e582855c2f/library/core/src/num/flt2dec/strategy/dragon.rs
+
+#include <algorithm>
+#include <bit>
+#include <cstdint>
+#include <cstring>
+#include <limits>
+#include <optional>
+#include <span>
+#include <type_traits>
+
+//
+// Copyright (c) 2023 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+
+// This implementation is based on:
+// https://github.com/rust-lang/rust/blob/71ef9ecbdedb67c32f074884f503f8e582855c2f/library/core/src/num/bignum.rs
+
+#include <algorithm>
+#include <array>
+#include <cstdint>
+#include <exception>
+#include <span>
+
+namespace emio::detail {
+
+struct carrying_add_result_t {
+  uint32_t value;
+  bool carry;
+
+  friend constexpr bool operator==(const carrying_add_result_t& lhs,
+                                   const carrying_add_result_t& rhs) noexcept = default;
+};
+
+inline constexpr carrying_add_result_t carrying_add(uint32_t a, uint32_t b, bool carry) {
+  const uint32_t v1 = a + b;
+  const bool carry1 = v1 < a;
+  const uint32_t v2 = v1 + static_cast<uint32_t>(carry);
+  const bool carry2 = v2 < v1;
+  return {v2, carry1 || carry2};
+}
+
+struct borrowing_sub_result_t {
+  uint32_t value;
+  bool borrow;
+
+  friend constexpr bool operator==(const borrowing_sub_result_t& lhs,
+                                   const borrowing_sub_result_t& rhs) noexcept = default;
+};
+
+inline constexpr borrowing_sub_result_t borrowing_sub(uint32_t a, uint32_t b, bool borrow) {
+  const uint32_t v1 = a - b;
+  const bool borrow1 = v1 > a;
+  const uint32_t v2 = v1 - static_cast<uint32_t>(borrow);
+  const bool borrow2 = v2 > v1;
+  return {v2, borrow1 || borrow2};
+}
+
+struct carrying_mul_result_t {
+  uint32_t value;
+  uint32_t carry;
+
+  friend constexpr bool operator==(const carrying_mul_result_t& lhs,
+                                   const carrying_mul_result_t& rhs) noexcept = default;
+};
+
+inline constexpr carrying_mul_result_t carrying_mul(uint32_t a, uint32_t b, uint32_t carry) {
+  const uint64_t v1 = static_cast<uint64_t>(a) * b + carry;
+  const auto v2 = static_cast<uint32_t>(v1);
+  const auto carry1 = static_cast<uint32_t>(v1 >> 32U);
+  return {v2, carry1};
+}
+
+/// Stack-allocated arbitrary-precision (up to certain limit) integer.
+class bignum {
+ public:
+  static constexpr size_t max_blocks = 34;
+
+  static constexpr bignum from(size_t sz, const std::array<uint32_t, max_blocks>& b) {
+    bignum bn{};
+    bn.size_ = sz;
+    bn.base_ = b;
+    return bn;
+  }
+
+  constexpr explicit bignum() noexcept = default;
+
+  /// Makes a bignum from one digit.
+  template <typename T>
+    requires(std::is_unsigned_v<T> && sizeof(T) <= sizeof(uint32_t))
+  explicit constexpr bignum(T v) noexcept : base_{{v}} {}
+
+  /// Makes a bignum from `u64` value.
+  template <typename T>
+    requires(std::is_unsigned_v<T> && sizeof(T) == sizeof(uint64_t))
+  explicit constexpr bignum(T v) noexcept : base_{{static_cast<uint32_t>(v), static_cast<uint32_t>(v >> 32)}} {
+    size_ += static_cast<size_t>(base_[1] > 0);
+  }
+
+  /// Returns the internal digits as a slice `[a, b, c, ...]` such that the numeric
+  /// value is `a + b * 2^W + c * 2^(2W) + ...` where `W` is the number of bits in
+  /// the digit type.
+  constexpr std::span<uint32_t> digits() noexcept {
+    return {base_.data(), size_};
+  }
+
+  /// Returns the `i`-th bit where bit 0 is the least significant one.
+  /// In other words, the bit with weight `2^i`.
+  [[nodiscard]] constexpr uint8_t get_bit(size_t i) const noexcept {
+    const size_t digitbits = 32;
+    const auto d = i / digitbits;
+    const auto b = i % digitbits;
+    return static_cast<uint8_t>((base_[d] >> b) & 1U);
+  }
+
+  /// Returns `true` if the bignum is zero.
+  [[nodiscard]] constexpr bool is_zero() const noexcept {
+    return std::all_of(base_.begin(), base_.end(), [](uint32_t v) {
+      return v == 0;
+    });
+  }
+
+  // add
+  // add_small
+  constexpr bignum& add_small(uint32_t other) noexcept {
+    return add_small_at(0, other);
+  }
+
+  constexpr bignum& add_small_at(size_t index, uint32_t other) noexcept {
+    size_t i = index;
+    auto res = carrying_add(base_[i], other, false);
+    base_[i] = res.value;
+    i += 1;
+    for (; res.carry && (i < base_.size()); i++) {
+      res = carrying_add(base_[i], 0, res.carry);
+      base_[i] = res.value;
+    }
+    EMIO_Z_DEV_ASSERT(!res.carry);
+    size_ = i;
+    return *this;
+  }
+
+  constexpr bignum& add(const bignum& other) noexcept {
+    carrying_add_result_t res{0, false};
+    size_t i = 0;
+    for (; (i < other.size_) || (res.carry && (i < base_.size())); i++) {
+      res = carrying_add(base_[i], other.base_[i], res.carry);
+      base_[i] = res.value;
+    }
+    EMIO_Z_DEV_ASSERT(!res.carry);
+    if (i > size_) {
+      size_ = i;
+    }
+    return *this;
+  }
+
+  /// Subtracts `other` from itself and returns its own mutable reference.
+  constexpr bignum& sub_small(uint32_t other) noexcept {
+    auto res = borrowing_sub(base_[0], other, false);
+    base_[0] = res.value;
+    size_t i = 1;
+    for (; res.borrow && (i < base_.size()); i++) {
+      res = borrowing_sub(base_[i], 0, res.borrow);
+      base_[i] = res.value;
+    }
+    EMIO_Z_DEV_ASSERT(!res.borrow);
+    if (i == size_ && size_ != 1) {
+      size_ -= 1;
+    }
+    return *this;
+  }
+
+  /// Subtracts `other` from itself and returns its own mutable reference.
+  constexpr bignum& sub(const bignum& other) noexcept {
+    EMIO_Z_DEV_ASSERT(size_ >= other.size_);
+    if (size_ == 0) {
+      return *this;
+    }
+    borrowing_sub_result_t res{0, false};
+    for (size_t i = 0; i < size_; i++) {
+      res = borrowing_sub(base_[i], other.base_[i], res.borrow);
+      base_[i] = res.value;
+    }
+    EMIO_Z_DEV_ASSERT(!res.borrow);
+    do {
+      if (base_[size_ - 1] != 0) {
+        break;
+      }
+    } while (--size_ != 0);
+    return *this;
+  }
+
+  /// Multiplies itself by a digit-sized `other` and returns its own
+  /// mutable reference.
+  constexpr bignum& mul_small(uint32_t other) noexcept {
+    return muladd_small(other, 0);
+  }
+
+  constexpr bignum& muladd_small(uint32_t other, uint32_t carry) noexcept {
+    carrying_mul_result_t res{0, carry};
+    for (size_t i = 0; i < size_; i++) {
+      res = carrying_mul(base_[i], other, res.carry);
+      base_[i] = res.value;
+    }
+    if (res.carry > 0) {
+      base_[size_] = res.carry;
+      size_ += 1;
+    }
+    return *this;
+  }
+
+  [[nodiscard]] bignum mul(const bignum& other) const noexcept {
+    const auto& bn_max = size_ > other.size_ ? *this : other;
+    const auto& bn_min = size_ > other.size_ ? other : *this;
+
+    bignum prod{};
+    for (size_t i = 0; i < bn_min.size_; i++) {
+      carrying_mul_result_t res{0, 0};
+      for (size_t j = 0; j < bn_max.size_; j++) {
+        res = carrying_mul(bn_min.base_[i], bn_max.base_[j], res.carry);
+        prod.add_small_at(i + j, res.value);
+      }
+      if (res.carry > 0) {
+        prod.add_small_at(i + bn_max.size_, res.carry);
+      }
+    }
+    return prod;
+  }
+
+  constexpr bignum& mul_digits(std::span<const uint32_t> other) noexcept {
+    const auto& bn_max = size_ > other.size() ? digits() : other;
+    const auto& bn_min = size_ > other.size() ? other : digits();
+
+    bignum prod{};
+    for (size_t i = 0; i < bn_min.size(); i++) {
+      carrying_mul_result_t res{0, 0};
+      for (size_t j = 0; j < bn_max.size(); j++) {
+        res = carrying_mul(bn_min[i], bn_max[j], res.carry);
+        prod.add_small_at(i + j, res.value);
+      }
+      if (res.carry > 0) {
+        prod.add_small_at(i + bn_max.size(), res.carry);
+      }
+    }
+    *this = prod;
+    return *this;
+  }
+
+  /// Multiplies itself by `5^e` and returns its own mutable reference.
+  constexpr bignum& mul_pow5(size_t k) noexcept {
+    // Multiply with the largest single-digit power as long as possible.
+    while (k >= 13) {
+      mul_small(1220703125);
+      k -= 13;
+    }
+    // Stop if nothing left.
+    if (k == 0) {
+      return *this;
+    }
+    // Finish off the remainder.
+    uint32_t rest_power{5};
+    while (--k > 0) {
+      rest_power *= 5;
+    }
+    return mul_small(rest_power);
+  }
+
+  /// Divides itself by a digit-sized `other` and returns its own
+  /// mutable reference *and* the remainder.
+  constexpr uint32_t div_rem_small(uint32_t other) {
+    uint64_t borrow = 0;
+    for (size_t i = size_; i > 0; i--) {
+      const uint64_t v = (base_[i - 1] + (borrow << 32U));
+      const uint64_t res = v / other;
+      base_[i - 1] = static_cast<uint32_t>(res);
+      borrow = v - res * other;
+    }
+    return static_cast<uint32_t>(borrow);
+  }
+
+  /// Multiplies itself by `2^exp` and returns its own mutable reference.
+  constexpr bignum& mul_pow2(size_t exp) noexcept {
+    const size_t digits = exp / 32;
+    const size_t bits = exp % 32;
+
+    if (digits > 0) {
+      for (size_t i = size_; i > 0; --i) {
+        base_[i + digits - 1] = base_[i - 1];
+      }
+      for (size_t i = 0; i < digits; i++) {
+        base_[i] = 0;
+      }
+      size_ += digits;
+    }
+    if (bits > 0) {
+      uint32_t overflow = 0;
+      size_t i = 0;
+      for (; i < size_; i++) {
+        auto res = static_cast<uint64_t>(base_[i]) << bits;
+        base_[i] = static_cast<uint32_t>(res) + overflow;
+        overflow = static_cast<uint32_t>(res >> 32);
+      }
+      if (overflow > 0) {
+        base_[i] = overflow;
+        size_ += 1;
+      }
+    }
+    return *this;
+  }
+
+  [[nodiscard]] constexpr std::strong_ordering operator<=>(const bignum& other) const noexcept {
+    if (size_ > other.size_) {
+      return std::strong_ordering::greater;
+    }
+    if (size_ < other.size_) {
+      return std::strong_ordering::less;
+    }
+    for (size_t i = size_; i > 0; i--) {
+      if (base_[i - 1] > other.base_[i - 1]) {
+        return std::strong_ordering::greater;
+      }
+      if (base_[i - 1] < other.base_[i - 1]) {
+        return std::strong_ordering::less;
+      }
+    }
+    return std::strong_ordering::equal;
+  }
+
+  constexpr bool operator==(const bignum& other) const noexcept = default;
+
+ private:
+  /// Number of "digits" used in base_.
+  size_t size_{1};
+  /// Digits. `[a, b, c, ...]` represents `a + b*2^W + c*2^(2W) + ...`
+  /// where `W` is the number of bits in the digit type.
+  std::array<uint32_t, max_blocks> base_{};
+};
+
+}  // namespace emio::detail
+
+//
+// Copyright (c) 2023 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+
+// This implementation is based on:
+// https://github.com/rust-lang/rust/blob/71ef9ecbdedb67c32f074884f503f8e582855c2f/library/core/src/num/flt2dec/decoder.rs
+
+#include <bit>
+#include <cstdint>
+#include <cstring>
+#include <limits>
+#include <type_traits>
+
+namespace emio::detail::format {
+
+struct finite_result_t {
+  uint64_t mant{};
+  uint64_t minus{};
+  uint64_t plus{};
+  int16_t exp{};
+  bool inclusive{};
+};
+
+enum class category { zero, finite, infinity, nan };
+
+struct decode_result_t {
+  bool negative{};
+  format::category category{};
+  finite_result_t finite{};  // Only valid if category is finite.
+};
+
+inline constexpr decode_result_t decode(double value) noexcept {
+  decode_result_t res{};
+
+  using bits_type = uint64_t;
+  const auto bits = std::bit_cast<bits_type>(value);
+
+  res.negative = bits >> 63 != 0;
+  if (value == 0) {
+    return res;
+  }
+
+  // Exponent bias + mantissa shift
+  res.finite.exp = static_cast<int16_t>(((bits >> 52) & 0x7ff) - (1023 + 52));
+  res.finite.mant = res.finite.exp == -1075 ? (bits & 0xfffffffffffff) << 1 : (bits & 0xfffffffffffff);
+  res.finite.inclusive = (res.finite.mant & 1) == 0;
+
+  if (res.finite.exp == 972) {  // non-numbers.
+    if (res.finite.mant == 0) {
+      res.category = category::infinity;
+    } else {
+      res.category = category::nan;
+    }
+  } else {
+    res.category = category::finite;
+    res.finite.minus = 1;
+    res.finite.plus = 1;
+    if (res.finite.exp != -1075) {  // Norm.
+      res.finite.mant |= 0x10000000000000;
+      constexpr auto minnorm = std::bit_cast<bits_type>(std::numeric_limits<double>::min());
+      if (res.finite.mant == minnorm) {
+        res.finite.plus = 2;
+        res.finite.mant <<= 2;
+        res.finite.exp -= 2;
+      } else {
+        res.finite.mant <<= 1;
+        res.finite.exp -= 1;
+      }
+    }
+  }
+
+  return res;
+}
+
+}  // namespace emio::detail::format
+
+namespace emio::detail::format {
+
+inline constexpr int16_t estimate_scaling_factor(uint64_t mant, int16_t exp) noexcept {
+  // 2^(nbits-1) < mant <= 2^nbits if mant > 0
+  const int nbits = 64 - std::countl_zero(mant - 1);
+  // 1292913986 = floor(2^32 * log_10 2)
+  // therefore this always underestimates (or is exact), but not much.
+  return static_cast<int16_t>((static_cast<int64_t>(nbits + exp) * 1292913986) >> 32);
+}
+
+inline constexpr std::optional<char> round_up(std::span<char> d) noexcept {
+  const auto end = d.rend();
+  auto it = std::find_if(d.rbegin(), end, [](char c) {
+    return c != '9';
+  });
+  if (it != end) {
+    // d[i+1..n] is all nines.
+    auto i = static_cast<size_t>(std::distance(it, end) - 1);
+    d[i] += 1;  // Round up.
+    for (size_t j = i + 1; j < d.size(); j++) {
+      d[j] = '0';
+    }
+    return std::nullopt;
+  } else if (!d.empty()) {
+    // 999..999 rounds to 1000..000 with an increased exponent
+    d[0] = '1';
+    for (char& c : d.subspan(1)) {
+      c = '0';
+    }
+    return '0';
+  }
+  // an empty buffer rounds up (a bit strange but reasonable)
+  return '1';
+}
+
+struct format_fp_result_t {
+  std::span<const char> digits;
+  int16_t exp;
+};
+
+enum class format_exact_mode { significand_digits, decimal_point };
+
+inline constexpr format_fp_result_t format_exact(const finite_result_t& dec, emio::buffer<char>& buf,
+                                                 format_exact_mode mode, int16_t number_of_digits) noexcept {
+  EMIO_Z_DEV_ASSERT(dec.mant > 0);
+  EMIO_Z_DEV_ASSERT(dec.minus > 0);
+  EMIO_Z_DEV_ASSERT(dec.plus > 0);
+
+  // estimate `k_0` from original inputs satisfying `10^(k_0-1) < v <= 10^(k_0+1)`.
+  int16_t k = estimate_scaling_factor(dec.mant, dec.exp);
+
+  // `v = mant / scale`.
+  auto mant = bignum(dec.mant);
+  auto scale = bignum(1U);
+
+  size_t s2 = 0;
+  size_t s5 = 0;
+  size_t m2 = 0;
+  size_t m5 = 0;
+
+  if (dec.exp < 0) {
+    s2 = static_cast<size_t>(-dec.exp);
+  } else {
+    m2 += static_cast<size_t>(dec.exp);
+  }
+
+  // divide `mant` by `10^k`. now `scale / 10 < mant <= scale * 10`.
+  if (k >= 0) {
+    s2 += static_cast<size_t>(k);
+    s5 += static_cast<size_t>(k);
+  } else {
+    m2 += static_cast<size_t>(-k);
+    m5 += static_cast<size_t>(-k);
+  }
+
+  scale.mul_pow5(s5);
+  scale.mul_pow2(s2);
+
+  mant.mul_pow5(m5);
+  mant.mul_pow2(m2);
+
+  // calculate required buffer size
+  size_t len{};
+  size_t extra_len{};
+  if (mode == format_exact_mode::significand_digits) {
+    len = static_cast<size_t>(number_of_digits);
+  } else if ((k + number_of_digits) >= 0) {
+    len = static_cast<size_t>(k + number_of_digits);
+    extra_len = 1;
+  }
+
+  // fixup estimation
+  // in order to keep the fixed-size bignum, we actually use `mant + floor(plus) >= scale`.
+  // we are not actually modifying `scale`, since we can skip the initial multiplication instead.
+  // again with the shortest algorithm, `d[0]` can be zero but will be eventually rounded up.
+  // if we are working with the last-digit limitation, we need to shorten the buffer
+  // before the actual rendering in order to avoid double rounding.
+  // note that we have to enlarge the buffer again when rounding up happens!
+  if (mant >= scale) {
+    k += 1;
+    len += extra_len;
+  } else {
+    mant.mul_small(10);
+  }
+
+  auto dst = buf.get_write_area_of(len).value();
+
+  if (len > 0) {
+    // cache `(2, 4, 8) * scale` for digit generation.
+    bignum scale2 = scale;
+    scale2.mul_pow2(1);
+    bignum scale4 = scale;
+    scale4.mul_pow2(2);
+    bignum scale8 = scale;
+    scale8.mul_pow2(3);
+
+    for (size_t i = 0; i < len; i++) {
+      if (mant.is_zero()) {
+        // following digits are all zeroes, we stop here
+        // do *not* try to perform rounding! rather, fill remaining digits.
+        for (char& c : dst.subspan(i)) {
+          c = '0';
+        }
+        return {dst, k};
+      }
+
+      size_t d = 0;
+      if (mant >= scale8) {
+        mant.sub(scale8);
+        d += 8;
+      }
+      if (mant >= scale4) {
+        mant.sub(scale4);
+        d += 4;
+      }
+      if (mant >= scale2) {
+        mant.sub(scale2);
+        d += 2;
+      }
+      if (mant >= scale) {
+        mant.sub(scale);
+        d += 1;
+      }
+      EMIO_Z_DEV_ASSERT(mant < scale);
+      EMIO_Z_DEV_ASSERT(d < 10);
+      dst[i] = static_cast<char>('0' + d);
+      mant.mul_small(10);
+    }
+  }
+
+  // rounding up if we stop in the middle of digits
+  // if the following digits are exactly 5000..., check the prior digit and try to
+  // round to even (i.e., avoid rounding up when the prior digit is even).
+  const auto order = mant <=> (scale.mul_small(5));
+  if (order == std::strong_ordering::greater ||
+      (order == std::strong_ordering::equal && len > 0 && (dst[len - 1] & 1) == 1)) {
+    // if rounding up changes the length, the exponent should also change.
+    // but we've been requested a fixed number of digits, so do not alter the buffer...
+    if (std::optional<char> c = round_up(dst.subspan(0, len))) {
+      k += 1;
+      // ...unless we've been requested the fixed precision instead.
+      // we also need to check that, if the original buffer was empty,
+      // the additional digit can only be added when `k == limit` (edge case).
+      if (k > -number_of_digits) {
+        if (len == 0) {
+          dst = buf.get_write_area_of(1).value();
+        }
+
+        if (len != 0 && len < dst.size()) {
+          return {};
+        }
+
+        if (len < dst.size()) {
+          dst[len] = *c;
+          len += 1;
+        }
+      }
+    }
+  }
+  return {dst.subspan(0, len), k};
+}
+
+inline constexpr format_fp_result_t format_shortest(const finite_result_t& dec, emio::buffer<char>& buf) noexcept {
+  // the number `v` to format is known to be:
+  // - equal to `mant * 2^exp`;
+  // - preceded by `(mant - 2 * minus) * 2^exp` in the original type; and
+  // - followed by `(mant + 2 * plus) * 2^exp` in the original type.
+  //
+  // obviously, `minus` and `plus` cannot be zero. (for infinities, we use out-of-range values.)
+  // also we assume that at least one digit is generated, i.e., `mant` cannot be zero too.
+  //
+  // this also means that any number between `low = (mant - minus) * 2^exp` and
+  // `high = (mant + plus) * 2^exp` will map to this exact floating point number,
+  // with bounds included when the original mantissa was even (i.e., `!mant_was_odd`).
+  EMIO_Z_DEV_ASSERT(dec.mant > 0);
+  EMIO_Z_DEV_ASSERT(dec.minus > 0);
+  EMIO_Z_DEV_ASSERT(dec.plus > 0);
+  //  EMIO_Z_DEV_ASSERT(buf.() >= MAX_SIG_DIGITS);
+
+  // `a.cmp(&b) < rounding` is `if d.inclusive {a <= b} else {a < b}`
+  const auto rounding = [&](std::strong_ordering ordering) {
+    if (dec.inclusive) {
+      return ordering <= 0;  // NOLINT(modernize-use-nullptr): false positive
+    }
+    return ordering < 0;  // NOLINT(modernize-use-nullptr): false positive
+  };
+
+  // estimate `k_0` from original inputs satisfying `10^(k_0-1) < high <= 10^(k_0+1)`.
+  // the tight bound `k` satisfying `10^(k-1) < high <= 10^k` is calculated later.
+  int16_t k = estimate_scaling_factor(dec.mant + dec.plus, dec.exp);
+
+  // convert `{mant, plus, minus} * 2^exp` into the fractional form so that:
+  // - `v = mant / scale`
+  // - `low = (mant - minus) / scale`
+  // - `high = (mant + plus) / scale`
+  auto mant = bignum(dec.mant);
+  auto minus = bignum(dec.minus);
+  auto plus = bignum(dec.plus);
+  auto scale = bignum(1U);
+
+  size_t s2 = 0;
+  size_t s5 = 0;
+  size_t m2 = 0;
+  size_t m5 = 0;
+
+  if (dec.exp < 0) {
+    s2 = static_cast<size_t>(-dec.exp);
+  } else {
+    m2 += static_cast<size_t>(dec.exp);
+  }
+
+  // divide `mant` by `10^k`. now `scale / 10 < mant + plus <= scale * 10`.
+  if (k >= 0) {
+    s2 += static_cast<size_t>(k);
+    s5 += static_cast<size_t>(k);
+  } else {
+    m2 += static_cast<size_t>(-k);
+    m5 += static_cast<size_t>(-k);
+  }
+
+  scale.mul_pow5(s5);
+  scale.mul_pow2(s2);
+
+  mant.mul_pow5(m5);
+  mant.mul_pow2(m2);
+  minus.mul_pow5(m5);
+  minus.mul_pow2(m2);
+  plus.mul_pow5(m5);
+  plus.mul_pow2(m2);
+
+  // fixup when `mant + plus > scale` (or `>=`).
+  // we are not actually modifying `scale`, since we can skip the initial multiplication instead.
+  // now `scale < mant + plus <= scale * 10` and we are ready to generate digits.
+  //
+  // note that `d[0]` *can* be zero, when `scale - plus < mant < scale`.
+  // in this case rounding-up condition (`up` below) will be triggered immediately.
+  if (rounding(scale <=> (bignum{mant}.add(plus)))) {
+    // equivalent to scaling `scale` by 10
+    k += 1;
+  } else {
+    mant.mul_small(10);
+    minus.mul_small(10);
+    plus.mul_small(10);
+  }
+
+  // cache `(2, 4, 8) * scale` for digit generation.
+  bignum scale2 = scale;
+  scale2.mul_pow2(1);
+  bignum scale4 = scale;
+  scale4.mul_pow2(2);
+  bignum scale8 = scale;
+  scale8.mul_pow2(3);
+
+  auto dst = buf.get_write_area_of(std::numeric_limits<double>::max_digits10).value();
+
+  bool down{};
+  bool up{};
+  size_t i{};
+  while (true) {
+    // invariants, where `d[0..n-1]` are digits generated so far:
+    // - `v = mant / scale * 10^(k-n-1) + d[0..n-1] * 10^(k-n)`
+    // - `v - low = minus / scale * 10^(k-n-1)`
+    // - `high - v = plus / scale * 10^(k-n-1)`
+    // - `(mant + plus) / scale <= 10` (thus `mant / scale < 10`)
+    // where `d[i..j]` is a shorthand for `d[i] * 10^(j-i) + ... + d[j-1] * 10 + d[j]`.
+
+    // generate one digit: `d[n] = floor(mant / scale) < 10`.
+    size_t d = 0;
+    if (mant >= scale8) {
+      mant.sub(scale8);
+      d += 8;
+    }
+    if (mant >= scale4) {
+      mant.sub(scale4);
+      d += 4;
+    }
+    if (mant >= scale2) {
+      mant.sub(scale2);
+      d += 2;
+    }
+    if (mant >= scale) {
+      mant.sub(scale);
+      d += 1;
+    }
+    EMIO_Z_DEV_ASSERT(mant < scale);
+    EMIO_Z_DEV_ASSERT(d < 10);
+    dst[i] = static_cast<char>('0' + d);
+    i += 1;
+
+    // this is a simplified description of the modified Dragon algorithm.
+    // many intermediate derivations and completeness arguments are omitted for convenience.
+    //
+    // start with modified invariants, as we've updated `n`:
+    // - `v = mant / scale * 10^(k-n) + d[0..n-1] * 10^(k-n)`
+    // - `v - low = minus / scale * 10^(k-n)`
+    // - `high - v = plus / scale * 10^(k-n)`
+    //
+    // assume that `d[0..n-1]` is the shortest representation between `low` and `high`,
+    // i.e., `d[0..n-1]` satisfies both of the following but `d[0..n-2]` doesn't:
+    // - `low < d[0..n-1] * 10^(k-n) < high` (bijectivity: digits round to `v`); and
+    // - `abs(v / 10^(k-n) - d[0..n-1]) <= 1/2` (the last digit is correct).
+    //
+    // the second condition simplifies to `2 * mant <= scale`.
+    // solving invariants in terms of `mant`, `low` and `high` yields
+    // a simpler version of the first condition: `-plus < mant < minus`.
+    // since `-plus < 0 <= mant`, we have the correct shortest representation
+    // when `mant < minus` and `2 * mant <= scale`.
+    // (the former becomes `mant <= minus` when the original mantissa is even.)
+    //
+    // when the second doesn't hold (`2 * mant > scale`), we need to increase the last digit.
+    // this is enough for restoring that condition: we already know that
+    // the digit generation guarantees `0 <= v / 10^(k-n) - d[0..n-1] < 1`.
+    // in this case, the first condition becomes `-plus < mant - scale < minus`.
+    // since `mant < scale` after the generation, we have `scale < mant + plus`.
+    // (again, this becomes `scale <= mant + plus` when the original mantissa is even.)
+    //
+    // in short:
+    // - stop and round `down` (keep digits as is) when `mant < minus` (or `<=`).
+    // - stop and round `up` (increase the last digit) when `scale < mant + plus` (or `<=`).
+    // - keep generating otherwise.
+    down = rounding(mant <=> (minus));
+    up = rounding(scale <=> (bignum{mant}.add(plus)));
+    if (down || up) {
+      // we have the shortest representation, proceed to the rounding
+      break;
+    }
+
+    // restore the invariants.
+    // this makes the algorithm always terminating: `minus` and `plus` always increases,
+    // but `mant` is clipped modulo `scale` and `scale` is fixed.
+    mant.mul_small(10);
+    minus.mul_small(10);
+    plus.mul_small(10);
+  }
+
+  // rounding up happens when
+  // i) only the rounding-up condition was triggered, or
+  // ii) both conditions were triggered and tie breaking prefers rounding up.
+  if (up && (!down || mant.mul_pow2(1) >= scale)) {
+    // if rounding up changes the length, the exponent should also change.
+    // it seems that this condition is very hard to satisfy (possibly impossible),
+    // but we are just being safe and consistent here.
+    // SAFETY: we initialized that memory above.
+    if (std::optional<char> c = round_up(dst.subspan(0, i))) {
+      dst[i] = *c;
+      i += 1;
+      k += 1;
+    }
+  }
+  return {dst.subspan(0, i), k};
+}
+
+}  // namespace emio::detail::format
+
 namespace emio {
 
 template <typename>
@@ -2533,17 +3319,31 @@ inline constexpr result<std::pair<std::string_view, writer<char>::write_int_opti
   return std::pair{prefix, options};
 }
 
-inline constexpr result<void> write_sign_and_prefix(writer<char>& wtr, const format_specs& specs, bool negative,
-                                                    std::string_view prefix) {
-  if (negative) {
-    EMIO_TRYV(wtr.write_char('-'));
+inline constexpr result<char> try_write_sign(writer<char>& wtr, const format_specs& specs, bool is_negative) {
+  char sign_to_write = no_sign;
+  if (is_negative) {
+    sign_to_write = '-';
   } else if (specs.sign == '+' || specs.sign == ' ') {
-    EMIO_TRYV(wtr.write_char(specs.sign));
+    sign_to_write = specs.sign;
   }
-  if (specs.alternate_form && !prefix.empty()) {
+  if (sign_to_write != no_sign && specs.zero_flag) {
+    EMIO_TRYV(wtr.write_char(sign_to_write));
+    return no_sign;
+  }
+  return sign_to_write;
+}
+
+inline constexpr result<std::string_view> try_write_prefix(writer<char>& wtr, const format_specs& specs,
+                                                           std::string_view prefix) {
+  const bool write_prefix = specs.alternate_form && !prefix.empty();
+  if (write_prefix && specs.zero_flag) {
     EMIO_TRYV(wtr.write_str(prefix));
+    return "";
   }
-  return success;
+  if (write_prefix) {
+    return prefix;
+  }
+  return "";
 }
 
 template <typename Arg>
@@ -2561,77 +3361,326 @@ constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const A
   }
 
   const auto abs_number = detail::to_absolute(arg);
-  const bool negative = detail::is_negative(arg);
-  const size_t number_of_digits = detail::get_number_of_digits(abs_number, options.base);
+  const bool is_negative = detail::is_negative(arg);
+  const size_t num_digits = detail::get_number_of_digits(abs_number, options.base);
 
-  size_t total_length = number_of_digits;
+  EMIO_TRY(const char sign_to_write, try_write_sign(wtr, specs, is_negative));
+  EMIO_TRY(const std::string_view prefix_to_write, try_write_prefix(wtr, specs, prefix));
+
+  size_t total_width = num_digits;
   if (specs.alternate_form) {
-    total_length += prefix.size();
+    total_width += prefix.size();
   }
-  if (negative || specs.sign == ' ' || specs.sign == '+') {
-    total_length += 1;
-  }
-
-  if (specs.zero_flag) {
-    EMIO_TRYV(write_sign_and_prefix(wtr, specs, negative, prefix));
+  if (is_negative || specs.sign == ' ' || specs.sign == '+') {
+    total_width += 1;
   }
 
-  return write_padded<alignment::right>(
-      wtr, specs, total_length, [&, &prefix = prefix, &options = options]() -> result<void> {
-        if (!specs.zero_flag) {
-          EMIO_TRYV(write_sign_and_prefix(wtr, specs, negative, prefix));
-        }
-
-        auto& buf = wtr.get_buffer();
-        EMIO_TRY(auto area, buf.get_write_area_of(number_of_digits));
-        write_number(abs_number, options.base, options.upper_case, area.begin() + detail::to_signed(number_of_digits));
-        return success;
-      });
+  return write_padded<alignment::right>(wtr, specs, total_width, [&, &options = options]() -> result<void> {
+    const size_t area_size =
+        num_digits + static_cast<size_t>(sign_to_write != no_sign) + static_cast<size_t>(prefix_to_write.size());
+    EMIO_TRY(auto area, wtr.get_buffer().get_write_area_of(area_size));
+    auto* it = area.data();
+    if (sign_to_write != no_sign) {
+      *it++ = sign_to_write;
+    }
+    if (!prefix_to_write.empty()) {
+      it = copy_n(prefix_to_write.data(), prefix_to_write.size(), it);
+    }
+    write_number(abs_number, options.base, options.upper_case, it + detail::to_signed(num_digits));
+    return success;
+  });
 }
 
-// template <typename Arg>
-// requires(std::is_floating_point_v<Arg>)
-//      result<void> write_arg(writer<char>& wtr, const format_specs&
-//     specs,
-//                                          const Arg& arg) noexcept {
-//	result<void> err;
-//	std::chars_format fmt;
-//	switch (specs.type) {
-//	case no_type:
-//	case 'f':
-//		fmt = std::chars_format::fixed;
-//		break;
-//		//	case 'G': upper
-//	case 'g':
-//		fmt = std::chars_format::general;
-//		break;
-//		//	case 'E': upper
-//	case 'e':
-//		fmt = std::chars_format::scientific;
-//		break;
-//		//	case 'F': upper
-//		// case 'A': upper
-//	case 'a':
-//		fmt = std::chars_format::hex;
-//		err = wtr.write("0x");
-//		break;
-//	default:
-//		err = err::invalid_format;
-//	}
-//	if (!err.has_error()) {
-//		if (specs.precision == NoPrecision) {
-//			if (specs.type == no_type) {
-//				err = wtr.write(arg);
-//			} else {
-//				err = wtr.write(arg, fmt);
-//			}
-//		} else {
-//			err = wtr.write(arg, fmt, specs.precision);
-//		}
-//	}
-//	return err;
-// return err::invalid_format;
-//}
+inline constexpr result<void> write_non_finite(writer<char>& wtr, bool upper_case, bool is_inf) {
+  if (is_inf) {
+    EMIO_TRYV(wtr.write_str(upper_case ? "INF" : "inf"));
+  } else {
+    EMIO_TRYV(wtr.write_str(upper_case ? "NAN" : "nan"));
+  }
+  return success;
+}
+
+// A floating-point presentation format.
+enum class fp_format : uint8_t {
+  general,  // General: exponent notation or fixed point based on magnitude.
+  exp,      // Exponent notation with the default precision of 6, e.g. 1.2e-3.
+  fixed,    // Fixed point with the default precision of 6, e.g. 0.0012.
+  hex
+};
+
+struct fp_format_specs {
+  int16_t precision;
+  fp_format format;
+  bool upper_case;
+  bool showpoint;
+};
+
+inline constexpr fp_format_specs parse_fp_format_specs(const format_specs& specs) {
+  constexpr int16_t default_precision = 6;
+
+  // This spec is typically for general format.
+  fp_format_specs fp_specs{
+      .precision =
+          specs.precision >= 0 || specs.type == no_type ? static_cast<int16_t>(specs.precision) : default_precision,
+      .format = fp_format::general,
+      .upper_case = specs.type == 'E' || specs.type == 'F' || specs.type == 'G',
+      .showpoint = specs.alternate_form,
+  };
+
+  if (specs.type == 'e' || specs.type == 'E') {
+    fp_specs.format = fp_format::exp;
+    fp_specs.precision += 1;
+    fp_specs.showpoint |= specs.precision != 0;
+  } else if (specs.type == 'f' || specs.type == 'F') {
+    fp_specs.format = fp_format::fixed;
+    fp_specs.showpoint |= specs.precision != 0;
+  } else if (specs.type == 'a' || specs.type == 'A') {
+    fp_specs.format = fp_format::hex;
+  }
+  if (fp_specs.format != fp_format::fixed && fp_specs.precision == 0) {
+    fp_specs.precision = 1;  // Calculate at least on significand.
+  }
+  return fp_specs;
+}
+
+inline constexpr char* write_significand(char* out, const char* significand, int significand_size, int integral_size,
+                                         char decimal_point) {
+  out = copy_n(significand, integral_size, out);
+  if (decimal_point == 0) {
+    return out;
+  }
+  *out++ = decimal_point;
+  return copy_n(significand + integral_size, significand_size - integral_size, out);
+}
+
+inline constexpr char* write_exponent(char* it, int exp) {
+  if (exp < 0) {
+    *it++ = '-';
+    exp = -exp;
+  } else {
+    *it++ = '+';
+  }
+  int cnt = 2;
+  if (exp >= 100) {
+    write_number(to_unsigned(exp), 10, false, it + 3);
+    return it;
+  } else if (exp < 10) {
+    *it++ = '0';
+    cnt -= 1;
+  }
+  write_number(to_unsigned(exp), 10, false, it + cnt);
+  return it;
+}
+
+inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& specs, fp_format_specs& fp_specs,
+                                            bool is_negative, const format_fp_result_t& f) noexcept {
+  const char* significand = f.digits.data();
+  int significand_size = static_cast<int>(f.digits.size());
+  const int output_exp = f.exp - 1;  // 0.1234 x 10^exp => 1.234 x 10^(exp-1)
+  const int abs_output_exp = static_cast<uint16_t>(output_exp >= 0 ? output_exp : -output_exp);
+  const bool has_sign = is_negative || specs.sign == ' ' || specs.sign == '+';
+
+  if (fp_specs.format == fp_format::general && significand_size > 1) {
+    // Remove trailing zeros.
+    auto it = std::find_if(f.digits.rbegin(), f.digits.rend(), [](char c) {
+      return c != '0';
+    });
+    significand_size -= static_cast<int>(it - f.digits.rbegin());
+  }
+
+  const auto use_exp_format = [=]() {
+    if (fp_specs.format == fp_format::exp) {
+      return true;
+    }
+    if (fp_specs.format != fp_format::general) {
+      return false;
+    }
+    // Use the fixed notation if the exponent is in [exp_lower, exp_upper),
+    // e.g. 0.0001 instead of 1e-04. Otherwise, use the exponent notation.
+    constexpr int exp_lower = -4;
+    constexpr int exp_upper = 16;
+    return output_exp < exp_lower || output_exp >= (fp_specs.precision > 0 ? fp_specs.precision : exp_upper);
+  };
+
+  EMIO_TRY(const char sign_to_write, try_write_sign(wtr, specs, is_negative));
+
+  int num_zeros = 0;
+  char decimal_point = '.';
+  size_t total_width = static_cast<uint32_t>(has_sign);
+  size_t num_digits = to_unsigned(significand_size);
+
+  if (use_exp_format()) {
+    if (fp_specs.showpoint) {                             // Multiple significands or high precision.
+      num_zeros = fp_specs.precision - significand_size;  // Trailing zeros after an zero only.
+      if (num_zeros < 0) {
+        num_zeros = 0;
+      }
+      num_digits += to_unsigned(num_zeros);
+    } else if (significand_size == 1) {  // One significand.
+      decimal_point = 0;
+    }
+    // The else part is general format with significand size less than the exponent.
+
+    const int exp_digits = abs_output_exp >= 100 ? 3 : 2;
+    num_digits += to_unsigned((decimal_point != 0 ? 1 : 0) + 2 /* sign + e */ + exp_digits);
+    total_width += num_digits;
+
+    return write_padded<alignment::right>(wtr, specs, total_width, [&]() -> result<void> {
+      const size_t area_size = num_digits + static_cast<size_t>(sign_to_write != no_sign);
+      EMIO_TRY(auto area, wtr.get_buffer().get_write_area_of(area_size));
+      auto* it = area.data();
+      if (sign_to_write != no_sign) {
+        *it++ = sign_to_write;
+      }
+
+      it = write_significand(it, significand, significand_size, 1, decimal_point);
+      it = fill_n(it, num_zeros, '0');
+      *it++ = fp_specs.upper_case ? 'E' : 'e';
+      write_exponent(it, output_exp);
+
+      return success;
+    });
+  }
+
+  int integral_size = 0;
+  int num_zeros_2 = 0;
+
+  if (output_exp < 0) {                                                   // Only fractional-part.
+    num_digits += 2;                                                      // For zero + Decimal point.
+    num_zeros = abs_output_exp - 1;                                       // Leading zeros after dot.
+    if (specs.alternate_form && fp_specs.format == fp_format::general) {  // ({:#g}, 0.1) -> 0.100000 instead 0.1
+      num_zeros_2 = fp_specs.precision - significand_size;
+    }
+  } else if ((output_exp + 1) >= significand_size) {  // Only integer-part (including zero).
+    integral_size = significand_size;
+    num_zeros = output_exp - significand_size + 1;  // Trailing zeros.
+    if (fp_specs.showpoint) {                       // Significand is zero but fractional requested.
+      if (specs.alternate_form && fp_specs.format == fp_format::general) {  // ({:#.4g}, 1) -> 1.000 instead of 1.
+        num_zeros_2 = fp_specs.precision - significand_size - num_zeros;
+      } else if (num_zeros == 0) {  // ({:f}, 0) or ({:.4f}, 1.23e-06) -> 0.000000 instead of 0
+        num_zeros_2 = fp_specs.precision;
+      }
+      EMIO_Z_DEV_ASSERT(num_zeros >= 0);
+      num_digits += 1;
+    } else {  // Digit without zero
+      decimal_point = 0;
+    }
+  } else {  // Both parts. Trailing zeros are part of significands.
+    integral_size = output_exp + 1;
+    num_digits += 1;                                                      // Decimal point.
+    if (specs.alternate_form && fp_specs.format == fp_format::general) {  // ({:#g}, 1.2) -> 1.20000 instead 1.2
+      num_zeros = fp_specs.precision - significand_size;
+    }
+    if (fp_specs.format == fp_format::fixed && significand_size > integral_size &&
+        significand_size - integral_size < fp_specs.precision) {  // ({:.4}, 0.99999) -> 1.0000 instead of 1.00
+      num_zeros = fp_specs.precision - (significand_size - integral_size);
+    }
+  }
+  if (num_zeros < 0) {
+    num_zeros = 0;
+  }
+  if (num_zeros_2 < 0) {
+    num_zeros_2 = 0;
+  }
+  num_digits += static_cast<size_t>(num_zeros + num_zeros_2);
+  total_width += num_digits;
+
+  return write_padded<alignment::right>(wtr, specs, total_width, [&]() -> result<void> {
+    const size_t area_size = num_digits + static_cast<size_t>(sign_to_write != no_sign);
+    EMIO_TRY(auto area, wtr.get_buffer().get_write_area_of(area_size));
+    auto* it = area.data();
+    if (sign_to_write != no_sign) {
+      *it++ = sign_to_write;
+    }
+
+    if (output_exp < 0) {
+      *it++ = '0';
+      if (decimal_point != 0) {
+        *it++ = decimal_point;
+        it = fill_n(it, num_zeros, '0');  // TODO: simplify fill_n/copy/copy/n + it
+        it = copy_n(significand, significand_size, it);
+        fill_n(it, num_zeros_2, '0');
+      }
+    } else if ((output_exp + 1) >= significand_size) {
+      it = copy_n(significand, integral_size, it);
+      if (num_zeros != 0) {
+        it = fill_n(it, num_zeros, '0');
+      }
+      if (decimal_point != 0) {
+        *it++ = '.';
+        if (num_zeros_2 != 0) {
+          fill_n(it, num_zeros_2, '0');
+        }
+      }
+    } else {
+      it = write_significand(it, significand, significand_size, integral_size, decimal_point);
+      if (num_zeros != 0) {
+        fill_n(it, num_zeros, '0');
+      }
+    }
+
+    return success;
+  });
+}
+
+inline constexpr std::array<char, 1> zero_digit{'0'};
+
+inline constexpr format_fp_result_t format_decimal(buffer<char>& buffer, const fp_format_specs& fp_specs,
+                                                   const decode_result_t& decoded) {
+  if (decoded.category == category::zero) {
+    return format_fp_result_t{zero_digit, 1};
+  }
+  switch (fp_specs.format) {
+  case fp_format::general:
+    if (fp_specs.precision == no_precision) {
+      return format_shortest(decoded.finite, buffer);
+    }
+    [[fallthrough]];
+  case fp_format::exp:
+    return format_exact(decoded.finite, buffer, format_exact_mode::significand_digits, fp_specs.precision);
+  case fp_format::fixed: {
+    auto res = format_exact(decoded.finite, buffer, format_exact_mode::decimal_point, fp_specs.precision);
+    if (res.digits.empty()) {
+      return format_fp_result_t{zero_digit, 1};
+    }
+    return res;
+  }
+  case fp_format::hex:
+    std::terminate();
+  }
+  EMIO_Z_INTERNAL_UNREACHABLE;
+}
+
+inline constexpr result<void> format_and_write_decimal(writer<char>& wtr, format_specs& specs,
+                                                       const decode_result_t& decoded) noexcept {
+  fp_format_specs fp_specs = parse_fp_format_specs(specs);
+
+  if (decoded.category == category::infinity || decoded.category == category::nan) {
+    if (specs.zero_flag) {  // Words aren't prefixed with zeros.
+      specs.fill = ' ';
+      specs.zero_flag = false;
+    }
+    EMIO_TRY(const char sign_to_write, try_write_sign(wtr, specs, decoded.negative));
+
+    const size_t total_length = 3 + static_cast<uint32_t>(sign_to_write != no_sign);
+    return write_padded<alignment::left>(wtr, specs, total_length, [&]() -> result<void> {
+      if (sign_to_write != no_sign) {
+        EMIO_TRYV(wtr.write_char(sign_to_write));
+      }
+      return write_non_finite(wtr, fp_specs.upper_case, decoded.category == category::infinity);
+    });
+  }
+
+  emio::memory_buffer buf;
+  const format_fp_result_t res = format_decimal(buf, fp_specs, decoded);
+  return write_decimal(wtr, specs, fp_specs, decoded.negative, res);
+}
+
+template <typename Arg>
+  requires(std::is_floating_point_v<Arg> && sizeof(Arg) <= sizeof(double))
+constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const Arg& arg) noexcept {
+  return format_and_write_decimal(wtr, specs, decode(arg));
+}
 
 inline constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const std::string_view arg) noexcept {
   if (specs.type != '?') {
@@ -2701,7 +3750,7 @@ inline constexpr result<void> validate_format_specs(reader<char>& rdr, format_sp
     return err::invalid_format;
   }
 
-  bool width_required = false;
+  bool fill_aligned = false;
   {
     // Parse for alignment specifier.
     EMIO_TRY(const char c2, rdr.peek());
@@ -2713,7 +3762,7 @@ inline constexpr result<void> validate_format_specs(reader<char>& rdr, format_sp
       } else {
         specs.align = alignment::right;
       }
-      width_required = true;
+      fill_aligned = true;
       specs.fill = c;
       rdr.pop();
       EMIO_TRY(c, rdr.read_char());
@@ -2725,7 +3774,7 @@ inline constexpr result<void> validate_format_specs(reader<char>& rdr, format_sp
       } else {
         specs.align = alignment::right;
       }
-      width_required = true;
+      fill_aligned = true;
       EMIO_TRY(c, rdr.read_char());
     }
   }
@@ -2737,25 +3786,29 @@ inline constexpr result<void> validate_format_specs(reader<char>& rdr, format_sp
     specs.alternate_form = true;
     EMIO_TRY(c, rdr.read_char());
   }
-  if (c == '0') {          // Zero flag.
-    if (width_required) {  // Fill and zero flag doesn't make sense.
-      return err::invalid_format;
+  if (c == '0') {         // Zero flag.
+    if (!fill_aligned) {  // If fill/align is used, the zero flag is ignored.
+      specs.fill = '0';
+      specs.align = alignment::right;
+      specs.zero_flag = true;
     }
-    specs.fill = '0';
-    specs.align = alignment::right;
-    specs.zero_flag = true;
-    width_required = true;
     EMIO_TRY(c, rdr.read_char());
   }
   if (detail::isdigit(c)) {  // Width.
     rdr.unpop();
-    EMIO_TRY(specs.width, rdr.parse_int<int>());
+    EMIO_TRY(const uint32_t width, rdr.parse_int<uint32_t>());
+    if (width > (static_cast<uint32_t>(std::numeric_limits<int32_t>::max()))) {
+      return err::invalid_format;
+    }
+    specs.width = static_cast<int32_t>(width);
     EMIO_TRY(c, rdr.read_char());
-  } else if (width_required) {  // Width was required.
-    return err::invalid_format;
   }
   if (c == '.') {  // Precision.
-    EMIO_TRY(specs.precision, rdr.parse_int<int>());
+    EMIO_TRY(const uint32_t precision, rdr.parse_int<uint32_t>());
+    if (precision > (static_cast<uint32_t>(std::numeric_limits<int32_t>::max()))) {
+      return err::invalid_format;
+    }
+    specs.precision = static_cast<int32_t>(precision);
     EMIO_TRY(c, rdr.read_char());
   }
   if (detail::isalpha(c) || c == '?') {  // Type.
@@ -2774,6 +3827,7 @@ inline constexpr result<void> parse_format_specs(reader<char>& rdr, format_specs
     return success;
   }
 
+  bool fill_aligned = false;
   {
     // Parse for alignment specifier.
     const char c2 = rdr.peek().assume_value();
@@ -2785,6 +3839,7 @@ inline constexpr result<void> parse_format_specs(reader<char>& rdr, format_specs
       } else {
         specs.align = alignment::right;
       }
+      fill_aligned = true;
       specs.fill = c;
       rdr.pop();
       c = rdr.read_char().assume_value();
@@ -2796,6 +3851,7 @@ inline constexpr result<void> parse_format_specs(reader<char>& rdr, format_specs
       } else {
         specs.align = alignment::right;
       }
+      fill_aligned = true;
       c = rdr.read_char().assume_value();
     }
   }
@@ -2807,19 +3863,21 @@ inline constexpr result<void> parse_format_specs(reader<char>& rdr, format_specs
     specs.alternate_form = true;
     c = rdr.read_char().assume_value();
   }
-  if (c == '0') {  // Zero flag.
-    specs.fill = '0';
-    specs.align = alignment::right;
-    specs.zero_flag = true;
+  if (c == '0') {         // Zero flag.
+    if (!fill_aligned) {  // Ignoreable.
+      specs.fill = '0';
+      specs.align = alignment::right;
+      specs.zero_flag = true;
+    }
     c = rdr.read_char().assume_value();
   }
   if (detail::isdigit(c)) {  // Width.
     rdr.unpop();
-    specs.width = rdr.parse_int<int>().assume_value();
+    specs.width = static_cast<int32_t>(rdr.parse_int<uint32_t>().assume_value());
     c = rdr.read_char().assume_value();
   }
   if (c == '.') {  // Precision.
-    specs.precision = rdr.parse_int<int>().assume_value();
+    specs.precision = static_cast<int32_t>(rdr.parse_int<uint32_t>().assume_value());
     c = rdr.read_char().assume_value();
   }
   if (detail::isalpha(c) || c == '?') {  // Type.
@@ -2886,12 +3944,20 @@ inline constexpr result<void> check_pointer_specs(const format_specs& specs) noe
 }
 
 inline constexpr result<void> check_floating_point_specs(const format_specs& specs) noexcept {
+  if (specs.precision > 1100) {
+    return err::invalid_format;
+  }
+
   switch (specs.type) {
   case no_type:
   case 'f':
+  case 'F':
   case 'e':
+  case 'E':
   case 'g':
-  case 'a':
+  case 'G':
+    //  case 'a': Not supported yet.
+    //  case 'A':
     return success;
   }
   return err::invalid_format;
@@ -4024,7 +5090,7 @@ constexpr result<OutputIt> format_to(OutputIt out, format_string<Args...> format
  * failed.
  */
 inline result<std::string> vformat(const format_args& args) noexcept {
-  string_buffer<char> buf;
+  memory_buffer<char> buf;
   if (auto res = detail::format::vformat_to(buf, args); !res) {
     return res.assume_error();
   }
