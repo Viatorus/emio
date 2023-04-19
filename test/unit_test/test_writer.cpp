@@ -12,7 +12,7 @@ TEST_CASE("writer", "[writer]") {
   // * Write data with the writer into the buffer.
   // Expected: Every method works as expected.
 
-  emio::string_buffer buf{};
+  emio::memory_buffer buf{};
   emio::writer writer{buf};
 
   SECTION("get_buffer") {

@@ -9,13 +9,13 @@ reader *-- "std::string_view"
 
 abstract class buffer
 
-class string_buffer
+class memory_buffer
 class span_buffer
 class iterator_buffer
 
 buffer <|-- iterator_buffer
 buffer <|-- span_buffer
-buffer <|-- string_buffer
+buffer <|-- memory_buffer
 
 class writer
 writer o-- buffer
@@ -35,7 +35,6 @@ package "contiguous container" {
 }
 
 span_buffer o-- "contiguous container"
-string_buffer *-- "std::string"
 
 class format_string
 

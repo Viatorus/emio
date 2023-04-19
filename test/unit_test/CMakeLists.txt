@@ -11,12 +11,16 @@ if (PROJECT_IS_TOP_LEVEL)
 endif ()
 
 add_executable(emio_test
+        detail/test_bignum.cpp
         detail/test_bitset.cpp
         detail/test_conversion.cpp
-        detail/test_ct_basic_string.cpp
+        detail/test_ct_vector.cpp
+        detail/test_decode.cpp
+        detail/test_dragon.cpp
         test_buffer.cpp
         test_format.cpp
         test_format_api.cpp
+        test_format_emio_vs_fmt.cpp
         test_format_string.cpp
         test_format_to_api.cpp
         test_format_to_n_api.cpp
@@ -25,7 +29,6 @@ add_executable(emio_test
         test_iterator.cpp
         test_reader.cpp
         test_result.cpp
-        test_simple.cpp
         test_writer.cpp
         )
 
@@ -36,6 +39,10 @@ target_link_libraries(emio_test
         )
 
 target_compile_features(emio_test PRIVATE cxx_std_20)
+
+target_compile_definitions(emio_test PRIVATE
+        EMIO_ENABLE_DEV_ASSERT
+        )
 
 add_test(NAME emio_test COMMAND emio_test)
 

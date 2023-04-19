@@ -91,7 +91,7 @@
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/arm-none-eabi-toolchain.cmake",
         "CMAKE_CXX_FLAGS": "$env{CXX_FLAGS} -ffunction-sections -fdata-sections -mcpu=cortex-m7 -mthumb -g0 -fno-exceptions -fno-rtti",
-        "CMAKE_EXE_LINKER_FLAGS": "-mcpu=cortex-m7 -mthumb -specs=nano.specs -Wl,--gc-sections",
+        "CMAKE_EXE_LINKER_FLAGS": "-mcpu=cortex-m7 -mthumb -Wl,--gc-sections",
         "CMAKE_BUILD_TYPE": "MinSizeRel"
       }
     },
