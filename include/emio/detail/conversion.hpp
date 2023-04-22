@@ -210,6 +210,10 @@ inline constexpr void copy2(Char* dst, const char* src) {
 template <typename T, typename OutputIt>
   requires(std::is_unsigned_v<T>)
 constexpr OutputIt write_decimal(T abs_number, OutputIt next) {
+  if (abs_number == 0) {
+    *(--next) = '0';
+    return next;
+  }
   // Write number from right to left.
   while (abs_number >= 100) {
     next -= 2;
@@ -228,12 +232,12 @@ constexpr OutputIt write_decimal(T abs_number, OutputIt next) {
 template <typename T, typename OutputIt>
   requires(std::is_unsigned_v<T>)
 constexpr OutputIt write_number(T abs_number, int base, bool upper, OutputIt next) {
+  if (base == 10) {
+    return write_decimal(abs_number, next);
+  }
   if (abs_number == 0) {
     *(--next) = '0';
     return next;
-  }
-  if (base == 10) {
-    return write_decimal(abs_number, next);
   }
   // Write number from right to left.
   for (; abs_number; abs_number /= static_cast<T>(base)) {
