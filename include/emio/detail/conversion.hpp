@@ -186,17 +186,63 @@ constexpr std::make_signed_t<T> to_signed(T number) noexcept {
   return static_cast<std::make_signed_t<T>>(number);
 }
 
+// Converts value in the range [0, 100) to a string.
+inline constexpr const char* digits2(size_t value) {
+  // GCC generates slightly better code when value is pointer-size.
+  return &"0001020304050607080910111213141516171819"
+      "2021222324252627282930313233343536373839"
+      "4041424344454647484950515253545556575859"
+      "6061626364656667686970717273747576777879"
+      "8081828384858687888990919293949596979899"[value * 2];
+}
+
+// Copies two characters from src to dst.
+template <typename Char>
+inline constexpr void copy2(Char* dst, const char* src) {
+  if (!Y_EMIO_IS_CONST_EVAL) {
+    memcpy(dst, src, 2);
+  } else {
+    *dst++ = static_cast<Char>(*src++);
+    *dst = static_cast<Char>(*src);
+  }
+}
+
+template <typename T, typename OutputIt>
+  requires(std::is_unsigned_v<T>)
+constexpr OutputIt write_decimal(T abs_number, OutputIt next) {
+  if (abs_number == 0) {
+    *(--next) = '0';
+    return next;
+  }
+  // Write number from right to left.
+  while (abs_number >= 100) {
+    next -= 2;
+    copy2(next, digits2(static_cast<size_t>(abs_number % 100)));
+    abs_number /= 100;
+  }
+  if (abs_number < 10) {
+    *--next = '0' + static_cast<char>(abs_number);
+    return next;
+  }
+  next -= 2;
+  copy2(next, digits2(static_cast<size_t>(abs_number)));
+  return next;
+}
+
 template <typename T, typename OutputIt>
   requires(std::is_unsigned_v<T>)
 constexpr OutputIt write_number(T abs_number, int base, bool upper, OutputIt next) {
+  if (base == 10) {
+    return write_decimal(abs_number, next);
+  }
   if (abs_number == 0) {
-    *(--next) = '0';  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic): performance
+    *(--next) = '0';
     return next;
   }
   // Write number from right to left.
   for (; abs_number; abs_number /= static_cast<T>(base)) {
     const char c = digit_to_char(static_cast<int>(abs_number % static_cast<T>(base)), base, upper);
-    *(--next) = c;  // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic): performance
+    *(--next) = c;
   }
   return next;
 }

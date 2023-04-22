@@ -147,7 +147,7 @@ class reader {
     const view_t remaining = view_remaining();
     if (remaining.size() >= n) {
       pop(n);
-      return view_t{remaining.begin(), remaining.begin() + n};
+      return view_t{remaining.data(), remaining.data() + n};
     }
     return err::eof;
   }

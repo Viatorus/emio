@@ -51,7 +51,7 @@ class ct_vector {
     if (capacity_ < new_size) {
       // NOLINTNEXTLINE(bugprone-unhandled-exception-at-new): char types cannot throw
       Char* new_data = new Char[new_size];  // NOLINT(cppcoreguidelines-owning-memory)
-      copy_n(data_, size_, new_data);       // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      copy_n(data_, size_, new_data);
       if (Y_EMIO_IS_CONST_EVAL) {
         // Required at compile-time because another reserve could happen without previous write to the data.
         fill_n(new_data + size_, new_size - size_, 0);

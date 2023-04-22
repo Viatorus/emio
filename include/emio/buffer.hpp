@@ -436,7 +436,6 @@ class iterator_buffer<std::back_insert_iterator<Container>> final : public buffe
     const size_t new_size = container_.size() + size;
     container_.resize(new_size);
     used_ += used;
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic): Performance in debug.
     const std::span<char_t> area{container_.data() + used_, new_size};
     this->set_write_area(area);
     return area.subspan(0, size);
