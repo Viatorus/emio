@@ -783,7 +783,7 @@ constexpr result<void> validate_for(reader<char>& format_is) noexcept {
 template <typename T>
 inline constexpr bool is_core_type_v =
     std::is_integral_v<T> || std::is_floating_point_v<T> || std::is_same_v<T, std::nullptr_t> ||
-    std::is_same_v<T, void*> || std::is_constructible_v<std::string_view, T>;
+    std::is_same_v<T, void*> || std::is_same_v<T, std::string_view>;
 
 template <input_validation FormatStringValidation, typename T>
 concept formatter_parse_supports_format_string_validation =

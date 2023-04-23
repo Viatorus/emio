@@ -63,7 +63,7 @@ class format_validation_arg {
     model_t& operator=(model_t&&) = delete;
 
     result<void> validate(reader<char>& format_is) const noexcept override {
-      return validate_for<std::remove_cv_t<T>>(format_is);
+      return validate_for<std::remove_cvref_t<T>>(format_is);
     }
 
    protected:
@@ -178,7 +178,7 @@ class basic_format_arg {
     model_t& operator=(model_t&&) = delete;
 
     result<void> format(writer<Char>& wtr, reader<Char>& format_is) const noexcept override {
-      formatter<std::remove_cv_t<T>> formatter;
+      formatter<std::remove_cvref_t<T>> formatter;
       EMIO_TRYV(invoke_formatter_parse<input_validation::disabled>(formatter, format_is));
       return formatter.format(wtr, value_);
     }

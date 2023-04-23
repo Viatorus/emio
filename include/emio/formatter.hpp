@@ -34,6 +34,12 @@ struct unified_type<T> {
 };
 
 template <typename T>
+  requires(std::is_floating_point_v<T> && sizeof(T) <= sizeof(double))
+struct unified_type<T> {
+  using type = double;
+};
+
+template <typename T>
   requires(std::is_same_v<T, char> || std::is_same_v<T, bool> || std::is_same_v<T, void*> ||
            std::is_same_v<T, std::nullptr_t>)
 struct unified_type<T> {
@@ -97,9 +103,7 @@ class formatter {
  * - boolean
  * - void* / nullptr
  * - integral types
- * - floating-point types (TODO)
  * - chrono duration (TODO)
- * - ranges of the above types (TODO)
  * @tparam T The type.
  */
 template <typename T>

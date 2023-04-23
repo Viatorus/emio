@@ -95,7 +95,7 @@ class format_specs_checker final : public parser_base<Char, input_validation::en
  private:
   template <typename Arg>
   constexpr result<void> validate_arg() noexcept {
-    return validate_for<Arg>(this->format_rdr_);
+    return validate_for<std::remove_cvref_t<Arg>>(this->format_rdr_);
   }
 };
 
