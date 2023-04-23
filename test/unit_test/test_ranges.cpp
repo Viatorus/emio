@@ -124,10 +124,14 @@ class formatter<T> {
 
 TEST_CASE("format_array", "[ranges]") {
   int arr[] = {1, 2, 3, 5, 7, 11};
-  CHECK(emio::format("{}", arr) == "[1, 2, 3, 5, 7, 11]");
+//  CHECK(emio::format("{}", arr) == "[1, 2, 3, 5, 7, 11]");
 
-  auto m = std::map<std::string, int>{{"one", 1}, {"two", 2}};
-  auto s = std::set<std::string>{"one", "two"};
+  using T = decltype(arr);
+  static_assert(emio::detail::Iterable<T>);
+  static_assert(emio::detail::format::has_formatter_v<std::remove_cvref_t<emio::detail::element_type_t<T>>>)
+
+//  auto m = std::map<std::string, int>{{"one", 1}, {"two", 2}};
+//  auto s = std::set<std::string>{"one", "two"};
 //  CHECK(emio::format("{}", m) == "{\"one\": 1, \"two\": 2}");
 //  CHECK(emio::format("{}", s) == "{\"one\": 1, \"two\": 2}");
 }

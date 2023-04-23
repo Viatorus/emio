@@ -142,9 +142,9 @@ class formatter<T> {
   detail::format::format_specs specs_{};
 };
 
-//template <typename T>
-//  requires(!detail::format::is_core_type_v<T> && detail::format::is_core_type_v<detail::unified_type_t<T>>)
-//class formatter<T> : public formatter<detail::unified_type_t<T>> {};
+template <typename T>
+  requires(!detail::format::is_core_type_v<T> && detail::format::is_core_type_v<detail::unified_type_t<T>>)
+class formatter<T> : public formatter<detail::unified_type_t<T>> {};
 
 /**
  * Formatter for unscoped enum types to there underlying type.
