@@ -18,12 +18,6 @@ class formatter;
 
 namespace detail::format {
 
-template <typename T>
-concept has_format_as = requires(T arg) { format_as(arg); };
-
-template <typename T>
-using format_as_return_t = decltype(format_as(std::declval<T>()));
-
 //
 // Write args.
 //
@@ -803,6 +797,12 @@ inline constexpr result<void> invoke_formatter_parse(T& formatter, reader<char>&
     return formatter.parse(format_is);
   }
 }
+
+template <typename T>
+concept has_format_as = requires(T arg) { format_as(arg); };
+
+template <typename T>
+using format_as_return_t = decltype(format_as(std::declval<T>()));
 
 }  // namespace detail::format
 }  // namespace emio

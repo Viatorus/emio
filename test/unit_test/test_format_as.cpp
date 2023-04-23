@@ -12,7 +12,7 @@ constexpr auto format_as(const bar& w) {
   return static_cast<std::underlying_type_t<bar>>(w);
 }
 
-}  // namespace test
+}  // namespace foo
 
 TEST_CASE("formatter with inherit from emio::formatter", "[formatter]") {
   // Test strategy:
