@@ -109,8 +109,21 @@ template <typename T>
   requires(std::is_enum_v<T> && std::is_convertible_v<T, std::underlying_type_t<T>>)
 class formatter<T> : public formatter<std::underlying_type_t<T>> {
  public:
-  result<void> format(writer<char>& wtr, const T& arg) noexcept {
+  constexpr result<void> format(writer<char>& wtr, const T& arg) noexcept {
     return formatter<std::underlying_type_t<T>>::format(wtr, static_cast<std::underlying_type_t<T>>(arg));
+  }
+};
+
+/**
+ * Formatter for types which can formatted with a format_as function when using ADL.
+ * @tparam T The type.
+ */
+template <typename T>
+  requires(detail::format::has_format_as<T>)
+class formatter<T> : public formatter<detail::format::format_as_return_t<T>> {
+ public:
+  constexpr result<void> format(writer<char>& wtr, const T& arg) noexcept {
+    return formatter<detail::format::format_as_return_t<T>>::format(wtr, format_as(arg));
   }
 };
 
