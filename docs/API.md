@@ -3,7 +3,7 @@
 This is a small API overview. The public API is fully documented inside the source code. Unless otherwise stated,
 everything can be used at compile-time.
 
-The public namespace is `emio` only - no deeper nesting. 
+The public namespace is `emio` only - no deeper nesting.
 
 ## err
 
@@ -11,57 +11,73 @@ A list of possible I/O errors as enum.
 Every function describes the possible errors which can occur. See the source code documentation for more information.
 
 `eof`
+
 - End of file (e.g. reaching the end of an output array).
 
 `invalid_argument`
+
 - A parameter is incorrect (e.g. the output base is invalid).
 
 `invalid_data`
+
 - The data is malformed (e.g. no digit where a digit was expected).
 
 `out_of_range`
+
 - The parsed value is not in the range representable by the type (e.g. parsing 578 as uint8_t).
 
 `invalid_format`
+
 - The format string is invalid (e.g. missing arguments).
 
 `to_string(err) -> string_view`
+
 - Returns the name of the error code.
 
 ## Result
 
 `template<typename T> class result;`
+
 - The return type of almost all functions to propagate a value of type `T` on success or an error of type `emio::err`
   on failure.
 
 *constructor(arg)*
+
 - Constructable either from T or `emio::err`.
 
 `has_value() -> bool`
+
 - Checks whether the object holds a value.
 
 `has_error() -> bool`
+
 - Checks whether the object holds an error.
 
 `value() -> T`
+
 - Returns the value or throws/terminates if no value is held.
 
 `assume_value() -> T`
+
 - Returns the value without any checks. Invokes undefined behavior if no value is held.
 
 `error() -> emio::err`
+
 - Returns the error or throws/terminates if no error is held.
 
 `assume_error() -> emio::err`
+
 - Returns the error without any checks. Invokes undefined behavior if no error is held.
 
 There exists two helper macros to simplify the control flow:
 
 `EMIO_TRYV(expr)`
+
 - Evaluates an expression *expr*. If successful, continues the execution. If unsuccessful, immediately returns from the
   calling function.
 
 `EMIO_TRY(var, expr)`
+
 - Evaluates an expression *expr*. If successful, assigns the value to a declaration *var*. If unsuccessful, immediately
   returns from the calling function.
 
@@ -72,65 +88,84 @@ An abstract class which provides functionality for receiving a contiguous memory
 There exist multiple implementation of a buffer, all fulfilling a different use case.
 
 ### memory_buffer
+
 - Endless growing buffer.
 
 ### span_buffer
+
 - Buffer over a specific contiguous range.
 
 ### iterator_buffer
+
 - A buffer for all kinds of output iterators (raw-pointers, back_insert_iterator or any other output iterator).
 
 ## Reader
 
 `template<typename Char> class reader;`
+
 - A class to read and parse any char sequence like a finite input stream.
 
 *constructor(input)*
+
 - Constructable from any suitable char sequence.
 
 `peek() -> result<char>`
+
 - Returns the next char without consuming it.
 
 `read_char() -> result<char>`
+
 - Returns one char.
 
 `read_n_char(n) -> result<view_t>`
+
 - Returns *n* chars.
 
 `parse_int<T>(base = 10) -> result<T>`
+
 - Parses an integer of type *T* with a specific *base*.
 
 `read_until/_char/str/any_of/none_of(predicate, options) -> result<view_t>`
+
 - Reads n chars until a given *predicate* (delimiter/group/function) applies.
 - Has *options* to configure what should happen with the predicate and what should happen if EOF is reached.
 
 `read_if_match_char/str(c/str)`
+
 - Reads one/multiple chars if *c/str* matches the next char/chars.
 
 ## Writer
 
 `template<typename Char> class writer;`
+
 - A class to write sequences of characters or other kinds of data into an output buffer.
 
 *constructor(buffer)*
+
 - Constructable from a reference to a buffer.
 
 `write_char(c) -> result<void>`
+
 - Writes a char *c* into the buffer.
 
 `write_char_n(c, n) -> result<void>`
+
 - Writes a char *c* *n* times into the buffer.
 
 `write_char_escaped(c) -> result<void>`
+
 - Writes a char *c* escaped into the buffer.
 
 `write_str(sv) -> result<void>`
+
 - Writes a char sequence *sv* into the buffer.
 
 `write_str_escaped(sv) -> result<void>`
+
 - Writes a char sequence *sv* escaped into the buffer.
 
 `write_int(integer, options) -> result<void>`
+
 - Writes an *integer* into the buffer.
 - Has *options* to configure the base and if the alphanumerics should be in lower or upper case.
 
@@ -141,6 +176,7 @@ The following functions use a format string syntax which is nearly identical to 
 [str.format](https://docs.python.org/3/library/stdtypes.html#str.format) in Python.
 
 Things that are missing:
+
 - UTF-8 support (planned)
 - range and chrono syntax (planned)
 - dynamic width and precision (planned but not via format string syntax)
@@ -151,8 +187,11 @@ The grammar for the replacement field is as follows:
 
 ```sass
 replacement_field ::=  "{" [arg_id] [":" format_spec] "}"
+
 arg_id            ::=  integer
+
 integer           ::=  digit+
+
 digit             ::=  "0"..."9"
 ```
 
@@ -160,10 +199,15 @@ The grammar for the format specification is as follows:
 
 ```sass
 format_spec ::=  [[fill]align][sign]["#"]["0"][width][type]
+
 fill        ::=  <a character other than '{' or '}'>
+
 align       ::=  "<" | ">" | "^"
+
 sign        ::=  "+" | "-" | " "
+
 width       ::=  integer
+
 type        ::=  "b" | "B" | "c" | "d" | "o" | "s" | "x" | "X"
 ```
 
@@ -173,17 +217,21 @@ Some functions (like `format` or `formatted_size`) are further optimized (simpli
 string is a valid-only format string that could be ensured at compile-time.
 
 `format(format_str, ...args) -> string/result<string>`
+
 - Formats arguments according to the format string, and returns the result as a string.
 - The return value depends on the type of the format string (valid-only type or not).
 
 `format_to(out, format_str, ...args) -> result<Output>`
+
 - Formats arguments according to the format string, and writes the result to the output.
 
 `format_to_n(out, n, format_str, ...args) -> result<format_to_n_result<Output>>`
+
 - Formats arguments according to the format string, and writes the result to the output iterator. At most *n* characters
   are written.
 
 `formatted_size(format_str, ...args) -> size_t/result<size_t>`
+
 - Determines the total number of characters in the formatted string by formatting args according to the format string.
 - The return value depends on the type of the format string (valid-only type or not).
 
@@ -194,6 +242,7 @@ implementations and reduce the binary size. **Note:** These type erased function
 `format_args` can be created with:
 
 `make_format_args(format_str, ...args) -> internal format_args_storage`
+
 - Returns an object that stores a format string with an array of all arguments to format.
 - Keep in mind that the storage uses reference semantics and does not extend the lifetime of args. It is the
   programmer's responsibility to ensure that args outlive the return value.
@@ -274,3 +323,21 @@ int main() {
 
 If the `validate` (or if absent the `parse`) function is not constexpr a runtime format strings must be used. The
 `format` function don't need to be constexpr if the formatting shouldn't be done at compile-time.
+
+For simple type formatting, like formatting an enum class to its underlying integer or to a string, the function
+`format_as` could be provided. The function must be in the same namespace since ADL is used.
+
+```cpp
+namespace foo {
+    
+enum class bar {
+    foobar,
+    barfoo
+};
+
+constexpr auto format_as(const bar& w) noexcept {
+  return static_cast<std::underlying_type_t<bar>>(w);
+}
+
+}
+```
