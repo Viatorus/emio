@@ -24,7 +24,7 @@ TEST_CASE("formatter with inherit from emio::formatter", "[formatter]") {
       constexpr bool success = [] {
         std::array<char, 10> arr;
         emio::span_buffer buf{arr};
-        static_cast<void>(emio::format_to(buf, "{}", test::wrap{42}).value());
+        static_cast<void>(emio::format_to(buf, "{}", foo::bar{42}).value());
         return buf.view() == "42";
       }();
       STATIC_CHECK(success);
@@ -33,13 +33,13 @@ TEST_CASE("formatter with inherit from emio::formatter", "[formatter]") {
       constexpr bool success = [] {
         std::array<char, 10> arr;
         emio::span_buffer buf{arr};
-        static_cast<void>(emio::format_to(buf, "{:x<4x}", test::wrap{42}).value());
+        static_cast<void>(emio::format_to(buf, "{:x<4x}", foo::bar{42}).value());
         return buf.view() == "2axx";
       }();
       STATIC_CHECK(success);
     }
   }
 
-  CHECK(emio::format("{}", test::wrap{42}) == "42");
-  CHECK(emio::format("{:x<4x}", test::wrap{42}) == "2axx");
+  CHECK(emio::format("{}", foo::bar{42}) == "42");
+  CHECK(emio::format("{:x<4x}", foo::bar{42}) == "2axx");
 }
