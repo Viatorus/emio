@@ -14,7 +14,7 @@ constexpr auto format_as(const bar& w) {
 
 }  // namespace foo
 
-TEST_CASE("formatter with inherit from emio::formatter", "[formatter]") {
+TEST_CASE("format_as", "[formatter]") {
   // Test strategy:
   // * Format a custom type with a format_as.
   // Expected: The formatting works.
