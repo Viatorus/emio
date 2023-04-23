@@ -11,6 +11,8 @@
 
 // Unit under test.
 #include <emio/format.hpp>
+#include <tuple>
+#include <utility>
 
 namespace emio {
 
