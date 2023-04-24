@@ -51,7 +51,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Install GCC
+      - name: Install Compiler
         run: |
           if [[ "$compiler" == "gcc" ]]; then
             sudo apt-get install -y gcc-11 g++-11

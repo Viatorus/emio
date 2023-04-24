@@ -13,10 +13,11 @@
 #include <emio/ranges.hpp>
 
 // Other includes.
-#include <emio/format.hpp>
 #include <fmt/ranges.h>
 
 #include <catch2/catch_test_macros.hpp>
+#include <emio/format.hpp>
+#include <list>
 #include <map>
 #include <queue>
 #include <set>
@@ -27,109 +28,85 @@
 // Test cases from fmt/test/a-test.cc - 9.1.0
 
 TEST_CASE("format_array", "[ranges]") {
-  int arr[] = {1, 2, 3, 5, 7, 11};
-  //  CHECK(emio::format("{}", arr) == "[1, 2, 3, 5, 7, 11]");
-
-  //  static_assert(!emio::detail::is_valid_tuple<std::array<int, 4>>);
-  //  static_assert(emio::detail::is_valid_tuple<std::tuple<int, float>>);
-  //  static_assert(emio::detail::is_valid_tuple<std::pair<int, float>>);
-  //  static_assert(!emio::detail::is_valid_tuple<std::pair<int, float*>>);
-
-  std::tuple<int, int, int> tup{1, 2, 3};
-  CHECK(emio::format("{}", tup) == "(1, 2, 3)");
-
-  //  emio::detail::tuple_formatters<std::tuple<int, int, int>> x = 1;
-
-  using T = std::remove_cvref_t<decltype(tup)>;
-  static_assert(emio::detail::is_valid_tuple<T>);
-  //  static_assert(emio::detail::is_valid_range<std::remove_cvref_t<T>>);
-  //  static_assert(emio::is_formattable_v<T>);
-  //  static_assert(emio::is_formattable_v<std::remove_cvref_t<T>>);
-
-  //  emio::formatter<int[6]> s;
-
-  //  auto m = std::map<std::string, int>{{"one", 1}, {"two", 2}};
-  //  auto s = std::set<std::string>{"one", "two"};
-  //  CHECK(emio::format("{}", m) == "{\"one\": 1, \"two\": 2}");
-  //  CHECK(emio::format("{}", s) == "{\"one\": 1, \"two\": 2}");
+  const int arr[] = {1, 2, 3, 5, 7, 11};
+  CHECK(emio::format("{}", arr) == "[1, 2, 3, 5, 7, 11]");
 }
 
-// TEST_CASE("format_2d_array", "[ranges]") {
-//   int arr[][2] = {{1, 2}, {3, 5}, {7, 11}};
-//   CHECK(emio::format("{}", arr) == "[[1, 2], [3, 5], [7, 11]]");
-// }
-//
-// TEST_CASE("format_array_of_literals", "[ranges]") {
-//   const char* arr[] = {"1234", "abcd"};
-//   CHECK(emio::format("{}", arr) == "[\"1234\", \"abcd\"]");
-//   CHECK(emio::format("{:n}", arr) == "\"1234\", \"abcd\"");
-//   CHECK(emio::format("{:n:}", arr) == "1234, abcd");
-// }
-// #endif  // FMT_RANGES_TEST_ENABLE_C_STYLE_ARRAY
-//
-// TEST_CASE("format_vector", "[ranges]") {
-//   auto v = std::vector<int>{1, 2, 3, 5, 7, 11};
-//   CHECK(emio::format("{}", v) == "[1, 2, 3, 5, 7, 11]");
-//   CHECK(emio::format("{::#x}", v) == "[0x1, 0x2, 0x3, 0x5, 0x7, 0xb]");
-//   CHECK(emio::format("{:n:#x}", v) == "0x1, 0x2, 0x3, 0x5, 0x7, 0xb");
-// }
-//
-// TEST_CASE("format_vector2", "[ranges]") {
-//   auto v = std::vector<std::vector<int>>{{1, 2}, {3, 5}, {7, 11}};
-//   CHECK(emio::format("{}", v) == "[[1, 2], [3, 5], [7, 11]]");
-//   CHECK(emio::format("{:::#x}", v) == "[[0x1, 0x2], [0x3, 0x5], [0x7, 0xb]]");
-//   CHECK(emio::format("{:n:n:#x}", v) == "0x1, 0x2, 0x3, 0x5, 0x7, 0xb");
-// }
-//
-// TEST_CASE("format_map", "[ranges]") {
-//   auto m = std::map<std::string, int>{{"one", 1}, {"two", 2}};
-//   CHECK(emio::format("{}", m) == "{\"one\": 1, \"two\": 2}");
-//   CHECK(emio::format("{:n}", m) == "\"one\": 1, \"two\": 2");
-// }
-//
-// TEST_CASE("format_set", "[ranges]") {
-//   CHECK(emio::format("{}", std::set<std::string>{"one", "two"}) == "{\"one\", \"two\"}");
-// }
-//
-// namespace adl {
-// struct box {
-//   int value;
-// };
-//
-// auto begin(const box& b) -> const int* {
-//   return &b.value;
-// }
-//
-// auto end(const box& b) -> const int* {
-//   return &b.value + 1;
-// }
-// }  // namespace adl
-//
-// TEST_CASE("format_adl_begin_end", "[ranges]") {
-//   auto b = adl::box{42};
-//   CHECK(emio::format("{}", b) == "[42]");
-// }
-//
-// TEST_CASE("format_pair", "[ranges]") {
-//   auto p = std::pair<int, float>(42, 1.5f);
-//   CHECK(emio::format("{}", p) == "(42, 1.5)");
-// }
-//
+TEST_CASE("format_2d_array", "[ranges]") {
+  int arr[][2] = {{1, 2}, {3, 5}, {7, 11}};
+  CHECK(emio::format("{}", arr) == "[[1, 2], [3, 5], [7, 11]]");
+}
+
+TEST_CASE("format_array_of_literals", "[ranges]") {
+  const char* arr[] = {"1234", "abcd"};
+  CHECK(emio::format("{}", arr) == "[\"1234\", \"abcd\"]");
+  CHECK(emio::format("{:n}", arr) == "\"1234\", \"abcd\"");
+  CHECK(emio::format("{:n:}", arr) == "1234, abcd");
+}
+
+TEST_CASE("format_vector", "[ranges]") {
+  auto v = std::vector<int>{1, 2, 3, 5, 7, 11};
+  CHECK(emio::format("{}", v) == "[1, 2, 3, 5, 7, 11]");
+  CHECK(emio::format("{::#x}", v) == "[0x1, 0x2, 0x3, 0x5, 0x7, 0xb]");
+  CHECK(emio::format("{:n:#x}", v) == "0x1, 0x2, 0x3, 0x5, 0x7, 0xb");
+}
+
+TEST_CASE("format_vector2", "[ranges]") {
+  auto v = std::vector<std::vector<int>>{{1, 2}, {3, 5}, {7, 11}};
+  CHECK(emio::format("{}", v) == "[[1, 2], [3, 5], [7, 11]]");
+  CHECK(emio::format("{:::#x}", v) == "[[0x1, 0x2], [0x3, 0x5], [0x7, 0xb]]");
+  CHECK(emio::format("{:n:n:#x}", v) == "0x1, 0x2, 0x3, 0x5, 0x7, 0xb");
+}
+
+TEST_CASE("format_map", "[ranges]") {
+  auto m = std::map<std::string, int>{{"one", 1}, {"two", 2}};
+  CHECK(emio::format("{}", m) == "{\"one\": 1, \"two\": 2}");
+  CHECK(emio::format("{:n}", m) == "\"one\": 1, \"two\": 2");
+}
+
+TEST_CASE("format_set", "[ranges]") {
+  CHECK(emio::format("{}", std::set<std::string>{"one", "two"}) == "{\"one\", \"two\"}");
+}
+
+namespace adl {
+struct box {
+  int value;
+};
+
+auto begin(const box& b) -> const int* {
+  return &b.value;
+}
+
+auto end(const box& b) -> const int* {
+  return &b.value + 1;
+}
+}  // namespace adl
+
+TEST_CASE("format_adl_begin_end", "[ranges]") {
+  auto b = adl::box{42};
+  CHECK(emio::format("{}", b) == "[42]");
+}
+
+TEST_CASE("format_pair", "[ranges]") {
+  auto p = std::pair<int, float>(42, 1.5f);
+  CHECK(emio::format("{}", p) == "(42, 1.5)");
+}
+
 // struct unformattable {};
 //
-// TEST_CASE("format_tuple", "[ranges]") {
-//   auto t = std::tuple<int, float, std::string, char>(42, 1.5f, "this is tuple", 'i');
-//   CHECK(emio::format("{}", t) == "(42, 1.5, \"this is tuple\", 'i')");
-//   CHECK(emio::format("{}", std::tuple<>()) == "()");
-//
-//   //  EXPECT_TRUE((fmt::is_formattable<std::tuple<>>::value));
-//   //  EXPECT_FALSE((fmt::is_formattable<unformattable>::value));
-//   //  EXPECT_FALSE((fmt::is_formattable<std::tuple<unformattable>>::value));
-//   //  EXPECT_FALSE((fmt::is_formattable<std::tuple<unformattable, int>>::value));
-//   //  EXPECT_FALSE((fmt::is_formattable<std::tuple<int, unformattable>>::value));
-//   //  EXPECT_FALSE((fmt::is_formattable<std::tuple<unformattable, unformattable>>::value));
-//   //  EXPECT_TRUE((fmt::is_formattable<std::tuple<int, float>>::value));
-// }
+TEST_CASE("format_tuple", "[ranges]") {
+  auto t = std::tuple<int, float, std::string, char>(42, 1.5f, "this is tuple", 'i');
+  CHECK(emio::format("{}", t) == "(42, 1.5, \"this is tuple\", 'i')");
+  CHECK(emio::format("{}", std::tuple<>()) == "()");
+  //
+  //   //  EXPECT_TRUE((fmt::is_formattable<std::tuple<>>::value));
+  //   //  EXPECT_FALSE((fmt::is_formattable<unformattable>::value));
+  //   //  EXPECT_FALSE((fmt::is_formattable<std::tuple<unformattable>>::value));
+  //   //  EXPECT_FALSE((fmt::is_formattable<std::tuple<unformattable, int>>::value));
+  //   //  EXPECT_FALSE((fmt::is_formattable<std::tuple<int, unformattable>>::value));
+  //   //  EXPECT_FALSE((fmt::is_formattable<std::tuple<unformattable, unformattable>>::value));
+  //   //  EXPECT_TRUE((fmt::is_formattable<std::tuple<int, float>>::value));
+}
 //
 // struct tuple_like {
 //   int i;

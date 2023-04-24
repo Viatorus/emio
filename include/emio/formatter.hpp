@@ -142,6 +142,12 @@ class formatter<T> {
     return write_arg(wtr, specs_, arg);
   }
 
+  constexpr void set_debug_format(bool set) noexcept
+    requires(std::is_same_v<T, char> || std::is_same_v<T, std::string_view>)
+  {
+    specs_.type = '?';
+  }
+
  private:
   detail::format::format_specs specs_{};
 };

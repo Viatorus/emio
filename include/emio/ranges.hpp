@@ -6,10 +6,10 @@
 
 #pragma once
 
-#include "formatter.hpp"
-
 #include <tuple>
 #include <utility>
+
+#include "formatter.hpp"
 
 namespace emio {
 
@@ -22,7 +22,9 @@ template <typename T>
 concept Advanceable = requires(T x) { ++x; };
 
 using std::begin;
+using std::data;
 using std::end;
+using std::size;
 
 template <typename T>
 concept is_iterable = std::is_array_v<T> || requires(T x) {
@@ -46,6 +48,20 @@ concept is_string_like = std::is_constructible_v<std::string_view, T>;
 template <typename T>
 concept is_valid_range = is_iterable<T> && !is_string_like<T> && is_formattable_v<element_type_t<T>>;
 
+template <typename T>
+struct is_span : std::false_type {};
+
+template <typename T, size_t N>
+struct is_span<std::span<T, N>> : std::true_type {};
+
+template <typename T>
+concept is_contiguous_but_not_span =
+    std::is_array_v<T> || requires(T x) {
+                            requires !is_span<T>::value;
+                            requires std::is_same_v<std::remove_cvref_t<decltype(*data(x))>, element_type_t<T>>;
+                            { size(x) } -> std::same_as<size_t>;
+                          };
+
 }  // namespace detail
 namespace detail::format {
 
@@ -55,6 +71,15 @@ struct ranges_specs {
   std::string_view separator{};
 };
 
+template <typename Formatter>
+  requires requires(Formatter f) { f.set_debug_format(true); }
+constexpr void maybe_set_debug_format(Formatter& f, bool set) noexcept {
+  f.set_debug_format(set);
+}
+
+template <typename Formatter>
+constexpr void maybe_set_debug_format(Formatter&, ...) noexcept {}
+
 }  // namespace detail::format
 
 // Set: "{" "}" ", "
@@ -62,15 +87,22 @@ struct ranges_specs {
 // pair/tuple: "(" ")" ", "
 
 template <typename T>
-  requires(detail::is_valid_range<T>)
+  requires(detail::is_valid_range<T> && !detail::is_contiguous_but_not_span<T>)
 class formatter<T> {
  public:
   static constexpr result<void> validate(reader<char>& rdr) noexcept {
     EMIO_TRY(char c, rdr.read_char());
-    if (c == '}') {  // Format end.
+    if (c == 'n') {
+      EMIO_TRY(c, rdr.read_char());
+    }
+    if (c == '}') {
       return success;
     }
-    return success;
+    if (c == ':') {
+      return formatter<detail::element_type_t<T>>::validate(rdr);
+    } else {
+      return err::invalid_format;
+    }
   }
 
   constexpr formatter() noexcept
@@ -80,15 +112,13 @@ class formatter<T> {
   constexpr formatter() noexcept
     requires(detail::is_map<T>)
       : specs_{"{", "}", ", "} {
-    set_brackets("{", "}");
+    underlying_.set_brackets({}, {});
     underlying_.set_separator(": ");
   }
 
   constexpr formatter() noexcept
-    requires(detail::is_set<T>)
-      : specs_{"{", "}", ", "} {
-    underlying_.set_separator(": ");
-  }
+    requires(detail::is_set<T> && !detail::is_map<T>)
+      : specs_{"{", "}", ", "} {}
 
   constexpr void set_separator(std::string_view separator) noexcept {
     specs_.separator = separator;
@@ -100,11 +130,18 @@ class formatter<T> {
   }
 
   constexpr result<void> parse(reader<char>& rdr) noexcept {
-    EMIO_TRY(char c, rdr.read_char());
-    if (c == '}') {  // Format end.
-      return success;
+    char c = rdr.peek().assume_value();
+    if (c == 'n') {
+      set_brackets({}, {});
+      rdr.pop();
+      c = rdr.peek().assume_value();
     }
-    return success;
+    if (c == '}') {
+      detail::format::maybe_set_debug_format(underlying_, true);
+    } else {
+      rdr.pop();
+    }
+    return underlying_.parse(rdr);
   }
 
   constexpr result<void> format(writer<char>& wtr, const T& arg) noexcept {
@@ -133,6 +170,10 @@ class formatter<T> {
   detail::format::ranges_specs specs_{};
 };
 
+template <typename T>
+  requires(detail::is_valid_range<T> && detail::is_contiguous_but_not_span<T>)
+class formatter<T> : public formatter<std::span<const detail::element_type_t<T>>> {};
+
 namespace detail {
 
 // From https://stackoverflow.com/a/68444475/1611317
@@ -142,25 +183,27 @@ concept has_tuple_element = requires(T t) {
                               { get<N>(t) } -> std::convertible_to<const std::tuple_element_t<N, T>&>;
                             };
 
+template <typename T, size_t... Ns>
+constexpr auto has_tuple_element_unpack(std::index_sequence<Ns...>) {
+  return (has_tuple_element<T, Ns> && ...);
+}
+
 template <class T>
 concept is_tuple_like =
     !std::is_reference_v<T> &&
     requires(T t) {
       typename std::tuple_size<T>::type;
       requires std::derived_from<std::tuple_size<T>, std::integral_constant<std::size_t, std::tuple_size_v<T>>>;
-    } && []<std::size_t... N>(std::index_sequence<N...>) {
-      return (has_tuple_element<T, N> && ...);
-    }(std::make_index_sequence<std::tuple_size_v<T>>());
+    } && has_tuple_element_unpack<T>(std::make_index_sequence<std::tuple_size_v<T>>());
+
+template <typename T, size_t... Ns>
+constexpr auto is_formattable_unpack(std::index_sequence<Ns...>) {
+  return (is_formattable_v<decltype(std::get<Ns>(std::declval<T&>()))> && ...);
+}
 
 template <typename T>
-concept is_valid_tuple = !is_valid_range<T> && is_tuple_like<T> && []<std::size_t... N>(std::index_sequence<N...>) {
-  return (is_formattable_v<decltype(std::get<N>(std::declval<T&>()))> && ...);
-}(std::make_index_sequence<std::tuple_size_v<T>>());
-
-// template <typename T>
-// using tuple_formatters = typename decltype([]<std::size_t... N>(std::index_sequence<N...>) {
-//   return (std::type_identity<std::tuple<formatter<std::remove_cvref_t<std::tuple_element_t<N, T>>>...>>{});
-// }(std::make_index_sequence<std::tuple_size_v<T>>()))::type;
+concept is_valid_tuple = !is_valid_range<T> && is_tuple_like<T> &&
+                         is_formattable_unpack<T>(std::make_index_sequence<std::tuple_size_v<T>>());
 
 template <typename T, std::size_t... Ns>
 auto get_tuple_formatters(std::index_sequence<Ns...>)
@@ -186,11 +229,33 @@ class formatter<T> {
     specs_.closing_bracket = closing_bracket;
   }
 
-  constexpr result<void> parse(reader<char>& rdr) noexcept {
+  static constexpr result<void> validate(reader<char>& rdr) noexcept {
     EMIO_TRY(char c, rdr.read_char());
-    if (c != '}') {  // No format end.
-      return err::invalid_format;
+    if (c == 'n') {
+      EMIO_TRY(c, rdr.read_char());
     }
+    if (c == '}') {
+      return success;
+    }
+    return err::invalid_format;
+  }
+
+  constexpr result<void> parse(reader<char>& rdr) noexcept {
+    char c = rdr.peek().assume_value();
+    if (c == 'n') {
+      set_brackets({}, {});
+      rdr.pop(1);
+    }
+    std::apply(  // TODO: simplify
+        [&](auto&... x) {
+          (detail::format::maybe_set_debug_format(x, true), ...);
+          const auto rec = [](reader<char> rdr, auto& f) {
+            f.parse(rdr);
+          };
+          (rec(rdr, x), ...);
+        },
+        formatters_);
+    rdr.pop(1);
     return success;
   }
 
@@ -202,17 +267,16 @@ class formatter<T> {
   }
 
  private:
-  template <size_t... Ns>
-  [[nodiscard]] constexpr result<void> format_for_each(std::index_sequence<Ns...>, writer<char>& wtr,
+  template <size_t N, size_t... Ns>
+  [[nodiscard]] constexpr result<void> format_for_each(std::index_sequence<N, Ns...>, writer<char>& wtr,
                                                        const T& args) noexcept {
-    size_t i = 0;
+    EMIO_TRYV(std::get<N>(formatters_).format(wtr, std::get<N>(args)));
+
     result<void> res = success;
     const auto form = [&](auto& f, const auto& arg) {
-      if (i++ != 0) {
-        res = wtr.write_str(specs_.separator);
-        if (res.has_error()) {
-          return false;
-        }
+      res = wtr.write_str(specs_.separator);
+      if (res.has_error()) {
+        return false;
       }
       res = f.format(wtr, arg);
       return res.has_value();
@@ -221,8 +285,13 @@ class formatter<T> {
     return res;
   }
 
+  [[nodiscard]] constexpr result<void> format_for_each(std::index_sequence<>, writer<char>& /*wtr*/,
+                                                       const T& /*args*/) noexcept {
+    return success;
+  }
+
   detail::tuple_formatters<T> formatters_{};
   detail::format::ranges_specs specs_{};
 };
 
-} // namespace emio
+}  // namespace emio
