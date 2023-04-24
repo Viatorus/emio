@@ -37,5 +37,6 @@
 #define EMIO_Z_MAIN_H
 
 #include "format.hpp"
+#include "ranges.hpp"
 
 #endif  // EMIO_Z_MAIN_H
