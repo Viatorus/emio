@@ -24,8 +24,11 @@ using std::end;
 using std::size;
 
 template <typename T>
+concept advanceable = requires(T x) { ++x; };
+
+template <typename T>
 concept is_iterable = std::is_array_v<T> || requires(T x) {
-                                              { ++begin(x) };
+                                              { begin(x) } -> advanceable;
                                               requires !std::is_same_v<decltype(*begin(x)), void>;
                                               { static_cast<bool>(begin(x) != end(x)) };
                                             };
