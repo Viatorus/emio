@@ -10,7 +10,6 @@
 #pragma once
 
 #include "detail/format/ranges.hpp"
-#include "formatter.hpp"
 
 namespace emio {
 

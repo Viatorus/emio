@@ -10,53 +10,6 @@
 
 namespace emio {
 
-namespace detail {
-
-// To reduce code bloat, similar types are unified to a general one.
-template <typename T>
-struct unified_type;
-
-template <typename T>
-struct unified_type {
-  using type = const T&;
-};
-
-template <typename T>
-  requires(!std::is_integral_v<T> && !std::is_same_v<T, std::nullptr_t> && std::is_constructible_v<std::string_view, T>)
-struct unified_type<T> {
-  using type = std::string_view;
-};
-
-template <typename T>
-  requires(std::is_integral_v<T> && std::is_signed_v<T> && !std::is_same_v<T, bool> && !std::is_same_v<T, char>)
-struct unified_type<T> {
-  using type = std::conditional_t<num_bits<T>() <= 32, int32_t, int64_t>;
-};
-
-template <typename T>
-  requires(std::is_floating_point_v<T> && sizeof(T) <= sizeof(double))
-struct unified_type<T> {
-  using type = double;
-};
-
-template <typename T>
-  requires(std::is_same_v<T, char> || std::is_same_v<T, bool> || std::is_same_v<T, void*> ||
-           std::is_same_v<T, std::nullptr_t>)
-struct unified_type<T> {
-  using type = T;
-};
-
-template <typename T>
-  requires(std::is_integral_v<T> && std::is_unsigned_v<T> && !std::is_same_v<T, bool> && !std::is_same_v<T, char>)
-struct unified_type<T> {
-  using type = std::conditional_t<num_bits<T>() <= 32, uint32_t, uint64_t>;
-};
-
-template <typename T>
-using unified_type_t = typename unified_type<T>::type;
-
-}  // namespace detail
-
 /**
  * Checks if a type is formattable.
  * @tparam T The type to check.
@@ -176,8 +129,8 @@ class formatter<T> {
  * @tparam T The unscoped enum type.
  */
 template <typename T>
-  requires(!detail::format::is_core_type_v<T> && detail::format::is_core_type_v<detail::unified_type_t<T>>)
-class formatter<T> : public formatter<detail::unified_type_t<T>> {};
+  requires(!detail::format::is_core_type_v<T> && detail::format::is_core_type_v<detail::format::unified_type_t<T>>)
+class formatter<T> : public formatter<detail::format::unified_type_t<T>> {};
 
 /**
  * Formatter for unscoped enum types to there underlying type.
