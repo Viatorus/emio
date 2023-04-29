@@ -202,18 +202,18 @@ class formatter<T> {
                                         const bool set_debug) noexcept {
     using std::get;
 
+    size_t reader_pos = 0;
     result<void> res = success;
-    const auto parse = [&res, set_debug](auto& f, reader<char> r /*copy!*/) {
+    const auto parse = [&reader_pos, &res, set_debug](auto& f, reader<char> r /*copy!*/) {
       detail::format::maybe_set_debug_format(f, set_debug);
       res = f.parse(r);
-      if (res.has_error()) {
-        return false;
-      }
+      reader_pos = r.pos();
       return res.has_value();
     };
     static_cast<void>(parse);  // Maybe unused warning.
     if ((parse(get<Ns>(formatters_), rdr) && ...)) {
-      return rdr.read_until_char('}');
+      rdr.pop(reader_pos);
+      return success;
     }
     return res;
   }

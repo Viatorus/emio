@@ -32,8 +32,9 @@ TEST_CASE("format_array", "[ranges]") {
   CHECK(emio::format("{}", arr) == "[1, 2, 3, 5, 7, 11]");
 }
 
-TEST_CASE("rangses invalid_format", "[ranges]") {
-  const int arr[] = {1, 2, 3, 5, 7, 11};
+TEST_CASE("ranges invalid_format or validate tests", "[ranges]") {
+  const int arr[] = {1, 2};
+  CHECK(emio::format(emio::runtime{"{}"}, arr) == "[1, 2]");
   CHECK(emio::format(emio::runtime{"{:x"}, arr) == emio::err::invalid_format);
   CHECK(emio::format(emio::runtime{"{:n"}, arr) == emio::err::invalid_format);
   CHECK(emio::format(emio::runtime{"{::i}"}, arr) == emio::err::invalid_format);
@@ -103,8 +104,9 @@ TEST_CASE("format_pair", "[ranges]") {
   CHECK(emio::format("{::<5}", p) == "(42   , 1.5  )");
 }
 
-TEST_CASE("tuple_like invalid_format", "[ranges]") {
+TEST_CASE("tuple_like invalid_format or validate tests", "[ranges]") {
   auto p = std::pair<int, float>(42, 1.5f);
+  CHECK(emio::format(emio::runtime{"{}"}, p) == "(42, 1.5)");
   CHECK(emio::format(emio::runtime{"{:x"}, p) == emio::err::invalid_format);
   CHECK(emio::format(emio::runtime{"{:n"}, p) == emio::err::invalid_format);
   CHECK(emio::format(emio::runtime{"{::i}"}, p) == emio::err::invalid_format);
