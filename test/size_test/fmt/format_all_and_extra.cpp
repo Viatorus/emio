@@ -1,4 +1,7 @@
 #include <fmt/core.h>
+#include <fmt/ranges.h>
+
+#include <array>
 
 int main() {
   static_cast<void>(fmt::format("{} {} {} {} {} {} {} {} {} {} {} {} {}", true, static_cast<int8_t>(1),
