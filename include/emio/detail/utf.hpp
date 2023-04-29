@@ -61,7 +61,7 @@ constexpr OutputIt write_escaped(std::basic_string_view<Char> sv, OutputIt out) 
           *(out++) = '0';
         }
         out += to_signed(number_of_digits);
-        write_number(abs, 16, true, out);
+        write_number(abs, 16, false, out);
         break;
       }
       }

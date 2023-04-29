@@ -139,13 +139,16 @@ class formatter<T> {
   }
 
   constexpr result<void> format(writer<char>& wtr, const T& arg) noexcept {
-    return write_arg(wtr, specs_, arg);
+    auto specs = specs_;  // Copy spec because format could be called multiple times (e.g. ranges).
+    return write_arg(wtr, specs, arg);
   }
 
   constexpr void set_debug_format(bool set) noexcept
     requires(std::is_same_v<T, char> || std::is_same_v<T, std::string_view>)
   {
-    specs_.type = '?';
+    if (set) {
+      specs_.type = '?';
+    }
   }
 
  private:

@@ -62,6 +62,8 @@ TEST_CASE("format_map", "[ranges]") {
   auto m = std::map<std::string, int>{{"one", 1}, {"two", 2}};
   CHECK(emio::format("{}", m) == "{\"one\": 1, \"two\": 2}");
   CHECK(emio::format("{:n}", m) == "\"one\": 1, \"two\": 2");
+  CHECK(emio::format(emio::runtime{"{:::}"}, m).value() == "{one: 1, two: 2}");
+  CHECK(emio::format(emio::runtime{"{:::^7}"}, m).value() == "{  one  :    1   ,   two  :    2   }");
 }
 
 TEST_CASE("format_set", "[ranges]") {
@@ -90,75 +92,81 @@ TEST_CASE("format_adl_begin_end", "[ranges]") {
 TEST_CASE("format_pair", "[ranges]") {
   auto p = std::pair<int, float>(42, 1.5f);
   CHECK(emio::format("{}", p) == "(42, 1.5)");
+  CHECK(emio::format("{:n}", p) == "42, 1.5");
+  CHECK(emio::format("{::<5}", p) == "(42   , 1.5  )");
 }
 
-// struct unformattable {};
-//
+struct unformattable {};
+
 TEST_CASE("format_tuple", "[ranges]") {
   auto t = std::tuple<int, float, std::string, char>(42, 1.5f, "this is tuple", 'i');
   CHECK(emio::format("{}", t) == "(42, 1.5, \"this is tuple\", 'i')");
   CHECK(emio::format("{}", std::tuple<>()) == "()");
-  //
-  //   //  EXPECT_TRUE((fmt::is_formattable<std::tuple<>>::value));
-  //   //  EXPECT_FALSE((fmt::is_formattable<unformattable>::value));
-  //   //  EXPECT_FALSE((fmt::is_formattable<std::tuple<unformattable>>::value));
-  //   //  EXPECT_FALSE((fmt::is_formattable<std::tuple<unformattable, int>>::value));
-  //   //  EXPECT_FALSE((fmt::is_formattable<std::tuple<int, unformattable>>::value));
-  //   //  EXPECT_FALSE((fmt::is_formattable<std::tuple<unformattable, unformattable>>::value));
-  //   //  EXPECT_TRUE((fmt::is_formattable<std::tuple<int, float>>::value));
+  CHECK(emio::format("{:n}", std::tuple<>()) == "");
+  CHECK(emio::format(emio::runtime{"{::}"}, std::tuple<>()) == emio::err::invalid_format);
+
+  STATIC_CHECK(emio::is_formattable_v<std::tuple<>>);
+  STATIC_CHECK(!emio::is_formattable_v<unformattable>);
+  STATIC_CHECK(!emio::is_formattable_v<std::tuple<unformattable>>);
+  STATIC_CHECK(!emio::is_formattable_v<std::tuple<unformattable, int>>);
+  STATIC_CHECK(!emio::is_formattable_v<std::tuple<int, unformattable>>);
+  STATIC_CHECK(!emio::is_formattable_v<std::tuple<unformattable, unformattable>>);
+  STATIC_CHECK(emio::is_formattable_v<std::tuple<int, float>>);
 }
+
+struct tuple_like {
+  int i;
+  std::string str;
+
+  template <size_t N>
+    requires(N == 0)
+  int get() const noexcept {
+    return i;
+  }
+  template <size_t N>
+    requires(N == 1)
+  std::string_view get() const noexcept {
+    return str;
+  }
+};
+
+template <size_t N>
+auto get(const tuple_like& t) noexcept -> decltype(t.get<N>()) {
+  return t.get<N>();
+}
+
+namespace std {
+template <>
+struct tuple_size<tuple_like> : std::integral_constant<size_t, 2> {};
+
+template <size_t N>
+struct tuple_element<N, tuple_like> {
+  using type = decltype(std::declval<tuple_like>().get<N>());
+};
+}  // namespace std
+
+TEST_CASE("format_struct", "[ranges]") {
+  auto t = tuple_like{42, "foo"};
+  CHECK(emio::format("{}", t) == "(42, \"foo\")");
+}
+
+TEST_CASE("format_to", "[ranges]") {
+  char buf[10];
+  auto end = emio::format_to(buf, "{}", std::vector<int>{1, 2, 3}).value();
+  *end = '\0';
+  CHECK(std::string_view{buf} == "[1, 2, 3]");
+}
+
+// struct path_like {
+//   const path_like* begin() const;
+//   const path_like* end() const;
 //
-// struct tuple_like {
-//   int i;
-//   std::string str;
-//
-//   template <size_t N>
-//   fmt::enable_if_t<N == 0, int> get() const noexcept {
-//     return i;
-//   }
-//   template <size_t N>
-//   fmt::enable_if_t<N == 1, fmt::string_view> get() const noexcept {
-//     return str;
-//   }
+//   operator std::string() const;
 // };
 //
-// template <size_t N>
-// auto get(const tuple_like& t) noexcept -> decltype(t.get<N>()) {
-//   return t.get<N>();
+// TEST_CASE("path_like", "[ranges]") {
+//   EXPECT_FALSE((fmt::is_range<path_like, char>::value));
 // }
-//
-// namespace std {
-// template <>
-// struct tuple_size<tuple_like> : std::integral_constant<size_t, 2> {};
-//
-// template <size_t N>
-// struct tuple_element<N, tuple_like> {
-//   using type = decltype(std::declval<tuple_like>().get<N>());
-// };
-// }  // namespace std
-//
-// TEST_CASE("format_struct", "[ranges]") {
-//   auto t = tuple_like{42, "foo"};
-//   CHECK(emio::format("{}", t) == "(42, \"foo\")");
-// }
-//
-// TEST_CASE("format_to", "[ranges]") {
-//   char buf[10];
-//   auto end = fmt::format_to(buf, "{}", std::vector<int>{1, 2, 3});
-//   *end = '\0';
-//   EXPECT_STREQ(buf, "[1, 2, 3]");
-// }
-//
-//// struct path_like {
-////   const path_like* begin() const;
-////   const path_like* end() const;
-////
-////   operator std::string() const;
-//// };
-////
-//// TEST_CASE("path_like", "[ranges]") {
-////   EXPECT_FALSE((fmt::is_range<path_like, char>::value));
-//// }
 //
 //// A range that provides non-const only begin()/end() to test fmt::join handles
 //// that.
@@ -234,7 +242,7 @@ TEST_CASE("format_tuple", "[ranges]") {
 // }
 //
 // TEST_CASE("unformattable_range", "[ranges]") {
-//   //  EXPECT_FALSE((fmt::has_formatter<std::vector<unformattable>, fmt::format_context>::value));
+//   STATIC_CHECK((!fmt::has_formatter<std::vector<unformattable>, fmt::format_context>::value));
 // }
 //
 // #ifdef FMT_RANGES_TEST_ENABLE_JOIN
@@ -364,29 +372,29 @@ TEST_CASE("format_tuple", "[ranges]") {
 // #  endif
 // }
 // #endif  // FMT_RANGES_TEST_ENABLE_JOIN
-//
-// TEST_CASE("escape_string", "[ranges]") {
-//   using vec = std::vector<std::string>;
-//   CHECK(emio::format("{}", vec{"\n\r\t\"\\"}) == "[\"\\n\\r\\t\\\"\\\\\"]");
-//   CHECK(emio::format("{}", vec{"\x07"}) == "[\"\\x07\"]");
-//   CHECK(emio::format("{}", vec{"\x7f"}) == "[\"\\x7f\"]");
-//   CHECK(emio::format("{}", vec{"n\xcc\x83"}) == "[\"n\xcc\x83\"]");
-//
-//   if (fmt::detail::is_utf8()) {
-//     CHECK(emio::format("{}", vec{"\xcd\xb8"}) == "[\"\\u0378\"]");
-//     // Unassigned Unicode code points.
-//     CHECK(emio::format("{}", vec{"\xf0\xaa\x9b\x9e"}) == "[\"\\U0002a6de\"]");
-//     // Broken utf-8.
-//     CHECK(emio::format("{}", vec{"\xf4\x8f\xbf\xc0"}) == "[\"\\xf4\\x8f\\xbf\\xc0\"]");
-//     CHECK(emio::format("{}", vec{"\xf0\x28"}) == "[\"\\xf0(\"]");
-//     CHECK(emio::format("{}", vec{"\xe1\x28"}) == "[\"\\xe1(\"]");
-//     CHECK(emio::format("{}", vec{std::string("\xf0\x28\0\0anything", 12)}) == "[\"\\xf0(\\x00\\x00anything\"]");
-//
-//     // Correct utf-8.
-//     CHECK(emio::format("{}", vec{"понедельник"}) == "[\"понедельник\"]");
-//   }
-// }
-//
+
+TEST_CASE("escape_string", "[ranges]") {
+  using vec = std::vector<std::string>;
+  CHECK(emio::format("{}", vec{"\n\r\t\"\\"}) == "[\"\\n\\r\\t\\\"\\\\\"]");
+  CHECK(emio::format("{}", vec{"\x07"}) == "[\"\\x07\"]");
+  CHECK(emio::format("{}", vec{"\x7f"}) == "[\"\\x7f\"]");
+  CHECK(emio::format("{}", vec{"n\xcc\x83"}) == "[\"n\\xcc\\x83\"]");
+
+  //   if (fmt::detail::is_utf8()) {
+  //     CHECK(emio::format("{}", vec{"\xcd\xb8"}) == "[\"\\u0378\"]");
+  //     // Unassigned Unicode code points.
+  //     CHECK(emio::format("{}", vec{"\xf0\xaa\x9b\x9e"}) == "[\"\\U0002a6de\"]");
+  //     // Broken utf-8.
+  //     CHECK(emio::format("{}", vec{"\xf4\x8f\xbf\xc0"}) == "[\"\\xf4\\x8f\\xbf\\xc0\"]");
+  //     CHECK(emio::format("{}", vec{"\xf0\x28"}) == "[\"\\xf0(\"]");
+  //     CHECK(emio::format("{}", vec{"\xe1\x28"}) == "[\"\\xe1(\"]");
+  //     CHECK(emio::format("{}", vec{std::string("\xf0\x28\0\0anything", 12)}) == "[\"\\xf0(\\x00\\x00anything\"]");
+  //
+  //     // Correct utf-8.
+  //     CHECK(emio::format("{}", vec{"понедельник"}) == "[\"понедельник\"]");
+  //   }
+}
+
 // template <typename R>
 // struct fmt_ref_view {
 //   R* r;

@@ -18,7 +18,7 @@ namespace emio {
 
 /**
  * This class operates on a char sequence and allows reading and parsing from it.
- * The reader interprets the char sequence as finite input stream. After every successful operation the read pointer
+ * The reader interprets the char sequence as finite input stream. After every successful operation the read position
  * moves on until the last char of the sequence has been consumed.
  * @tparam Char The character type.
  */
@@ -51,6 +51,14 @@ class reader {
   // NOLINTNEXTLINE(bugprone-forwarding-reference-overload): Is guarded by require clause.
   constexpr explicit(!std::is_convertible_v<Arg, view_t>) reader(Arg&& input) noexcept
       : input_{std::forward<Arg>(input)} {}
+
+  /**
+   * Returns the current read position.
+   * @return The read position.
+   */
+  [[nodiscard]] constexpr size_t pos() const noexcept {
+    return pos_;
+  }
 
   /**
    * Checks if the end of the stream has been reached.

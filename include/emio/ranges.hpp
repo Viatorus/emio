@@ -133,13 +133,13 @@ class formatter<T> {
     char c = rdr.peek().assume_value();
     if (c == 'n') {
       set_brackets({}, {});
-      rdr.pop();
+      rdr.pop();  // n
       c = rdr.peek().assume_value();
     }
     if (c == '}') {
       detail::format::maybe_set_debug_format(underlying_, true);
     } else {
-      rdr.pop();
+      rdr.pop();  // :
     }
     return underlying_.parse(rdr);
   }
@@ -176,6 +176,8 @@ class formatter<T> : public formatter<std::span<const detail::element_type_t<T>>
 
 namespace detail {
 
+using std::get;
+
 // From https://stackoverflow.com/a/68444475/1611317
 template <class T, std::size_t N>
 concept has_tuple_element = requires(T t) {
@@ -197,8 +199,8 @@ concept is_tuple_like =
     } && has_tuple_element_unpack<T>(std::make_index_sequence<std::tuple_size_v<T>>());
 
 template <typename T, size_t... Ns>
-constexpr auto is_formattable_unpack(std::index_sequence<Ns...>) {
-  return (is_formattable_v<decltype(std::get<Ns>(std::declval<T&>()))> && ...);
+constexpr auto is_formattable_unpack(std::index_sequence<Ns...> /*unused*/) {
+  return (is_formattable_v<decltype(get<Ns>(std::declval<T&>()))> && ...);
 }
 
 template <typename T>
@@ -206,7 +208,7 @@ concept is_valid_tuple = !is_valid_range<T> && is_tuple_like<T> &&
                          is_formattable_unpack<T>(std::make_index_sequence<std::tuple_size_v<T>>());
 
 template <typename T, std::size_t... Ns>
-auto get_tuple_formatters(std::index_sequence<Ns...>)
+auto get_tuple_formatters(std::index_sequence<Ns...> /*unused*/)
     -> std::tuple<formatter<std::remove_cvref_t<std::tuple_element_t<Ns, T>>>...>;
 
 template <typename T>
@@ -237,25 +239,27 @@ class formatter<T> {
     if (c == '}') {
       return success;
     }
-    return err::invalid_format;
+    if (c == ':') {
+      return validate_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), rdr);
+    } else {
+      return err::invalid_format;
+    }
   }
 
   constexpr result<void> parse(reader<char>& rdr) noexcept {
     char c = rdr.peek().assume_value();
     if (c == 'n') {
       set_brackets({}, {});
-      rdr.pop(1);
+      rdr.pop();  // n
+      c = rdr.peek().assume_value();
     }
-    std::apply(  // TODO: simplify
-        [&](auto&... x) {
-          (detail::format::maybe_set_debug_format(x, true), ...);
-          const auto rec = [](reader<char> rdr, auto& f) {
-            f.parse(rdr);
-          };
-          (rec(rdr, x), ...);
-        },
-        formatters_);
-    rdr.pop(1);
+    bool set_debug = false;
+    if (c == '}') {
+      set_debug = true;
+    } else {
+      rdr.pop();  // :
+    }
+    EMIO_TRYV(parse_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), rdr, set_debug));
     return success;
   }
 
@@ -267,13 +271,72 @@ class formatter<T> {
   }
 
  private:
-  template <size_t N, size_t... Ns>
-  [[nodiscard]] constexpr result<void> format_for_each(std::index_sequence<N, Ns...>, writer<char>& wtr,
-                                                       const T& args) noexcept {
-    EMIO_TRYV(std::get<N>(formatters_).format(wtr, std::get<N>(args)));
+  template <size_t... Ns>
+  static constexpr result<void> validate_for_each(std::index_sequence<Ns...> /*unused*/, reader<char>& rdr) noexcept {
+    size_t reader_pos = 0;
+    result<void> res = success;
+    const auto validate = [&reader_pos, &res]<typename U>(std::type_identity<U> /*unused*/, reader<char> r /*copy!*/) {
+      res = U::validate(r);
+      if (res.has_error()) {
+        return false;
+      }
+      if (reader_pos == 0) {
+        reader_pos = r.pos();
+      } else if (reader_pos != r.pos()) {
+        res = err::invalid_format;
+      }
+      return res.has_value();
+    };
+    static_cast<void>(validate);  // Maybe unused warning.
+    if ((validate(std::type_identity<std::tuple_element_t<Ns, detail::tuple_formatters<T>>>{}, rdr) && ...) &&
+        reader_pos != 0) {
+      rdr.pop(reader_pos);
+      return success;
+    }
+    return res;
+  }
+
+  static constexpr result<void> validate_for_each(std::index_sequence<> /*unused*/, reader<char>& /*rdr*/) noexcept {
+    return err::invalid_format;
+  }
+
+  template <size_t... Ns>
+  constexpr result<void> parse_for_each(std::index_sequence<Ns...>, reader<char>& rdr, const bool set_debug) noexcept {
+    using std::get;
 
     result<void> res = success;
-    const auto form = [&](auto& f, const auto& arg) {
+    const auto parse = [&res, set_debug](auto& f, reader<char> r /*copy!*/) {
+      detail::format::maybe_set_debug_format(f, set_debug);
+      res = f.parse(r);
+      if (res.has_error()) {
+        return false;
+      }
+      return res.has_value();
+    };
+    static_cast<void>(parse);  // Maybe unused warning.
+    if ((parse(get<Ns>(formatters_), rdr) && ...)) {
+      return rdr.read_until_char('}');
+    }
+    return res;
+  }
+
+  constexpr result<void> parse_for_each(std::index_sequence<> /*unused*/, reader<char>& rdr,
+                                        const bool set_debug) noexcept {
+    if (set_debug) {
+      rdr.pop();  // }
+      return success;
+    }
+    return err::invalid_format;
+  }
+
+  template <size_t N, size_t... Ns>
+  constexpr result<void> format_for_each(std::index_sequence<N, Ns...> /*unused*/, writer<char>& wtr,
+                                         const T& args) noexcept {
+    using std::get;
+    EMIO_TRYV(get<N>(formatters_).format(wtr, get<N>(args)));
+
+    result<void> res = success;
+    const auto format = [&res, &wtr, this](auto& f, const auto& arg) {
       res = wtr.write_str(specs_.separator);
       if (res.has_error()) {
         return false;
@@ -281,12 +344,15 @@ class formatter<T> {
       res = f.format(wtr, arg);
       return res.has_value();
     };
-    (form(std::get<Ns>(formatters_), std::get<Ns>(args)) && ...);
+    static_cast<void>(format);  // Maybe unused warning.
+    if ((format(get<Ns>(formatters_), get<Ns>(args)) && ...)) {
+      return success;
+    }
     return res;
   }
 
-  [[nodiscard]] constexpr result<void> format_for_each(std::index_sequence<>, writer<char>& /*wtr*/,
-                                                       const T& /*args*/) noexcept {
+  constexpr result<void> format_for_each(std::index_sequence<> /*unused*/, writer<char>& /*wtr*/,
+                                         const T& /*args*/) noexcept {
     return success;
   }
 
