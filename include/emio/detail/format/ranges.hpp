@@ -4,6 +4,8 @@
 //
 // For the license information refer to emio.hpp
 
+#pragma once
+
 #include <span>
 #include <string_view>
 #include <tuple>
@@ -11,8 +13,6 @@
 #include <utility>
 
 #include "../../formatter.hpp"
-
-#pragma once
 
 namespace emio::detail::format {
 
@@ -43,8 +43,7 @@ template <typename T>
 concept is_string_like = std::is_constructible_v<std::string_view, T>;
 
 template <typename T>
-concept is_valid_range = is_iterable<T> && !
-is_string_like<T>&& is_formattable_v<element_type_t<T>>;
+concept is_valid_range = is_iterable<T> && !is_string_like<T> && is_formattable_v<element_type_t<T>>;
 
 template <typename T>
 struct is_span : std::false_type {};
@@ -92,12 +91,12 @@ constexpr auto has_tuple_element_unpack(std::index_sequence<Ns...> /*unused*/) {
 }
 
 template <class T>
-concept is_tuple_like = !
-std::is_reference_v<T>&& requires(T t) {
-                           typename std::tuple_size<T>::type;
-                           requires std::derived_from<std::tuple_size<T>,
-                                                      std::integral_constant<std::size_t, std::tuple_size_v<T>>>;
-                         } && has_tuple_element_unpack<T>(std::make_index_sequence<std::tuple_size_v<T>>());
+concept is_tuple_like =
+    !std::is_reference_v<T> &&
+    requires(T t) {
+      typename std::tuple_size<T>::type;
+      requires std::derived_from<std::tuple_size<T>, std::integral_constant<std::size_t, std::tuple_size_v<T>>>;
+    } && has_tuple_element_unpack<T>(std::make_index_sequence<std::tuple_size_v<T>>());
 
 template <typename T, size_t... Ns>
 constexpr auto is_formattable_unpack(std::index_sequence<Ns...> /*unused*/) {
@@ -105,8 +104,8 @@ constexpr auto is_formattable_unpack(std::index_sequence<Ns...> /*unused*/) {
 }
 
 template <typename T>
-concept is_valid_tuple = !
-is_valid_range<T>&& is_tuple_like<T>&& is_formattable_unpack<T>(std::make_index_sequence<std::tuple_size_v<T>>());
+concept is_valid_tuple = !is_valid_range<T> && is_tuple_like<T> &&
+                         is_formattable_unpack<T>(std::make_index_sequence<std::tuple_size_v<T>>());
 
 template <typename T, std::size_t... Ns>
 auto get_tuple_formatters(std::index_sequence<Ns...> /*unused*/)
