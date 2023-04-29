@@ -28,10 +28,10 @@ add_executable(emio_test
         test_formatted_size.cpp
         test_formatter.cpp
         test_iterator.cpp
+        test_ranges.cpp
         test_reader.cpp
         test_result.cpp
         test_writer.cpp
-        test_ranges.cpp
         )
 
 target_link_libraries(emio_test
