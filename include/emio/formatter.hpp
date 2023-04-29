@@ -58,7 +58,15 @@ using unified_type_t = typename unified_type<T>::type;
 }  // namespace detail
 
 /**
+ * Checks if a type is formattable.
+ * @tparam T The type to check.
+ */
+template <typename T>
+inline constexpr bool is_formattable_v = detail::format::has_formatter_v<std::remove_cvref_t<T>>;
+
+/**
  * Class template that defines formatting rules for a given type.
+ * @note This is just an mock-up class. See other template specialization for a concrete formatting.
  * @tparam T The type to format.
  */
 template <typename T>
@@ -101,9 +109,10 @@ class formatter {
  * Formatter for most common unambiguity types.
  * This includes:
  * - boolean
+ * - char
+ * - string_view
  * - void* / nullptr
- * - integral types
- * - chrono duration (TODO)
+ * - integral, floating-point types
  * @tparam T The type.
  */
 template <typename T>
@@ -143,11 +152,18 @@ class formatter<T> {
     return write_arg(wtr, specs, arg);
   }
 
-  constexpr void set_debug_format(bool set) noexcept
+  /**
+   * Enables or disables the debug output format.
+   * @note Used e.g. from range formatter.
+   * @param enabled Flag to enable or disable the debug output.
+   */
+  constexpr void set_debug_format(bool enabled) noexcept
     requires(std::is_same_v<T, char> || std::is_same_v<T, std::string_view>)
   {
-    if (set) {
+    if (enabled) {
       specs_.type = '?';
+    } else {
+      specs_.type = detail::format::no_type;
     }
   }
 
@@ -155,6 +171,10 @@ class formatter<T> {
   detail::format::format_specs specs_{};
 };
 
+/**
+ * Formatter for any type which could be represented as a core type. E.g. string -> string_view.
+ * @tparam T The unscoped enum type.
+ */
 template <typename T>
   requires(!detail::format::is_core_type_v<T> && detail::format::is_core_type_v<detail::unified_type_t<T>>)
 class formatter<T> : public formatter<detail::unified_type_t<T>> {};
