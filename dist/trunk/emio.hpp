@@ -1563,7 +1563,7 @@ constexpr OutputIt write_escaped(std::basic_string_view<Char> sv, OutputIt out) 
           *(out++) = '0';
         }
         out += to_signed(number_of_digits);
-        write_number(abs, 16, true, out);
+        write_number(abs, 16, false, out);
         break;
       }
       }
@@ -1893,7 +1893,7 @@ namespace emio {
 
 /**
  * This class operates on a char sequence and allows reading and parsing from it.
- * The reader interprets the char sequence as finite input stream. After every successful operation the read pointer
+ * The reader interprets the char sequence as finite input stream. After every successful operation the read position
  * moves on until the last char of the sequence has been consumed.
  * @tparam Char The character type.
  */
@@ -1926,6 +1926,14 @@ class reader {
   // NOLINTNEXTLINE(bugprone-forwarding-reference-overload): Is guarded by require clause.
   constexpr explicit(!std::is_convertible_v<Arg, view_t>) reader(Arg&& input) noexcept
       : input_{std::forward<Arg>(input)} {}
+
+  /**
+   * Returns the current read position.
+   * @return The read position.
+   */
+  [[nodiscard]] constexpr size_t pos() const noexcept {
+    return pos_;
+  }
 
   /**
    * Checks if the end of the stream has been reached.
@@ -4053,7 +4061,7 @@ constexpr result<void> validate_for(reader<char>& format_is) noexcept {
 template <typename T>
 inline constexpr bool is_core_type_v =
     std::is_integral_v<T> || std::is_floating_point_v<T> || std::is_same_v<T, std::nullptr_t> ||
-    std::is_same_v<T, void*> || std::is_constructible_v<std::string_view, T>;
+    std::is_same_v<T, void*> || std::is_same_v<T, std::string_view>;
 
 template <input_validation FormatStringValidation, typename T>
 concept formatter_parse_supports_format_string_validation =
@@ -4074,13 +4082,64 @@ concept has_format_as = requires(T arg) { format_as(arg); };
 template <typename T>
 using format_as_return_t = decltype(format_as(std::declval<T>()));
 
+// To reduce code bloat, similar types are unified to a general one.
+template <typename T>
+struct unified_type;
+
+template <typename T>
+struct unified_type {
+  using type = const T&;
+};
+
+template <typename T>
+  requires(!std::is_integral_v<T> && !std::is_same_v<T, std::nullptr_t> && std::is_constructible_v<std::string_view, T>)
+struct unified_type<T> {
+  using type = std::string_view;
+};
+
+template <typename T>
+  requires(std::is_integral_v<T> && std::is_signed_v<T> && !std::is_same_v<T, bool> && !std::is_same_v<T, char>)
+struct unified_type<T> {
+  using type = std::conditional_t<num_bits<T>() <= 32, int32_t, int64_t>;
+};
+
+template <typename T>
+  requires(std::is_floating_point_v<T> && sizeof(T) <= sizeof(double))
+struct unified_type<T> {
+  using type = double;
+};
+
+template <typename T>
+  requires(std::is_same_v<T, char> || std::is_same_v<T, bool> || std::is_same_v<T, void*> ||
+           std::is_same_v<T, std::nullptr_t>)
+struct unified_type<T> {
+  using type = T;
+};
+
+template <typename T>
+  requires(std::is_integral_v<T> && std::is_unsigned_v<T> && !std::is_same_v<T, bool> && !std::is_same_v<T, char>)
+struct unified_type<T> {
+  using type = std::conditional_t<num_bits<T>() <= 32, uint32_t, uint64_t>;
+};
+
+template <typename T>
+using unified_type_t = typename unified_type<T>::type;
+
 }  // namespace detail::format
 }  // namespace emio
 
 namespace emio {
 
 /**
+ * Checks if a type is formattable.
+ * @tparam T The type to check.
+ */
+template <typename T>
+inline constexpr bool is_formattable_v = detail::format::has_formatter_v<std::remove_cvref_t<T>>;
+
+/**
  * Class template that defines formatting rules for a given type.
+ * @note This class definition is just a mock-up. See other template specialization for a concrete formatting.
  * @tparam T The type to format.
  */
 template <typename T>
@@ -4123,11 +4182,10 @@ class formatter {
  * Formatter for most common unambiguity types.
  * This includes:
  * - boolean
+ * - char
+ * - string_view
  * - void* / nullptr
- * - integral types
- * - floating-point types (TODO)
- * - chrono duration (TODO)
- * - ranges of the above types (TODO)
+ * - integral, floating-point types
  * @tparam T The type.
  */
 template <typename T>
@@ -4163,12 +4221,36 @@ class formatter<T> {
   }
 
   constexpr result<void> format(writer<char>& wtr, const T& arg) noexcept {
-    return write_arg(wtr, specs_, arg);
+    auto specs = specs_;  // Copy spec because format could be called multiple times (e.g. ranges).
+    return write_arg(wtr, specs, arg);
+  }
+
+  /**
+   * Enables or disables the debug output format.
+   * @note Used e.g. from range formatter.
+   * @param enabled Flag to enable or disable the debug output.
+   */
+  constexpr void set_debug_format(bool enabled) noexcept
+    requires(std::is_same_v<T, char> || std::is_same_v<T, std::string_view>)
+  {
+    if (enabled) {
+      specs_.type = '?';
+    } else {
+      specs_.type = detail::format::no_type;
+    }
   }
 
  private:
   detail::format::format_specs specs_{};
 };
+
+/**
+ * Formatter for any type which could be represented as a core type. E.g. string -> string_view.
+ * @tparam T The unscoped enum type.
+ */
+template <typename T>
+  requires(!detail::format::is_core_type_v<T> && detail::format::is_core_type_v<detail::format::unified_type_t<T>>)
+class formatter<T> : public formatter<detail::format::unified_type_t<T>> {};
 
 /**
  * Formatter for unscoped enum types to there underlying type.
@@ -4199,43 +4281,6 @@ class formatter<T> : public formatter<detail::format::format_as_return_t<T>> {
 }  // namespace emio
 
 namespace emio::detail::format {
-
-// To reduce code bloat, similar types are unified to a general one.
-template <typename T>
-struct unified_type;
-
-template <typename T>
-struct unified_type {
-  using type = const T&;
-};
-
-template <typename T>
-  requires(!std::is_integral_v<T> && !std::is_same_v<T, std::nullptr_t> && std::is_constructible_v<std::string_view, T>)
-struct unified_type<T> {
-  using type = std::string_view;
-};
-
-template <typename T>
-  requires(std::is_integral_v<T> && std::is_signed_v<T> && !std::is_same_v<T, bool> && !std::is_same_v<T, char>)
-struct unified_type<T> {
-  using type = std::conditional_t<num_bits<T>() <= 32, int32_t, int64_t>;
-};
-
-template <typename T>
-  requires(std::is_same_v<T, char> || std::is_same_v<T, bool> || std::is_same_v<T, void*> ||
-           std::is_same_v<T, std::nullptr_t>)
-struct unified_type<T> {
-  using type = T;
-};
-
-template <typename T>
-  requires(std::is_integral_v<T> && std::is_unsigned_v<T> && !std::is_same_v<T, bool> && !std::is_same_v<T, char>)
-struct unified_type<T> {
-  using type = std::conditional_t<num_bits<T>() <= 32, uint32_t, uint64_t>;
-};
-
-template <typename T>
-using unified_type_t = typename unified_type<T>::type;
 
 /**
  * Type erased format argument just for format string validation.
@@ -4286,7 +4331,7 @@ class format_validation_arg {
     model_t& operator=(model_t&&) = delete;
 
     result<void> validate(reader<char>& format_is) const noexcept override {
-      return validate_for<std::decay_t<T>>(format_is);
+      return validate_for<std::remove_cvref_t<T>>(format_is);
     }
 
    protected:
@@ -4401,7 +4446,7 @@ class basic_format_arg {
     model_t& operator=(model_t&&) = delete;
 
     result<void> format(writer<Char>& wtr, reader<Char>& format_is) const noexcept override {
-      formatter<std::decay_t<T>> formatter;
+      formatter<std::remove_cvref_t<T>> formatter;
       EMIO_TRYV(invoke_formatter_parse<input_validation::disabled>(formatter, format_is));
       return formatter.format(wtr, value_);
     }
@@ -4551,7 +4596,7 @@ class format_specs_checker final : public parser_base<Char, input_validation::en
  private:
   template <typename Arg>
   constexpr result<void> validate_arg() noexcept {
-    return validate_for<Arg>(this->format_rdr_);
+    return validate_for<std::remove_cvref_t<Arg>>(this->format_rdr_);
   }
 };
 
@@ -5239,6 +5284,382 @@ constexpr result<format_to_n_result<OutputIt>> format_to_n(OutputIt out, std::it
   tout = buf.out();
   return format_to_n_result<OutputIt>{tout.out(), tout.count()};
 }
+
+}  // namespace emio
+
+//
+// Copyright (c) 2023 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+//
+// Additional licence for this file:
+// Copyright (c) 2018 - present, Remotion (Igor Schulz)
+
+//
+// Copyright (c) 2023 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+
+#include <span>
+#include <string_view>
+#include <tuple>
+#include <type_traits>
+#include <utility>
+
+namespace emio::detail::format {
+
+// For range.
+
+using std::begin;
+using std::data;
+using std::end;
+using std::size;
+
+template <typename T>
+concept advanceable = requires(T x) { ++x; };
+
+template <typename T>
+concept is_iterable = std::is_array_v<T> || requires(T x) {
+                                              { begin(x) } -> advanceable;
+                                              requires !std::is_same_v<decltype(*begin(x)), void>;
+                                              { static_cast<bool>(begin(x) != end(x)) };
+                                            };
+
+template <typename T>
+using element_type_t = std::remove_cvref_t<decltype(*begin(std::declval<std::remove_reference_t<T>&>()))>;
+
+template <typename T>
+concept is_map = requires(T x) { typename T::mapped_type; };
+
+template <typename T>
+concept is_set = requires(T x) { typename T::key_type; };
+
+template <typename T>
+concept is_string_like = std::is_constructible_v<std::string_view, T>;
+
+template <typename T>
+concept is_valid_range = is_iterable<T> && !
+is_string_like<T>&& is_formattable_v<element_type_t<T>>;
+
+template <typename T>
+struct is_span : std::false_type {};
+
+template <typename T, size_t N>
+struct is_span<std::span<T, N>> : std::true_type {};
+
+template <typename T>
+concept is_contiguous_but_not_span =
+    std::is_array_v<T> || requires(T x) {
+                            requires !is_span<T>::value;
+                            requires std::is_same_v<std::remove_cvref_t<decltype(*data(x))>, element_type_t<T>>;
+                            { size(x) } -> std::same_as<size_t>;
+                          };
+
+struct ranges_specs {
+  std::string_view opening_bracket{};
+  std::string_view closing_bracket{};
+  std::string_view separator{};
+};
+
+template <typename Formatter>
+  requires requires(Formatter f) { f.set_debug_format(true); }
+constexpr void maybe_set_debug_format(Formatter& f, bool set) noexcept {
+  f.set_debug_format(set);
+}
+
+template <typename Formatter>
+constexpr void maybe_set_debug_format(Formatter& /*unused*/, ...) noexcept {}
+
+// For tuple like types.
+
+using std::get;
+
+// From https://stackoverflow.com/a/68444475/1611317
+template <class T, std::size_t N>
+concept has_tuple_element = requires(T t) {
+                              typename std::tuple_element_t<N, std::remove_const_t<T>>;
+                              { get<N>(t) } -> std::convertible_to<const std::tuple_element_t<N, T>&>;
+                            };
+
+template <typename T, size_t... Ns>
+constexpr auto has_tuple_element_unpack(std::index_sequence<Ns...> /*unused*/) {
+  return (has_tuple_element<T, Ns> && ...);
+}
+
+template <class T>
+concept is_tuple_like = !
+std::is_reference_v<T>&& requires(T t) {
+                           typename std::tuple_size<T>::type;
+                           requires std::derived_from<std::tuple_size<T>,
+                                                      std::integral_constant<std::size_t, std::tuple_size_v<T>>>;
+                         } && has_tuple_element_unpack<T>(std::make_index_sequence<std::tuple_size_v<T>>());
+
+template <typename T, size_t... Ns>
+constexpr auto is_formattable_unpack(std::index_sequence<Ns...> /*unused*/) {
+  return (is_formattable_v<decltype(get<Ns>(std::declval<T&>()))> && ...);
+}
+
+template <typename T>
+concept is_valid_tuple = !
+is_valid_range<T>&& is_tuple_like<T>&& is_formattable_unpack<T>(std::make_index_sequence<std::tuple_size_v<T>>());
+
+template <typename T, std::size_t... Ns>
+auto get_tuple_formatters(std::index_sequence<Ns...> /*unused*/)
+    -> std::tuple<formatter<std::remove_cvref_t<std::tuple_element_t<Ns, T>>>...>;
+
+template <typename T>
+using tuple_formatters = decltype(get_tuple_formatters<T>(std::make_index_sequence<std::tuple_size_v<T>>{}));
+
+}  // namespace emio::detail::format
+
+namespace emio {
+
+/**
+ * Formatter for ranges.
+ * @tparam T The type.
+ */
+template <typename T>
+  requires(detail::format::is_valid_range<T> && !detail::format::is_contiguous_but_not_span<T>)
+class formatter<T> {
+ public:
+  static constexpr result<void> validate(reader<char>& rdr) noexcept {
+    EMIO_TRY(char c, rdr.read_char());
+    if (c == 'n') {
+      EMIO_TRY(c, rdr.read_char());
+    }
+    if (c == '}') {
+      return success;
+    }
+    if (c == ':') {
+      return formatter<detail::format::element_type_t<T>>::validate(rdr);
+    } else {
+      return err::invalid_format;
+    }
+  }
+
+  constexpr formatter() noexcept
+    requires(!detail::format::is_map<T> && !detail::format::is_set<T>)
+      : specs_{"[", "]", ", "} {}
+
+  constexpr formatter() noexcept
+    requires(detail::format::is_map<T>)
+      : specs_{"{", "}", ", "} {
+    underlying_.set_brackets({}, {});
+    underlying_.set_separator(": ");
+  }
+
+  constexpr formatter() noexcept
+    requires(detail::format::is_set<T> && !detail::format::is_map<T>)
+      : specs_{"{", "}", ", "} {}
+
+  constexpr void set_separator(std::string_view separator) noexcept {
+    specs_.separator = separator;
+  }
+
+  constexpr void set_brackets(std::string_view opening_bracket, std::string_view closing_bracket) noexcept {
+    specs_.opening_bracket = opening_bracket;
+    specs_.closing_bracket = closing_bracket;
+  }
+
+  constexpr result<void> parse(reader<char>& rdr) noexcept {
+    char c = rdr.peek().assume_value();
+    if (c == 'n') {
+      set_brackets({}, {});
+      rdr.pop();  // n
+      c = rdr.peek().assume_value();
+    }
+    if (c == '}') {
+      detail::format::maybe_set_debug_format(underlying_, true);
+    } else {
+      rdr.pop();  // :
+    }
+    return underlying_.parse(rdr);
+  }
+
+  constexpr result<void> format(writer<char>& wtr, const T& arg) noexcept {
+    EMIO_TRYV(wtr.write_str(specs_.opening_bracket));
+
+    using std::begin;
+    using std::end;
+    auto first = begin(arg);
+    const auto last = end(arg);
+    for (auto it = first; it != last; ++it) {
+      if (it != first) {
+        EMIO_TRYV(wtr.write_str(specs_.separator));
+      }
+      EMIO_TRYV(underlying_.format(wtr, *it));
+    }
+    EMIO_TRYV(wtr.write_str(specs_.closing_bracket));
+    return success;
+  }
+
+  constexpr auto& underlying() noexcept {
+    return underlying_;
+  }
+
+ private:
+  formatter<detail::format::element_type_t<T>> underlying_{};
+  detail::format::ranges_specs specs_{};
+};
+
+/**
+ * Formatter for contiguous ranges.
+ * @tparam T The type.
+ */
+template <typename T>
+  requires(detail::format::is_valid_range<T> && detail::format::is_contiguous_but_not_span<T>)
+class formatter<T> : public formatter<std::span<const detail::format::element_type_t<T>>> {};
+
+/**
+ * Formatter for tuple like types.
+ * @tparam T The type.
+ */
+template <typename T>
+  requires(detail::format::is_valid_tuple<T>)
+class formatter<T> {
+ public:
+  constexpr formatter() : specs_{"(", ")", ", "} {}
+
+  constexpr void set_separator(std::string_view separator) noexcept {
+    specs_.separator = separator;
+  }
+
+  constexpr void set_brackets(std::string_view opening_bracket, std::string_view closing_bracket) noexcept {
+    specs_.opening_bracket = opening_bracket;
+    specs_.closing_bracket = closing_bracket;
+  }
+
+  static constexpr result<void> validate(reader<char>& rdr) noexcept {
+    EMIO_TRY(char c, rdr.read_char());
+    if (c == 'n') {
+      EMIO_TRY(c, rdr.read_char());
+    }
+    if (c == '}') {
+      return success;
+    }
+    if (c == ':') {
+      return validate_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), rdr);
+    } else {
+      return err::invalid_format;
+    }
+  }
+
+  constexpr result<void> parse(reader<char>& rdr) noexcept {
+    char c = rdr.peek().assume_value();
+    if (c == 'n') {
+      set_brackets({}, {});
+      rdr.pop();  // n
+      c = rdr.peek().assume_value();
+    }
+    bool set_debug = false;
+    if (c == '}') {
+      set_debug = true;
+    } else {
+      rdr.pop();  // :
+    }
+    EMIO_TRYV(parse_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), rdr, set_debug));
+    return success;
+  }
+
+  constexpr result<void> format(writer<char>& wtr, const T& args) noexcept {
+    EMIO_TRYV(wtr.write_str(specs_.opening_bracket));
+    EMIO_TRYV(format_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), wtr, args));
+    EMIO_TRYV(wtr.write_str(specs_.closing_bracket));
+    return success;
+  }
+
+ private:
+  template <size_t... Ns>
+  static constexpr result<void> validate_for_each(std::index_sequence<Ns...> /*unused*/, reader<char>& rdr) noexcept {
+    size_t reader_pos = 0;
+    result<void> res = success;
+    const auto validate = [&reader_pos, &res]<typename U>(std::type_identity<U> /*unused*/, reader<char> r /*copy!*/) {
+      res = U::validate(r);
+      if (res.has_error()) {
+        return false;
+      }
+      if (reader_pos == 0) {
+        reader_pos = r.pos();
+      } else if (reader_pos != r.pos()) {
+        res = err::invalid_format;
+      }
+      return res.has_value();
+    };
+    static_cast<void>(validate);  // Maybe unused warning.
+    if ((validate(std::type_identity<std::tuple_element_t<Ns, detail::format::tuple_formatters<T>>>{}, rdr) && ...) &&
+        reader_pos != 0) {
+      rdr.pop(reader_pos);
+      return success;
+    }
+    return res;
+  }
+
+  static constexpr result<void> validate_for_each(std::index_sequence<> /*unused*/, reader<char>& /*rdr*/) noexcept {
+    return err::invalid_format;
+  }
+
+  template <size_t... Ns>
+  constexpr result<void> parse_for_each(std::index_sequence<Ns...> /*unused*/, reader<char>& rdr,
+                                        const bool set_debug) noexcept {
+    using std::get;
+
+    size_t reader_pos = 0;
+    result<void> res = success;
+    const auto parse = [&reader_pos, &res, set_debug](auto& f, reader<char> r /*copy!*/) {
+      detail::format::maybe_set_debug_format(f, set_debug);
+      res = f.parse(r);
+      reader_pos = r.pos();
+      return res.has_value();
+    };
+    static_cast<void>(parse);  // Maybe unused warning.
+    if ((parse(get<Ns>(formatters_), rdr) && ...)) {
+      rdr.pop(reader_pos);
+      return success;
+    }
+    return res;
+  }
+
+  constexpr result<void> parse_for_each(std::index_sequence<> /*unused*/, reader<char>& rdr,
+                                        const bool set_debug) noexcept {
+    if (set_debug) {
+      rdr.pop();  // }
+      return success;
+    }
+    return err::invalid_format;
+  }
+
+  template <size_t N, size_t... Ns>
+  constexpr result<void> format_for_each(std::index_sequence<N, Ns...> /*unused*/, writer<char>& wtr,
+                                         const T& args) noexcept {
+    using std::get;
+    EMIO_TRYV(get<N>(formatters_).format(wtr, get<N>(args)));
+
+    result<void> res = success;
+    const auto format = [&res, &wtr, this](auto& f, const auto& arg) {
+      res = wtr.write_str(specs_.separator);
+      if (res.has_error()) {
+        return false;
+      }
+      res = f.format(wtr, arg);
+      return res.has_value();
+    };
+    static_cast<void>(format);  // Maybe unused warning.
+    if ((format(get<Ns>(formatters_), get<Ns>(args)) && ...)) {
+      return success;
+    }
+    return res;
+  }
+
+  constexpr result<void> format_for_each(std::index_sequence<> /*unused*/, writer<char>& /*wtr*/,
+                                         const T& /*args*/) noexcept {
+    return success;
+  }
+
+  detail::format::tuple_formatters<T> formatters_{};
+  detail::format::ranges_specs specs_{};
+};
 
 }  // namespace emio
 
