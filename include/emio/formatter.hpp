@@ -19,7 +19,7 @@ inline constexpr bool is_formattable_v = detail::format::has_formatter_v<std::re
 
 /**
  * Class template that defines formatting rules for a given type.
- * @note This is just an mock-up class. See other template specialization for a concrete formatting.
+ * @note This class definition is just a mock-up. See other template specialization for a concrete formatting.
  * @tparam T The type to format.
  */
 template <typename T>
