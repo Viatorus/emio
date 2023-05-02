@@ -249,8 +249,11 @@ implementations and reduce the binary size. **Note:** These type erased function
 
 ### Formatter
 
-There exists formatter for builtin types like bool, char, string, integers, void* and non-scoped enums.
-Support for other builtin types (e.g. floats), standard types (e.g. chrono duration) or ranges is planned.
+There exists formatter for builtin types like bool, char, string, integers, floats, void* and non-scoped enums, ranges and tuple
+like types.
+Support for other standard types (e.g. chrono duration, optional) is planned.
+
+Use `is_formattable_v<Type>` to check if a type is formattable.
 
 A formatter exists of one optional function `validate` and two mandatory functions `parse` and `format`. If `validate`
 is not present, `parse` must validate the format string.

@@ -16,6 +16,7 @@ TEST_CASE("reader", "[reader]") {
 
   emio::reader reader{initial_str};
 
+  CHECK(reader.pos() == 0);
   CHECK(reader.cnt_remaining() == 11);
   CHECK(reader.view_remaining() == initial_str);
   reader.unpop();
@@ -25,6 +26,7 @@ TEST_CASE("reader", "[reader]") {
   reader.pop();
   CHECK(reader.peek() == 'b');
   reader.pop(3);
+  CHECK(reader.pos() == 4);
 
   CHECK(reader.cnt_remaining() == 7);
   CHECK(reader.view_remaining() == "ghi def");

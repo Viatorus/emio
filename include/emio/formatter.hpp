@@ -11,7 +11,15 @@
 namespace emio {
 
 /**
+ * Checks if a type is formattable.
+ * @tparam T The type to check.
+ */
+template <typename T>
+inline constexpr bool is_formattable_v = detail::format::has_formatter_v<std::remove_cvref_t<T>>;
+
+/**
  * Class template that defines formatting rules for a given type.
+ * @note This class definition is just a mock-up. See other template specialization for a concrete formatting.
  * @tparam T The type to format.
  */
 template <typename T>
@@ -54,11 +62,10 @@ class formatter {
  * Formatter for most common unambiguity types.
  * This includes:
  * - boolean
+ * - char
+ * - string_view
  * - void* / nullptr
- * - integral types
- * - floating-point types (TODO)
- * - chrono duration (TODO)
- * - ranges of the above types (TODO)
+ * - integral, floating-point types
  * @tparam T The type.
  */
 template <typename T>
@@ -94,12 +101,36 @@ class formatter<T> {
   }
 
   constexpr result<void> format(writer<char>& wtr, const T& arg) noexcept {
-    return write_arg(wtr, specs_, arg);
+    auto specs = specs_;  // Copy spec because format could be called multiple times (e.g. ranges).
+    return write_arg(wtr, specs, arg);
+  }
+
+  /**
+   * Enables or disables the debug output format.
+   * @note Used e.g. from range formatter.
+   * @param enabled Flag to enable or disable the debug output.
+   */
+  constexpr void set_debug_format(bool enabled) noexcept
+    requires(std::is_same_v<T, char> || std::is_same_v<T, std::string_view>)
+  {
+    if (enabled) {
+      specs_.type = '?';
+    } else {
+      specs_.type = detail::format::no_type;
+    }
   }
 
  private:
   detail::format::format_specs specs_{};
 };
+
+/**
+ * Formatter for any type which could be represented as a core type. E.g. string -> string_view.
+ * @tparam T The unscoped enum type.
+ */
+template <typename T>
+  requires(!detail::format::is_core_type_v<T> && detail::format::is_core_type_v<detail::format::unified_type_t<T>>)
+class formatter<T> : public formatter<detail::format::unified_type_t<T>> {};
 
 /**
  * Formatter for unscoped enum types to there underlying type.

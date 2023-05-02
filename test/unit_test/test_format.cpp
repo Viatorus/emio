@@ -8,7 +8,7 @@
 
 using namespace std::string_view_literals;
 
-// Test cases from fmt/test/format-test.cc
+// Test cases from fmt/test/format-test.cc - 9.1.0
 
 TEST_CASE("escape") {
   CHECK(emio::format("{{") == "{");
@@ -766,7 +766,7 @@ TEST_CASE("format_string_view") {
   CHECK(emio::format("{:?}", std::string_view("t\nst")) == "\"t\\nst\"");
   CHECK(emio::format("{}", std::string_view()) == "");
   CHECK(emio::format("{:?}", std::string_view("t\n\r\t\\\'\"st")) == "\"t\\n\\r\\t\\\\\\'\\\"st\"");
-  CHECK(emio::format("{:?}", std::string_view("\x05\xab\xEf")) == "\"\\x05\\xAB\\xEF\"");
+  CHECK(emio::format("{:?}", std::string_view("\x05\xab\xEf")) == "\"\\x05\\xab\\xef\"");
 }
 
 #ifdef FMT_USE_STRING_VIEW

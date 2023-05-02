@@ -14,43 +14,6 @@
 
 namespace emio::detail::format {
 
-// To reduce code bloat, similar types are unified to a general one.
-template <typename T>
-struct unified_type;
-
-template <typename T>
-struct unified_type {
-  using type = const T&;
-};
-
-template <typename T>
-  requires(!std::is_integral_v<T> && !std::is_same_v<T, std::nullptr_t> && std::is_constructible_v<std::string_view, T>)
-struct unified_type<T> {
-  using type = std::string_view;
-};
-
-template <typename T>
-  requires(std::is_integral_v<T> && std::is_signed_v<T> && !std::is_same_v<T, bool> && !std::is_same_v<T, char>)
-struct unified_type<T> {
-  using type = std::conditional_t<num_bits<T>() <= 32, int32_t, int64_t>;
-};
-
-template <typename T>
-  requires(std::is_same_v<T, char> || std::is_same_v<T, bool> || std::is_same_v<T, void*> ||
-           std::is_same_v<T, std::nullptr_t>)
-struct unified_type<T> {
-  using type = T;
-};
-
-template <typename T>
-  requires(std::is_integral_v<T> && std::is_unsigned_v<T> && !std::is_same_v<T, bool> && !std::is_same_v<T, char>)
-struct unified_type<T> {
-  using type = std::conditional_t<num_bits<T>() <= 32, uint32_t, uint64_t>;
-};
-
-template <typename T>
-using unified_type_t = typename unified_type<T>::type;
-
 /**
  * Type erased format argument just for format string validation.
  */
@@ -100,7 +63,7 @@ class format_validation_arg {
     model_t& operator=(model_t&&) = delete;
 
     result<void> validate(reader<char>& format_is) const noexcept override {
-      return validate_for<std::decay_t<T>>(format_is);
+      return validate_for<std::remove_cvref_t<T>>(format_is);
     }
 
    protected:
@@ -215,7 +178,7 @@ class basic_format_arg {
     model_t& operator=(model_t&&) = delete;
 
     result<void> format(writer<Char>& wtr, reader<Char>& format_is) const noexcept override {
-      formatter<std::decay_t<T>> formatter;
+      formatter<std::remove_cvref_t<T>> formatter;
       EMIO_TRYV(invoke_formatter_parse<input_validation::disabled>(formatter, format_is));
       return formatter.format(wtr, value_);
     }
