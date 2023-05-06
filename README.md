@@ -65,7 +65,7 @@ FetchContent_MakeAvailable(emio)
 - Download the [single header file](https://viatorus.github.io/emio/) generated with [Quom](https://github.com/Viatorus/quom)
 - From [Conan Center]#(todo)
 
-A compiler supporting C++20 is required. Tested with GCC 11.3 and Clang 14.
+A compiler supporting C++20 is required. Tested with GCC 11.3 and Clang 15.
 
 ## Contributing
 
