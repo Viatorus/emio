@@ -42,7 +42,7 @@ its implementations and other libraries.
 
 Therefore, this library:
 
-* has a very small binary footprint **(~12 times smaller than fmtlib!)**
+* has a very small binary footprint **(~38 times smaller than fmtlib!)**
 * returns a result object instead of throwing an exception
 * provides a high-level and low-level API which can be used at compile-time
 

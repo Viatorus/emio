@@ -20,12 +20,11 @@ string is validated at compile-time and runtime.
 Take the following code snippet as example which is compiled and statically linked.
 
 ```cpp
-format("{}", 1);
+std::string f = emio::format("{}", 1);
 ```
 
-If compiled with *fmt*, **352 kBytes** of flash memory is required. If *emio* is used, only **28 kBytes** are requires.
-This is **12.5 times** less! If only integers should be formatted, *emio* does only require **20 kBytes**, so **17.5**
-less than *fmt.* Keep in mind that flash memory of many microcontrollers is between 32 kBytes and 2 MBytes.
+If compiled with *fmt*, **191 kBytes** of flash memory is required. If *emio* is used, only **5 kBytes** are requires.
+This is **38 times** less! Keep in mind that flash memory of many microcontrollers is between 128 kBytes and 2 MBytes.
 
 This huge advantage of *emio* comes with a price: *emio* doesn't support all features of *fmt*. But these features are
 likely not so important for embedded systems. The missing features are:
