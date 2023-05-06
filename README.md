@@ -33,7 +33,7 @@ EMIO_TRY(char suffix, rdr.read_char());                // c
 [**This library is in beta status! Please help to make it fly!**](https://github.com/Viatorus/emio/milestone/1)
 
 * [API documentation](docs/API.md)
-* Try em{io} [online](https://godbolt.org/z/Wo6xraWEW).
+* Try em{io} [online](https://godbolt.org/z/TzTTjnKEr).
 
 ## Yet another character input/output library  
 
@@ -65,7 +65,7 @@ FetchContent_MakeAvailable(emio)
 - Download the [single header file](https://viatorus.github.io/emio/) generated with [Quom](https://github.com/Viatorus/quom)
 - From [Conan Center]#(todo)
 
-A compiler supporting C++20 is required. Tested with GCC 11.3 and Clang 14.
+A compiler supporting C++20 is required. Tested with GCC 11.3 and Clang 15.
 
 ## Contributing
 
