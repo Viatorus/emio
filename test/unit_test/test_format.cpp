@@ -872,3 +872,159 @@ TEST_CASE("validate_format_string") {
   CHECK(validate_format_string<int>("{:0}"sv));
   CHECK(!validate_format_string<int>("{:--010}"sv));
 }
+
+namespace emio {
+
+/**
+ * This class fulfills the buffer API by using an std::FILE and an internal cache.
+ */
+class file_buffer : public buffer<char> {
+ public:
+  /**
+   * Constructs and initializes the buffer with the given output iterator.
+   * @param file The output iterator.
+   */
+  constexpr explicit file_buffer(std::FILE* file) : f_{file} {
+    this->set_write_area(cache_);
+  }
+
+  file_buffer(const file_buffer&) = delete;
+  file_buffer(file_buffer&&) = delete;
+  file_buffer& operator=(const file_buffer&) = delete;
+  file_buffer& operator=(file_buffer&&) = delete;
+
+  /**
+   * At destruction, the internal cache will be flushed to the FILE.
+   */
+  constexpr ~file_buffer() override {
+    flush().value();
+  }
+
+  /**
+   * Flushes the internal cache to the FILE.
+   */
+  constexpr result<void> flush() noexcept {
+    const size_t written = std::fwrite(cache_.data(), sizeof(char), this->get_used_count(), f_);
+    if (written != this->get_used_count()) {
+      return err::eof;
+    }
+    this->set_write_area(cache_);
+    return success;
+  }
+
+ protected:
+  constexpr result<std::span<char>> request_write_area(const size_t /*used*/, const size_t size) noexcept override {
+    EMIO_TRYV(flush());
+    const std::span<char> area{cache_};
+    this->set_write_area(area);
+    if (size > cache_.size()) {
+      return area;
+    }
+    return area.subspan(0, size);
+  }
+
+ private:
+  std::FILE* f_;
+  std::array<char, detail::internal_buffer_size> cache_;
+};
+
+inline result<void> vprint(std::FILE* file, const format_args& args) noexcept {
+  if (file == nullptr) {
+    return err::invalid_data;
+  }
+
+  file_buffer buf{file};
+  return vformat_to(buf, args);
+}
+
+inline result<void> vprint(const format_args& args) noexcept {
+  return vprint(stdout, args);
+}
+
+inline result<void> vprintln(std::FILE* file, const format_args& args) noexcept {
+  if (file == nullptr) {
+    return err::invalid_data;
+  }
+
+  file_buffer buf{file};
+  EMIO_TRYV(vformat_to(buf, args));
+  EMIO_TRY(auto area, buf.get_write_area_of(1));
+  area[0] = '\n';
+  return buf.flush();
+}
+
+inline result<void> vprintln(const format_args& args) noexcept {
+  return vprintln(stdout, args);
+}
+
+template <typename... Args>
+void print(valid_format_string<Args...> format_str, const Args&... args) {
+  vprint(make_format_args(format_str, args...)).value();
+}
+
+template <typename T, typename... Args>
+  requires(std::is_same_v<T, runtime<char>> || std::is_same_v<T, format_string<Args...>>)
+result<void> print(T format_str, const Args&... args) {
+  return vprint(make_format_args(format_str, args...));
+}
+
+template <typename... Args>
+result<void> print(std::FILE* file, format_string<Args...> format_str, const Args&... args) {
+  return vprint(file, make_format_args(format_str, args...));
+}
+
+template <typename... Args>
+void println(valid_format_string<Args...> format_str, const Args&... args) {
+  vprintln(make_format_args(format_str, args...)).value();
+}
+
+template <typename T, typename... Args>
+  requires(std::is_same_v<T, runtime<char>> || std::is_same_v<T, format_string<Args...>>)
+result<void> println(T format_str, const Args&... args) {
+  return vprintln(make_format_args(format_str, args...));
+}
+
+template <typename... Args>
+result<void> println(std::FILE* file, format_string<Args...> format_str, const Args&... args) {
+  return vprintln(file, make_format_args(format_str, args...));
+}
+
+}  // namespace emio
+
+TEST_CASE("print/println") {
+  std::FILE* no_file{};
+
+  emio::print("hello {}", "world");
+  CHECK(emio::print(emio::runtime{"hello {}"}, "world"));
+  CHECK(emio::print(stderr, "hello {}", "world"));
+  CHECK(emio::print(stderr, emio::runtime{"hello {}"}, "world"));
+  CHECK(emio::print(no_file, emio::runtime{"hello {}"}, "world") == emio::err::invalid_data);
+
+  emio::println("hello {}", "world");
+  CHECK(emio::println(emio::runtime{"hello {}"}, "world"));
+  CHECK(emio::println(stderr, "hello {}", "world"));
+  CHECK(emio::println(stderr, emio::runtime{"hello {}"}, "world"));
+  CHECK(emio::println(no_file, emio::runtime{"hello {}"}, "world") == emio::err::invalid_data);
+}
+
+TEST_CASE("print/println to temporary file") {
+  // Open a temporary file.
+  std::FILE* tmpf = std::tmpfile();
+  REQUIRE(tmpf);
+
+  // Write into.
+  CHECK(emio::println(tmpf, "hello {}", "world"));
+  CHECK(emio::println(tmpf, "abc"));
+
+  // Read out again.
+  std::rewind(tmpf);
+  std::array<char, 13> buf{};
+  std::fgets(buf.data(), buf.size(), tmpf);
+  CHECK(std::string_view{buf.data(), 12} == "hello world\n");
+  std::fgets(buf.data(), buf.size(), tmpf);
+  CHECK(std::string_view{buf.data(), 4} == "abc\n");
+
+  // Close file.
+  std::fclose(tmpf);
+  CHECK(emio::println(tmpf, "abc") == emio::err::eof);
+}
