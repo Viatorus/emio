@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <cstdio>
+
 #include "detail/format/format_to.hpp"
 #include "iterator.hpp"
 
@@ -197,7 +199,7 @@ inline result<std::string> vformat(const format_args& args) noexcept {
 template <typename... Args>
 [[nodiscard]] std::string format(valid_format_string<Args...> format_str,
                                  const Args&... args) noexcept(detail::exceptions_disabled) {
-  return vformat(make_format_args(format_str, args...)).value();
+  return vformat(make_format_args(format_str, args...)).value();  // Should never fail.
 }
 
 /**
@@ -265,6 +267,113 @@ constexpr result<format_to_n_result<OutputIt>> format_to_n(OutputIt out, std::it
   }
   tout = buf.out();
   return format_to_n_result<OutputIt>{tout.out(), tout.count()};
+}
+
+/**
+ * Formats arguments according to the format string, and writes the result to a file stream.
+ * @param file The file stream.
+ * @param args The format args with the format string.
+ * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
+ */
+inline result<void> vprint(std::FILE* file, const format_args& args) noexcept {
+  if (file == nullptr) {
+    return err::invalid_data;
+  }
+
+  file_buffer buf{file};
+  EMIO_TRYV(vformat_to(buf, args));
+  return buf.flush();
+}
+
+/**
+ * Formats arguments according to the format string, and writes the result to the standard output stream with a new line
+ * at the end.
+ * @param format_str The format string.
+ * @param args The format args with the format string.
+ */
+template <typename... Args>
+void print(valid_format_string<Args...> format_str, const Args&... args) {
+  vprint(stdout, make_format_args(format_str, args...)).value();  // Should never fail.
+}
+
+/**
+ * Formats arguments according to the format string, and writes the result to the standard output stream.
+ * @param format_str The format string.
+ * @param args The format args with the format string.
+ * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
+ */
+template <typename T, typename... Args>
+  requires(std::is_same_v<T, runtime<char>> || std::is_same_v<T, format_string<Args...>>)
+result<void> print(T format_str, const Args&... args) {
+  return vprint(stdout, make_format_args(format_str, args...));
+}
+
+/**
+ * Formats arguments according to the format string, and writes the result to a file stream.
+ * @param file The file stream.
+ * @param format_str The format string.
+ * @param args The format args with the format string.
+ * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
+ */
+template <typename... Args>
+result<void> print(std::FILE* file, format_string<Args...> format_str, const Args&... args) {
+  return vprint(file, make_format_args(format_str, args...));
+}
+
+/**
+ * Formats arguments according to the format string, and writes the result to a file stream with a new line at the
+ * end.
+ * @param file The file stream.
+ * @param args The format args with the format string.
+ * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
+ */
+inline result<void> vprintln(std::FILE* file, const format_args& args) noexcept {
+  if (file == nullptr) {
+    return err::invalid_data;
+  }
+
+  file_buffer buf{file};
+  EMIO_TRYV(vformat_to(buf, args));
+  EMIO_TRY(auto area, buf.get_write_area_of(1));
+  area[0] = '\n';
+  return buf.flush();
+}
+
+/**
+ * Formats arguments according to the format string, and writes the result to the standard output stream with a new line
+ * at the end.
+ * @param format_str The format string.
+ * @param args The format args with the format string.
+ */
+template <typename... Args>
+void println(valid_format_string<Args...> format_str, const Args&... args) {
+  vprintln(stdout, make_format_args(format_str, args...)).value();  // Should never fail.
+}
+
+/**
+ * Formats arguments according to the format string, and writes the result to the standard output stream with a new line
+ * at the end.
+ * @param format_str The format string.
+ * @param args The format args with the format string.
+ * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
+ */
+template <typename T, typename... Args>
+  requires(std::is_same_v<T, runtime<char>> || std::is_same_v<T, format_string<Args...>>)
+result<void> println(T format_str, const Args&... args) {
+  return vprintln(stdout, make_format_args(format_str, args...));
+}
+
+/**
+ * Formats arguments according to the format string, and writes the result to a file stream with a new line
+ * at the end.
+ * @param file The file stream.
+ * @param format_str The format string.
+ * @param args The format args with the format string.
+ * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
+ */
+template <typename... Args>
+result<void> println(std::FILE* file, format_string<Args...> format_str, const Args&... args) {
+  return vprintln(file, make_format_args(format_str, args...));
 }
 
 }  // namespace emio

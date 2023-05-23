@@ -323,17 +323,15 @@ TEST_CASE("iterator_buffer<iterator>", "[buffer]") {
     CHECK(s != expected_str);
 
     const bool early_return = GENERATE(true, false);
-    if (early_return) {  // Test flush is called at buffer destruction.
-      return;
+    if (!early_return) {  // Test flush is called at buffer destruction.
+      it_buf.flush();
+      CHECK(s == expected_str);
+      CHECK(std::distance(it_buf.out(), s.end()) == 0);
+
+      it_buf.flush();
+      CHECK(s == expected_str);
+      CHECK(std::distance(it_buf.out(), s.end()) == 0);
     }
-
-    it_buf.flush();
-    CHECK(s == expected_str);
-    CHECK(std::distance(it_buf.out(), s.end()) == 0);
-
-    it_buf.flush();
-    CHECK(s == expected_str);
-    CHECK(std::distance(it_buf.out(), s.end()) == 0);
   }
 
   CHECK(s == expected_str);
@@ -387,18 +385,58 @@ TEST_CASE("iterator_buffer<back_insert_iterator>", "[buffer]") {
     CHECK(s != expected_str);
 
     const bool early_return = GENERATE(true, false);
-    if (early_return) {  // Test flush is called at buffer destruction.
-      return;
+    if (!early_return) {  // Test flush is called at buffer destruction.
+      it_buf.flush();
+      CHECK(s == expected_str);
+
+      it_buf.flush();
+      CHECK(s == expected_str);
+
+      CHECK_NOTHROW(it_buf.out());
     }
-
-    it_buf.flush();
-    CHECK(s == expected_str);
-
-    it_buf.flush();
-    CHECK(s == expected_str);
-
-    CHECK_NOTHROW(it_buf.out());
   }
 
   CHECK(s == expected_str);
+}
+
+#include <catch2/generators/catch_generators_range.hpp>
+
+TEST_CASE("file_buffer", "[buffer]") {
+  GENERATE(range(0, 1000));
+
+  // Test strategy:
+  // * Construct an iterator_buffer from a temporary file stream.
+  // * Write into the buffer.
+  // Expected: Everything is written to the file stream after flush.
+
+  // Open a temporary file.
+  std::FILE* tmpf = std::tmpfile();
+  REQUIRE(tmpf);
+
+  emio::file_buffer file_buf{tmpf};
+
+  // Write into.
+  emio::result<std::span<char>> area = file_buf.get_write_area_of(2);
+  REQUIRE(area);
+  REQUIRE(area->size() == 2);
+  std::fill(area->begin(), area->end(), 'y');
+
+  CHECK(file_buf.flush());
+
+  // Read out again.
+  std::rewind(tmpf);
+  std::array<char, 3> buf{};
+  std::fgets(buf.data(), buf.size(), tmpf);
+  CHECK(std::string_view{buf.data(), 2} == "yy");
+
+  emio::file_buffer file_buf2{tmpf};
+
+  // Write into after close.
+  area = file_buf2.get_write_area_of(4);
+  REQUIRE(area);
+  REQUIRE(area->size() == 4);
+  std::fill(area->begin(), area->end(), 'y');
+
+  std::fclose(tmpf); // fclose not consistent?
+  CHECK(file_buf2.flush() == emio::err::eof);
 }
