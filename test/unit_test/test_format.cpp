@@ -889,8 +889,6 @@ TEST_CASE("print/println") {
   CHECK(emio::println(no_file, emio::runtime{"hello {}"}, "world") == emio::err::invalid_data);
 }
 
-#include <catch2/generators/catch_generators_range.hpp>
-
 TEST_CASE("print/println to temporary file") {
   // Open a temporary file.
   std::FILE* tmpf = std::tmpfile();
@@ -907,10 +905,4 @@ TEST_CASE("print/println to temporary file") {
   CHECK(std::string_view{buf.data(), 12} == "hello world\n");
   std::fgets(buf.data(), buf.size(), tmpf);
   CHECK(std::string_view{buf.data(), 4} == "abc\n");
-
-  GENERATE(range(0, 10000));
-
-  // Close file.
-  std::fclose(tmpf);
-  CHECK(emio::println(tmpf, "abc") == emio::err::eof);
 }

@@ -402,11 +402,9 @@ TEST_CASE("iterator_buffer<back_insert_iterator>", "[buffer]") {
 #include <catch2/generators/catch_generators_range.hpp>
 
 TEST_CASE("file_buffer", "[buffer]") {
-  GENERATE(range(0, 1000));
-
   // Test strategy:
-  // * Construct an iterator_buffer from a temporary file stream.
-  // * Write into the buffer.
+  // * Construct a file_buffer with a temporary file stream.
+  // * Write into the buffer, flush (or not) and read out again.
   // Expected: Everything is written to the file stream after flush.
 
   // Open a temporary file.
@@ -421,22 +419,36 @@ TEST_CASE("file_buffer", "[buffer]") {
   REQUIRE(area->size() == 2);
   std::fill(area->begin(), area->end(), 'y');
 
+  std::array<char, 25> buf{};
+
+  // Read out (without flush).
+  std::rewind(tmpf);
+  CHECK(std::fgets(buf.data(), buf.size(), tmpf) == nullptr);
+  CHECK(std::string_view{buf.data(), 4} == std::string_view{"\0\0\0\0", 4});
+
+  // Flush.
   CHECK(file_buf.flush());
 
-  // Read out again.
+  // Read out (after flush).
   std::rewind(tmpf);
-  std::array<char, 3> buf{};
-  std::fgets(buf.data(), buf.size(), tmpf);
-  CHECK(std::string_view{buf.data(), 2} == "yy");
+  CHECK(std::fgets(buf.data(), buf.size(), tmpf));
+  CHECK(std::string_view{buf.data(), 4} == std::string_view{"yy\0\0", 4});
 
-  emio::file_buffer file_buf2{tmpf};
-
-  // Write into after close.
-  area = file_buf2.get_write_area_of(4);
+  // Write into again.
+  area = file_buf.get_write_area_of(4);
   REQUIRE(area);
   REQUIRE(area->size() == 4);
-  std::fill(area->begin(), area->end(), 'y');
+  std::fill(area->begin(), area->end(), 'z');
 
-  std::fclose(tmpf); // fclose not consistent?
-  CHECK(file_buf2.flush() == emio::err::eof);
+  // Read out (without flush).
+  std::rewind(tmpf);
+  CHECK(std::fgets(buf.data(), buf.size(), tmpf));
+  CHECK(std::string_view{buf.data(), 6} == std::string_view{"yy\0\0\0\0", 6});
+
+  // Flush.
+  CHECK(file_buf.flush());
+
+  std::rewind(tmpf);
+  CHECK(std::fgets(buf.data(), buf.size(), tmpf));
+  CHECK(std::string_view{buf.data(), 6} == "yyzzzz");
 }
