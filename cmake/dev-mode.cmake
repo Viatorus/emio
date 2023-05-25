@@ -22,12 +22,12 @@ if (BUILD_TESTING OR BUILD_SIZE_COVERAGE)
 
 
     Include(FetchContent)
-#    FetchContent_Declare(
-#            fmt
-#            GIT_COMMIT xd9bc5f1320332db9a4bf7e103b0813b94e369304#GIT_TAG 9.1.0
-#            GIT_REPOSITORY https://github.com/fmtlib/fmt.git
-#                        GIT_SHALLOW TRUE
-#    )
+    FetchContent_Declare(
+            fmt
+            GIT_TAG d9bc5f1320332db9a4bf7e103b0813b94e369304  # 9.1.1
+            GIT_REPOSITORY https://github.com/fmtlib/fmt.git
+            GIT_SHALLOW TRUE
+    )
     FetchContent_MakeAvailable(fmt)
 endif ()
 
