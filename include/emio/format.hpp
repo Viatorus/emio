@@ -298,7 +298,7 @@ void print(valid_format_string<Args...> format_str, const Args&... args) {
 /**
  * Formats arguments according to the format string, and writes the result to the standard output stream.
  * @param format_str The format string.
- * @param args The format args with the format string.
+ * @param args The arguments to be formatted.
  * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
  */
 template <typename T, typename... Args>
@@ -311,7 +311,7 @@ result<void> print(T format_str, const Args&... args) {
  * Formats arguments according to the format string, and writes the result to a file stream.
  * @param file The file stream.
  * @param format_str The format string.
- * @param args The format args with the format string.
+ * @param args The arguments to be formatted.
  * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
  */
 template <typename... Args>
@@ -342,7 +342,7 @@ inline result<void> vprintln(std::FILE* file, const format_args& args) noexcept 
  * Formats arguments according to the format string, and writes the result to the standard output stream with a new line
  * at the end.
  * @param format_str The format string.
- * @param args The format args with the format string.
+ * @param args The arguments to be formatted.
  */
 template <typename... Args>
 void println(valid_format_string<Args...> format_str, const Args&... args) {
@@ -353,7 +353,7 @@ void println(valid_format_string<Args...> format_str, const Args&... args) {
  * Formats arguments according to the format string, and writes the result to the standard output stream with a new line
  * at the end.
  * @param format_str The format string.
- * @param args The format args with the format string.
+ * @param args The arguments to be formatted.
  * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
  */
 template <typename T, typename... Args>
@@ -367,7 +367,7 @@ result<void> println(T format_str, const Args&... args) {
  * at the end.
  * @param file The file stream.
  * @param format_str The format string.
- * @param args The format args with the format string.
+ * @param args The arguments to be formatted.
  * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
  */
 template <typename... Args>
