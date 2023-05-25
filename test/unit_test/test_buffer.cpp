@@ -449,4 +449,6 @@ TEST_CASE("file_buffer", "[buffer]") {
   std::rewind(tmpf);
   CHECK(std::fgets(buf.data(), buf.size(), tmpf));
   CHECK(std::string_view{buf.data(), 6} == "yyzzzz");
+
+  // TODO: write more then the internal storage size for coverage....
 }

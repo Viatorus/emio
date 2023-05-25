@@ -458,7 +458,7 @@ class file_buffer : public buffer<char> {
    * Constructs and initializes the buffer with the given file stream.
    * @param file The file stream.
    */
-  constexpr explicit file_buffer(std::FILE* file) : f_{file} {
+  constexpr explicit file_buffer(std::FILE* file) : file_{file} {
     this->set_write_area(cache_);
   }
 
@@ -466,14 +466,14 @@ class file_buffer : public buffer<char> {
   file_buffer(file_buffer&&) = delete;
   file_buffer& operator=(const file_buffer&) = delete;
   file_buffer& operator=(file_buffer&&) = delete;
-  ~file_buffer() = default;  // Doesn't flush because it could fail!
+  ~file_buffer() override = default;  // Doesn't flush because it could fail!
 
   /**
    * Flushes the internal cache to the file stream.
    * @note Does not flush the file stream itself!
    */
   constexpr result<void> flush() noexcept {
-    const size_t written = std::fwrite(cache_.data(), sizeof(char), this->get_used_count(), f_);
+    const size_t written = std::fwrite(cache_.data(), sizeof(char), this->get_used_count(), file_);
     if (written != this->get_used_count()) {
       return err::eof;
     }
@@ -493,8 +493,8 @@ class file_buffer : public buffer<char> {
   }
 
  private:
-  std::FILE* f_;
-  std::array<char, detail::internal_buffer_size> cache_;
+  std::FILE* file_;
+  std::array<char, detail::internal_buffer_size> cache_
 };
 
 namespace detail {
