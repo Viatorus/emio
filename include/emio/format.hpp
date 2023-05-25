@@ -286,8 +286,7 @@ inline result<void> vprint(std::FILE* file, const format_args& args) noexcept {
 }
 
 /**
- * Formats arguments according to the format string, and writes the result to the standard output stream with a new line
- * at the end.
+ * Formats arguments according to the format string, and writes the result to the standard output stream.
  * @param format_str The format string.
  * @param args The format args with the format string.
  */

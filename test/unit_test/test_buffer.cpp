@@ -399,8 +399,6 @@ TEST_CASE("iterator_buffer<back_insert_iterator>", "[buffer]") {
   CHECK(s == expected_str);
 }
 
-#include <catch2/generators/catch_generators_range.hpp>
-
 TEST_CASE("file_buffer", "[buffer]") {
   // Test strategy:
   // * Construct a file_buffer with a temporary file stream.
