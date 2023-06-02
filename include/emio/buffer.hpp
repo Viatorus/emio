@@ -292,6 +292,7 @@ class iterator_buffer<Iterator> final : public buffer<detail::get_value_type_t<I
    * Constructs and initializes the buffer with the given output iterator.
    * @param it The output iterator.
    */
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): cache_ can be left uninitialized
   constexpr explicit iterator_buffer(Iterator it) : it_{it} {
     this->set_write_area(cache_);
   }
@@ -458,6 +459,7 @@ class file_buffer : public buffer<char> {
    * Constructs and initializes the buffer with the given file stream.
    * @param file The file stream.
    */
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): cache_ can be left uninitialized
   constexpr explicit file_buffer(std::FILE* file) : file_{file} {
     this->set_write_area(cache_);
   }
@@ -515,8 +517,8 @@ class basic_counting_buffer final : public buffer<Char> {
   constexpr ~basic_counting_buffer() override = default;
 
   /**
-   * Calculates the number of code points that were written.
-   * @return The number of code points.
+   * Calculates the number of Char's that were written.
+   * @return The number of Char's.
    */
   [[nodiscard]] constexpr size_t count() const noexcept {
     return used_ + this->get_used_count();

@@ -405,11 +405,14 @@ TEST_CASE("file_buffer", "[buffer]") {
   // * Write into the buffer, flush (or not) and read out again.
   // Expected: Everything is written to the file stream after flush.
 
+  using emio::detail::internal_buffer_size;
+
   // Open a temporary file.
   std::FILE* tmpf = std::tmpfile();
   REQUIRE(tmpf);
 
   emio::file_buffer file_buf{tmpf};
+  std::array<char, 2 * internal_buffer_size> read_out_buf{};
 
   // Write into.
   emio::result<std::span<char>> area = file_buf.get_write_area_of(2);
@@ -417,20 +420,18 @@ TEST_CASE("file_buffer", "[buffer]") {
   REQUIRE(area->size() == 2);
   std::fill(area->begin(), area->end(), 'y');
 
-  std::array<char, 25> buf{};
-
   // Read out (without flush).
   std::rewind(tmpf);
-  CHECK(std::fgets(buf.data(), buf.size(), tmpf) == nullptr);
-  CHECK(std::string_view{buf.data(), 4} == std::string_view{"\0\0\0\0", 4});
+  CHECK(std::fgets(read_out_buf.data(), read_out_buf.size(), tmpf) == nullptr);
+  CHECK(std::string_view{read_out_buf.data(), 4} == std::string_view{"\0\0\0\0", 4});
 
   // Flush.
   CHECK(file_buf.flush());
 
   // Read out (after flush).
   std::rewind(tmpf);
-  CHECK(std::fgets(buf.data(), buf.size(), tmpf));
-  CHECK(std::string_view{buf.data(), 4} == std::string_view{"yy\0\0", 4});
+  CHECK(std::fgets(read_out_buf.data(), read_out_buf.size(), tmpf));
+  CHECK(std::string_view{read_out_buf.data(), 4} == std::string_view{"yy\0\0", 4});
 
   // Write into again.
   area = file_buf.get_write_area_of(4);
@@ -440,15 +441,30 @@ TEST_CASE("file_buffer", "[buffer]") {
 
   // Read out (without flush).
   std::rewind(tmpf);
-  CHECK(std::fgets(buf.data(), buf.size(), tmpf));
-  CHECK(std::string_view{buf.data(), 6} == std::string_view{"yy\0\0\0\0", 6});
+  CHECK(std::fgets(read_out_buf.data(), read_out_buf.size(), tmpf));
+  CHECK(std::string_view{read_out_buf.data(), 6} == std::string_view{"yy\0\0\0\0", 6});
 
   // Flush.
   CHECK(file_buf.flush());
 
   std::rewind(tmpf);
-  CHECK(std::fgets(buf.data(), buf.size(), tmpf));
-  CHECK(std::string_view{buf.data(), 6} == "yyzzzz");
+  CHECK(std::fgets(read_out_buf.data(), read_out_buf.size(), tmpf));
+  CHECK(std::string_view{read_out_buf.data(), 6} == "yyzzzz");
 
-  // TODO: write more then the internal storage size for coverage....
+  const std::string expected_long_str_part(internal_buffer_size, 'x');
+
+  area = file_buf.get_write_area_of(internal_buffer_size);
+  REQUIRE(area);
+  REQUIRE(area->size() == internal_buffer_size);
+  std::fill(area->begin(), area->end(), 'x');
+
+  // Internal flush should have happened.
+  area = file_buf.get_write_area_of(2);
+  REQUIRE(area);
+  REQUIRE(area->size() == 2);
+  std::fill(area->begin(), area->end(), 'z');
+
+  std::rewind(tmpf);
+  CHECK(std::fgets(read_out_buf.data(), read_out_buf.size(), tmpf));
+  CHECK(std::string_view{read_out_buf.data(), 6 + internal_buffer_size} == "yyzzzz" + expected_long_str_part);
 }
