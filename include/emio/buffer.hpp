@@ -494,7 +494,7 @@ class file_buffer : public buffer<char> {
 
  private:
   std::FILE* file_;
-  std::array<char, detail::internal_buffer_size> cache_
+  std::array<char, detail::internal_buffer_size> cache_;
 };
 
 namespace detail {
