@@ -437,6 +437,7 @@ class [[nodiscard]] result<void> {
   /**
    * Does nothing for this type. Kept for consistent API.
    */
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static): Kept non-static for consistent API.
   constexpr void assume_value() const noexcept {
     // Nothing.
     EMIO_Z_DEV_ASSERT(has_value());
