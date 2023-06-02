@@ -662,7 +662,9 @@ class [[nodiscard]] result<Value> {
    * Constructs a result from an error to indicate a failure.
    * @param error The error.
    */
-  constexpr result(err error) : error_{error} {}
+  constexpr result(err error) : error_{error} {
+    EMIO_Z_DEV_ASSERT(error != err{});
+  }
 
   /**
    * Checks whether the object holds a value.
@@ -694,6 +696,7 @@ class [[nodiscard]] result<Value> {
    * @return The value.
    */
   constexpr std::remove_reference_t<Value>* operator->() noexcept {
+    EMIO_Z_DEV_ASSERT(has_value());
     return &*value_;
   }
 
@@ -703,6 +706,7 @@ class [[nodiscard]] result<Value> {
    * @return The value.
    */
   constexpr const std::remove_reference_t<Value>* operator->() const noexcept {
+    EMIO_Z_DEV_ASSERT(has_value());
     return &*value_;
   }
 
@@ -712,6 +716,7 @@ class [[nodiscard]] result<Value> {
    * @return The value.
    */
   [[nodiscard]] constexpr Value& operator*() & noexcept {
+    EMIO_Z_DEV_ASSERT(has_value());
     return *value_;
   }
 
@@ -721,6 +726,7 @@ class [[nodiscard]] result<Value> {
    * @return The value.
    */
   [[nodiscard]] constexpr const Value& operator*() const& noexcept {
+    EMIO_Z_DEV_ASSERT(has_value());
     return *value_;
   }
 
@@ -730,6 +736,7 @@ class [[nodiscard]] result<Value> {
    * @return The value.
    */
   [[nodiscard]] constexpr Value&& operator*() && noexcept {
+    EMIO_Z_DEV_ASSERT(has_value());
     return std::move(*value_);
   }
 
@@ -739,6 +746,7 @@ class [[nodiscard]] result<Value> {
    * @return The value.
    */
   [[nodiscard]] constexpr const Value&& operator*() const&& noexcept {
+    EMIO_Z_DEV_ASSERT(has_value());
     return std::move(*value_);
   }
 
@@ -748,6 +756,7 @@ class [[nodiscard]] result<Value> {
    * @return The value.
    */
   [[nodiscard]] constexpr Value& assume_value() & noexcept {
+    EMIO_Z_DEV_ASSERT(has_value());
     return *value_;  // NOLINT(bugprone-unchecked-optional-access): assumed
   }
 
@@ -757,6 +766,7 @@ class [[nodiscard]] result<Value> {
    * @return The value.
    */
   [[nodiscard]] constexpr const Value& assume_value() const& noexcept {
+    EMIO_Z_DEV_ASSERT(has_value());
     return *value_;  // NOLINT(bugprone-unchecked-optional-access): assumed
   }
 
@@ -766,6 +776,7 @@ class [[nodiscard]] result<Value> {
    * @return The value.
    */
   [[nodiscard]] constexpr Value&& assume_value() && noexcept {
+    EMIO_Z_DEV_ASSERT(has_value());
     return std::move(*value_);  // NOLINT(bugprone-unchecked-optional-access): assumed
   }
 
@@ -775,6 +786,7 @@ class [[nodiscard]] result<Value> {
    * @return The value.
    */
   [[nodiscard]] constexpr const Value&& assume_value() const&& noexcept {
+    EMIO_Z_DEV_ASSERT(has_value());
     return std::move(*value_);  // NOLINT(bugprone-unchecked-optional-access): assumed
   }
 
@@ -783,7 +795,7 @@ class [[nodiscard]] result<Value> {
    * @return The value.
    */
   constexpr Value& value() & noexcept(detail::exceptions_disabled) {
-    if (has_value()) [[likely]] {
+    if (value_.has_value()) [[likely]] {
       return *value_;
     }
     detail::throw_bad_result_access_or_terminate(error_);
@@ -817,7 +829,7 @@ class [[nodiscard]] result<Value> {
    */
   // NOLINTNEXTLINE(modernize-use-nodiscard): access check
   constexpr const Value&& value() const&& noexcept(detail::exceptions_disabled) {
-    if (has_value()) [[likely]] {
+    if (value_.has_value()) [[likely]] {
       return std::move(*value_);
     }
     detail::throw_bad_result_access_or_terminate(error_);
@@ -829,6 +841,7 @@ class [[nodiscard]] result<Value> {
    * @return The error.
    */
   [[nodiscard]] constexpr err assume_error() const noexcept {
+    EMIO_Z_DEV_ASSERT(!has_value());
     return error_;
   }
 
@@ -843,6 +856,26 @@ class [[nodiscard]] result<Value> {
     }
     detail::throw_bad_result_access_or_terminate(error_);
     return {};  // afl-c++ requires a return statement.
+  }
+
+  /**
+   * Returns the contained value if *this has a value, otherwise returns default_value.
+   * @param default_value The value to use in case *this is empty.
+   * @return The current value if *this has a value, or default_value otherwise.
+   */
+  template <typename U>
+  constexpr Value value_or(U&& default_value) const& {
+    return value_.value_or(std::forward<U>(default_value));
+  }
+
+  /**
+   * Returns the contained value if *this has a value, otherwise returns default_value.
+   * @param default_value The value to use in case *this is empty.
+   * @return The current value if *this has a value, or default_value otherwise.
+   */
+  template <typename U>
+  constexpr Value value_or(U&& default_value) && {
+    return value_.value_or(std::forward<U>(default_value));
   }
 
  private:
@@ -873,7 +906,9 @@ class [[nodiscard]] result<void> {
    * Constructs a result from an error to indicate a failure.
    * @param error The error.
    */
-  constexpr result(err error) : error_{error} {}
+  constexpr result(err error) : error_{error} {
+    EMIO_Z_DEV_ASSERT(error != err{});
+  }
 
   /**
    * Constructs a result from another non void result and copies the success or error state.
@@ -914,8 +949,10 @@ class [[nodiscard]] result<void> {
   /**
    * Does nothing for this type. Kept for consistent API.
    */
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static): Kept non-static for consistent API.
   constexpr void assume_value() const noexcept {
     // Nothing.
+    EMIO_Z_DEV_ASSERT(has_value());
   }
 
   /**
@@ -934,6 +971,7 @@ class [[nodiscard]] result<void> {
    * @return The error.
    */
   [[nodiscard]] constexpr err assume_error() const noexcept {
+    EMIO_Z_DEV_ASSERT(!has_value());
     return error_;
   }
 
