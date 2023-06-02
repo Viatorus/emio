@@ -42,6 +42,8 @@
 //
 // For the license information refer to emio.hpp
 
+#include <cstdio>
+
 //
 // Copyright (c) 2021 - present, Toni Neubert
 // All rights reserved.
@@ -1302,6 +1304,7 @@ class iterator_buffer<Iterator> final : public buffer<detail::get_value_type_t<I
    * Constructs and initializes the buffer with the given output iterator.
    * @param it The output iterator.
    */
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): cache_ can be left uninitialized
   constexpr explicit iterator_buffer(Iterator it) : it_{it} {
     this->set_write_area(cache_);
   }
@@ -1459,6 +1462,55 @@ class iterator_buffer<std::back_insert_iterator<Container>> final : public buffe
 template <typename Iterator>
 iterator_buffer(Iterator&&) -> iterator_buffer<std::decay_t<Iterator>>;
 
+/**
+ * This class fulfills the buffer API by using a file stream and an internal cache.
+ */
+class file_buffer : public buffer<char> {
+ public:
+  /**
+   * Constructs and initializes the buffer with the given file stream.
+   * @param file The file stream.
+   */
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): cache_ can be left uninitialized
+  constexpr explicit file_buffer(std::FILE* file) : file_{file} {
+    this->set_write_area(cache_);
+  }
+
+  file_buffer(const file_buffer&) = delete;
+  file_buffer(file_buffer&&) = delete;
+  file_buffer& operator=(const file_buffer&) = delete;
+  file_buffer& operator=(file_buffer&&) = delete;
+  ~file_buffer() override = default;  // Doesn't flush because it could fail!
+
+  /**
+   * Flushes the internal cache to the file stream.
+   * @note Does not flush the file stream itself!
+   */
+  constexpr result<void> flush() noexcept {
+    const size_t written = std::fwrite(cache_.data(), sizeof(char), this->get_used_count(), file_);
+    if (written != this->get_used_count()) {
+      return err::eof;
+    }
+    this->set_write_area(cache_);
+    return success;
+  }
+
+ protected:
+  constexpr result<std::span<char>> request_write_area(const size_t /*used*/, const size_t size) noexcept override {
+    EMIO_TRYV(flush());
+    const std::span<char> area{cache_};
+    this->set_write_area(area);
+    if (size > cache_.size()) {
+      return area;
+    }
+    return area.subspan(0, size);
+  }
+
+ private:
+  std::FILE* file_;
+  std::array<char, detail::internal_buffer_size> cache_;
+};
+
 namespace detail {
 
 /**
@@ -1477,8 +1529,8 @@ class basic_counting_buffer final : public buffer<Char> {
   constexpr ~basic_counting_buffer() override = default;
 
   /**
-   * Calculates the number of code points that were written.
-   * @return The number of code points.
+   * Calculates the number of Char's that were written.
+   * @return The number of Char's.
    */
   [[nodiscard]] constexpr size_t count() const noexcept {
     return used_ + this->get_used_count();
@@ -4714,7 +4766,8 @@ template <typename Char, typename... Args>
 class basic_valid_format_string;
 
 /**
- * This class represents a validated format string. The validation happens at object construction.
+ * This class represents a validated format string. The format string is either valid or not.
+ * @note The validation happens at object construction.
  * @tparam Char The character type.
  * @tparam Args The argument types to format.
  */
@@ -4728,7 +4781,7 @@ class basic_format_string {
    */
   template <typename S>
     requires(std::is_constructible_v<std::basic_string_view<Char>, S>)
-  consteval basic_format_string(const S& s) {
+  consteval basic_format_string(const S& s) noexcept {
     std::basic_string_view<Char> str{s};
     if (detail::format::validate_format_string<Args...>(str)) {
       str_ = str;
@@ -4742,7 +4795,7 @@ class basic_format_string {
    * Constructs and validates a runtime format string at runtime.
    * @param s The runtime format string.
    */
-  constexpr basic_format_string(runtime<Char> s) {
+  constexpr basic_format_string(runtime<Char> s) noexcept {
     std::basic_string_view<Char> str{s.view()};
     if (detail::format::validate_format_string<Args...>(str)) {
       str_ = str;
@@ -4772,14 +4825,14 @@ class basic_format_string {
   static constexpr struct valid_t {
   } valid{};
 
-  constexpr explicit basic_format_string(valid_t /*unused*/, std::basic_string_view<Char> s) : str_{s} {}
+  constexpr explicit basic_format_string(valid_t /*unused*/, std::basic_string_view<Char> s) noexcept : str_{s} {}
 
  private:
   result<std::basic_string_view<Char>> str_{err::invalid_format};  ///< Validated format string.
 };
 
 /**
- * This class represents a valid format string. The validation happens at object construction.
+ * This class represents a validated format string. The format string can only be valid.
  * @tparam Char The character type.
  * @tparam Args The argument types to format.
  */
@@ -4793,7 +4846,7 @@ class basic_valid_format_string : public basic_format_string<Char, Args...> {
    */
   template <typename S>
     requires(std::is_constructible_v<std::basic_string_view<Char>, S>)
-  consteval basic_valid_format_string(const S& s) : basic_format_string<Char, Args...>{s} {}
+  consteval basic_valid_format_string(const S& s) noexcept : basic_format_string<Char, Args...>{s} {}
 
   /**
    * Constructs and validates a format string at runtime.
@@ -4802,7 +4855,7 @@ class basic_valid_format_string : public basic_format_string<Char, Args...> {
    */
   template <typename S>
     requires(std::is_constructible_v<std::basic_string_view<Char>, S>)
-  static constexpr result<basic_valid_format_string<Char, Args...>> from(const S& s) {
+  static constexpr result<basic_valid_format_string<Char, Args...>> from(const S& s) noexcept {
     std::basic_string_view<Char> str{s};
     if (!detail::format::validate_format_string<Args...>(str)) {
       return err::invalid_format;
@@ -4816,7 +4869,7 @@ class basic_valid_format_string : public basic_format_string<Char, Args...> {
   using valid_t = typename basic_format_string<Char, Args...>::valid_t;
   using basic_format_string<Char, Args...>::valid;
 
-  explicit constexpr basic_valid_format_string(valid_t /*unused*/, std::basic_string_view<Char> s)
+  explicit constexpr basic_valid_format_string(valid_t /*unused*/, std::basic_string_view<Char> s) noexcept
       : basic_format_string<Char, Args...>{valid, s} {}
 };
 
@@ -5215,7 +5268,7 @@ inline result<std::string> vformat(const format_args& args) noexcept {
 template <typename... Args>
 [[nodiscard]] std::string format(valid_format_string<Args...> format_str,
                                  const Args&... args) noexcept(detail::exceptions_disabled) {
-  return vformat(make_format_args(format_str, args...)).value();
+  return vformat(make_format_args(format_str, args...)).value();  // Should never fail.
 }
 
 /**
@@ -5283,6 +5336,112 @@ constexpr result<format_to_n_result<OutputIt>> format_to_n(OutputIt out, std::it
   }
   tout = buf.out();
   return format_to_n_result<OutputIt>{tout.out(), tout.count()};
+}
+
+/**
+ * Formats arguments according to the format string, and writes the result to a file stream.
+ * @param file The file stream.
+ * @param args The format args with the format string.
+ * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
+ */
+inline result<void> vprint(std::FILE* file, const format_args& args) noexcept {
+  if (file == nullptr) {
+    return err::invalid_data;
+  }
+
+  file_buffer buf{file};
+  EMIO_TRYV(vformat_to(buf, args));
+  return buf.flush();
+}
+
+/**
+ * Formats arguments according to the format string, and writes the result to the standard output stream.
+ * @param format_str The format string.
+ * @param args The format args with the format string.
+ */
+template <typename... Args>
+void print(valid_format_string<Args...> format_str, const Args&... args) {
+  vprint(stdout, make_format_args(format_str, args...)).value();  // Should never fail.
+}
+
+/**
+ * Formats arguments according to the format string, and writes the result to the standard output stream.
+ * @param format_str The format string.
+ * @param args The arguments to be formatted.
+ * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
+ */
+template <typename T, typename... Args>
+  requires(std::is_same_v<T, runtime<char>> || std::is_same_v<T, format_string<Args...>>)
+result<void> print(T format_str, const Args&... args) {
+  return vprint(stdout, make_format_args(format_str, args...));
+}
+
+/**
+ * Formats arguments according to the format string, and writes the result to a file stream.
+ * @param file The file stream.
+ * @param format_str The format string.
+ * @param args The arguments to be formatted.
+ * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
+ */
+template <typename... Args>
+result<void> print(std::FILE* file, format_string<Args...> format_str, const Args&... args) {
+  return vprint(file, make_format_args(format_str, args...));
+}
+
+/**
+ * Formats arguments according to the format string, and writes the result to a file stream with a new line at the
+ * end.
+ * @param file The file stream.
+ * @param args The format args with the format string.
+ * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
+ */
+inline result<void> vprintln(std::FILE* file, const format_args& args) noexcept {
+  if (file == nullptr) {
+    return err::invalid_data;
+  }
+
+  file_buffer buf{file};
+  EMIO_TRYV(vformat_to(buf, args));
+  EMIO_TRY(auto area, buf.get_write_area_of(1));
+  area[0] = '\n';
+  return buf.flush();
+}
+
+/**
+ * Formats arguments according to the format string, and writes the result to the standard output stream with a new line
+ * at the end.
+ * @param format_str The format string.
+ * @param args The arguments to be formatted.
+ */
+template <typename... Args>
+void println(valid_format_string<Args...> format_str, const Args&... args) {
+  vprintln(stdout, make_format_args(format_str, args...)).value();  // Should never fail.
+}
+
+/**
+ * Formats arguments according to the format string, and writes the result to the standard output stream with a new line
+ * at the end.
+ * @param format_str The format string.
+ * @param args The arguments to be formatted.
+ * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
+ */
+template <typename T, typename... Args>
+  requires(std::is_same_v<T, runtime<char>> || std::is_same_v<T, format_string<Args...>>)
+result<void> println(T format_str, const Args&... args) {
+  return vprintln(stdout, make_format_args(format_str, args...));
+}
+
+/**
+ * Formats arguments according to the format string, and writes the result to a file stream with a new line
+ * at the end.
+ * @param file The file stream.
+ * @param format_str The format string.
+ * @param args The arguments to be formatted.
+ * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
+ */
+template <typename... Args>
+result<void> println(std::FILE* file, format_string<Args...> format_str, const Args&... args) {
+  return vprintln(file, make_format_args(format_str, args...));
 }
 
 }  // namespace emio
