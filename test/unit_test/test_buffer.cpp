@@ -414,6 +414,9 @@ TEST_CASE("file_buffer", "[buffer]") {
   emio::file_buffer file_buf{tmpf};
   std::array<char, 2 * internal_buffer_size> read_out_buf{};
 
+  // Write area is limited.
+  CHECK(file_buf.get_write_area_of(internal_buffer_size + 1) == emio::err::eof);
+
   // Write into.
   emio::result<std::span<char>> area = file_buf.get_write_area_of(2);
   REQUIRE(area);
