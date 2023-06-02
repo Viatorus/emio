@@ -134,6 +134,21 @@ TEST_CASE("result<std::string>", "[result]") {
     CHECK(std::move(const_res)->size() == 3);
     CHECK((*std::move(const_res)).size() == 3);
   }
+
+  SECTION("value_or") {
+    SECTION("when *this has a value") {
+      emio::result<std::string> s{"abc"};
+
+      CHECK(s.value_or("def") == "abc");
+      CHECK(std::move(s).value_or("def") == "abc");
+    }
+    SECTION("when *this has no value") {
+      emio::result<std::string> s{emio::err::invalid_data};
+
+      CHECK(s.value_or("def") == "def");
+      CHECK(std::move(s).value_or("def") == "def");
+    }
+  }
 }
 
 TEST_CASE("emio::err to_string()", "[result]") {
