@@ -323,17 +323,15 @@ TEST_CASE("iterator_buffer<iterator>", "[buffer]") {
     CHECK(s != expected_str);
 
     const bool early_return = GENERATE(true, false);
-    if (early_return) {  // Test flush is called at buffer destruction.
-      return;
+    if (!early_return) {  // Test flush is called at buffer destruction.
+      it_buf.flush();
+      CHECK(s == expected_str);
+      CHECK(std::distance(it_buf.out(), s.end()) == 0);
+
+      it_buf.flush();
+      CHECK(s == expected_str);
+      CHECK(std::distance(it_buf.out(), s.end()) == 0);
     }
-
-    it_buf.flush();
-    CHECK(s == expected_str);
-    CHECK(std::distance(it_buf.out(), s.end()) == 0);
-
-    it_buf.flush();
-    CHECK(s == expected_str);
-    CHECK(std::distance(it_buf.out(), s.end()) == 0);
   }
 
   CHECK(s == expected_str);
@@ -387,18 +385,89 @@ TEST_CASE("iterator_buffer<back_insert_iterator>", "[buffer]") {
     CHECK(s != expected_str);
 
     const bool early_return = GENERATE(true, false);
-    if (early_return) {  // Test flush is called at buffer destruction.
-      return;
+    if (!early_return) {  // Test flush is called at buffer destruction.
+      it_buf.flush();
+      CHECK(s == expected_str);
+
+      it_buf.flush();
+      CHECK(s == expected_str);
+
+      CHECK_NOTHROW(it_buf.out());
     }
-
-    it_buf.flush();
-    CHECK(s == expected_str);
-
-    it_buf.flush();
-    CHECK(s == expected_str);
-
-    CHECK_NOTHROW(it_buf.out());
   }
 
   CHECK(s == expected_str);
+}
+
+TEST_CASE("file_buffer", "[buffer]") {
+  // Test strategy:
+  // * Construct a file_buffer with a temporary file stream.
+  // * Write into the buffer, flush (or not) and read out again.
+  // Expected: Everything is written to the file stream after flush.
+
+  using emio::detail::internal_buffer_size;
+
+  // Open a temporary file.
+  std::FILE* tmpf = std::tmpfile();
+  REQUIRE(tmpf);
+
+  emio::file_buffer file_buf{tmpf};
+  std::array<char, 2 * internal_buffer_size> read_out_buf{};
+
+  // Write area is limited.
+  CHECK(file_buf.get_write_area_of(internal_buffer_size + 1) == emio::err::eof);
+
+  // Write into.
+  emio::result<std::span<char>> area = file_buf.get_write_area_of(2);
+  REQUIRE(area);
+  REQUIRE(area->size() == 2);
+  std::fill(area->begin(), area->end(), 'y');
+
+  // Read out (without flush).
+  std::rewind(tmpf);
+  CHECK(std::fgets(read_out_buf.data(), read_out_buf.size(), tmpf) == nullptr);
+  CHECK(std::string_view{read_out_buf.data(), 4} == std::string_view{"\0\0\0\0", 4});
+
+  // Flush.
+  CHECK(file_buf.flush());
+
+  // Read out (after flush).
+  std::rewind(tmpf);
+  CHECK(std::fgets(read_out_buf.data(), read_out_buf.size(), tmpf));
+  CHECK(std::string_view{read_out_buf.data(), 4} == std::string_view{"yy\0\0", 4});
+
+  // Write into again.
+  area = file_buf.get_write_area_of(4);
+  REQUIRE(area);
+  REQUIRE(area->size() == 4);
+  std::fill(area->begin(), area->end(), 'z');
+
+  // Read out (without flush).
+  std::rewind(tmpf);
+  CHECK(std::fgets(read_out_buf.data(), read_out_buf.size(), tmpf));
+  CHECK(std::string_view{read_out_buf.data(), 6} == std::string_view{"yy\0\0\0\0", 6});
+
+  // Flush.
+  CHECK(file_buf.flush());
+
+  std::rewind(tmpf);
+  CHECK(std::fgets(read_out_buf.data(), read_out_buf.size(), tmpf));
+  CHECK(std::string_view{read_out_buf.data(), 6} == "yyzzzz");
+
+  const std::string expected_long_str_part(internal_buffer_size, 'x');
+
+  area = file_buf.get_write_area_of(internal_buffer_size);
+  REQUIRE(area);
+  REQUIRE(area->size() == internal_buffer_size);
+  std::fill(area->begin(), area->end(), 'x');
+
+  // Internal flush should have happened.
+  area = file_buf.get_write_area_of(2);
+  REQUIRE(area);
+  REQUIRE(area->size() == 2);
+  std::fill(area->begin(), area->end(), 'z');
+
+  std::rewind(tmpf);
+  CHECK(std::fgets(read_out_buf.data(), read_out_buf.size(), tmpf));
+  CHECK(std::string_view{read_out_buf.data(), 6 + internal_buffer_size} == "yyzzzz" + expected_long_str_part);
 }
