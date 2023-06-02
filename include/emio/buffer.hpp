@@ -292,6 +292,7 @@ class iterator_buffer<Iterator> final : public buffer<detail::get_value_type_t<I
    * Constructs and initializes the buffer with the given output iterator.
    * @param it The output iterator.
    */
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): cache_ can be left uninitialized
   constexpr explicit iterator_buffer(Iterator it) : it_{it} {
     this->set_write_area(cache_);
   }
@@ -449,6 +450,55 @@ class iterator_buffer<std::back_insert_iterator<Container>> final : public buffe
 template <typename Iterator>
 iterator_buffer(Iterator&&) -> iterator_buffer<std::decay_t<Iterator>>;
 
+/**
+ * This class fulfills the buffer API by using a file stream and an internal cache.
+ */
+class file_buffer : public buffer<char> {
+ public:
+  /**
+   * Constructs and initializes the buffer with the given file stream.
+   * @param file The file stream.
+   */
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): cache_ can be left uninitialized
+  constexpr explicit file_buffer(std::FILE* file) : file_{file} {
+    this->set_write_area(cache_);
+  }
+
+  file_buffer(const file_buffer&) = delete;
+  file_buffer(file_buffer&&) = delete;
+  file_buffer& operator=(const file_buffer&) = delete;
+  file_buffer& operator=(file_buffer&&) = delete;
+  ~file_buffer() override = default;  // Doesn't flush because it could fail!
+
+  /**
+   * Flushes the internal cache to the file stream.
+   * @note Does not flush the file stream itself!
+   */
+  constexpr result<void> flush() noexcept {
+    const size_t written = std::fwrite(cache_.data(), sizeof(char), this->get_used_count(), file_);
+    if (written != this->get_used_count()) {
+      return err::eof;
+    }
+    this->set_write_area(cache_);
+    return success;
+  }
+
+ protected:
+  constexpr result<std::span<char>> request_write_area(const size_t /*used*/, const size_t size) noexcept override {
+    EMIO_TRYV(flush());
+    const std::span<char> area{cache_};
+    this->set_write_area(area);
+    if (size > cache_.size()) {
+      return area;
+    }
+    return area.subspan(0, size);
+  }
+
+ private:
+  std::FILE* file_;
+  std::array<char, detail::internal_buffer_size> cache_;
+};
+
 namespace detail {
 
 /**
@@ -467,8 +517,8 @@ class basic_counting_buffer final : public buffer<Char> {
   constexpr ~basic_counting_buffer() override = default;
 
   /**
-   * Calculates the number of code points that were written.
-   * @return The number of code points.
+   * Calculates the number of Char's that were written.
+   * @return The number of Char's.
    */
   [[nodiscard]] constexpr size_t count() const noexcept {
     return used_ + this->get_used_count();

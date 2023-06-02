@@ -86,6 +86,7 @@ There exists two helper macros to simplify the control flow:
 An abstract class which provides functionality for receiving a contiguous memory region to write into.
 
 There exist multiple implementation of a buffer, all fulfilling a different use case.
+Some buffers have an internal cache to provide a contiguous memory if the actually output object doesn't provide on.
 
 ### memory_buffer
 
@@ -93,11 +94,16 @@ There exist multiple implementation of a buffer, all fulfilling a different use 
 
 ### span_buffer
 
-- Buffer over a specific contiguous range.
+- A buffer over a specific contiguous range.
 
 ### iterator_buffer
 
 - A buffer for all kinds of output iterators (raw-pointers, back_insert_iterator or any other output iterator).
+- The buffer's with a direct output iterator (e.g. std::string::iterator) do have an internal cache.
+
+### file_buffer
+
+- A buffer which over an std::File (file stream) with an internal cache.
 
 ## Reader
 
@@ -249,7 +255,8 @@ implementations and reduce the binary size. **Note:** These type erased function
 
 ### Formatter
 
-There exists formatter for builtin types like bool, char, string, integers, floats, void* and non-scoped enums, ranges and tuple
+There exists formatter for builtin types like bool, char, string, integers, floats, void* and non-scoped enums, ranges
+and tuple
 like types.
 Support for other standard types (e.g. chrono duration, optional) is planned.
 
@@ -344,3 +351,29 @@ constexpr auto format_as(const bar& w) noexcept {
 
 }
 ```
+
+## Print
+
+It is possible to directly print to the standard output or other file streams.
+
+`print(format_str, ...args) -> void/result<void>`
+
+- Formats arguments according to the format string, and writes the result to the standard output stream.
+- The return value depends on the type of the format string (valid-only type or not).
+
+`print(file, format_str, ...args) -> result<void>`
+
+- Formats arguments according to the format string, and writes the result to a file stream.
+
+`println(format_str, ...args) -> void/result<void>`
+
+- Formats arguments according to the format string, and writes the result to the standard output stream with a new line
+  at the end.
+- The return value depends on the type of the format string (valid-only type or not).
+
+`println(file, format_str, ...args) -> result<void>`
+
+- Formats arguments according to the format string, and writes the result to a file stream with a new line at the end.
+
+For each function there exists a function prefixed with v (e.g. `vprint`) which allow the same functionality as
+e.g. `vformat(...)` does for `format(...)`.
