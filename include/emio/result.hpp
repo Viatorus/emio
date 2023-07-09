@@ -88,7 +88,7 @@ class bad_result_access : public std::logic_error {
    * Constructs the bad result access from a message.
    * @param msg The exception message.
    */
-  explicit bad_result_access(const char* msg) : logic_error{msg} {}
+  explicit bad_result_access(const std::string_view& msg) : logic_error{msg.data()} {}
 };
 
 namespace detail {
@@ -100,16 +100,13 @@ inline constexpr bool exceptions_disabled = true;
 #endif
 
 // Helper function to throw or terminate, depending on whether exceptions are globally enabled or not.
-[[noreturn]] inline constexpr void throw_bad_result_access_or_terminate(const err error) noexcept(exceptions_disabled) {
-  // Use dummy check to suppress compiler warnings/errors of throwing/terminating in constexpr.
-  if (error != err{} || error == err{}) {
+[[noreturn]] inline void throw_bad_result_access_or_terminate(const err error) noexcept(exceptions_disabled) {
 #ifdef __EXCEPTIONS
-    throw bad_result_access{to_string(error).data()};
+  throw bad_result_access{to_string(error)};
 #else
-    std::terminate();
+  static_cast<void>(error);
+  std::terminate();
 #endif
-  }
-  EMIO_Z_INTERNAL_UNREACHABLE;
 }
 
 }  // namespace detail

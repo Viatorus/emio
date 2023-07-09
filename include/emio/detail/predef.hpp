@@ -34,12 +34,12 @@ namespace emio::detail {
   }                                          \
   EMIO_Z_INTERNAL_DEPAREN(var) = std::move(name).assume_value()
 
-#if defined(__GNUC__) || defined(__GNUG__) || defined(_MSC_VER)
+#if defined(__GNUC__) || defined(__GNUG__)
 // Separate macro instead of std::is_constant_evaluated() because code will be optimized away even in debug if inlined.
-#  define Y_EMIO_IS_CONST_EVAL __builtin_is_constant_evaluated()
+#  define EMIO_Z_INTERNAL_IS_CONST_EVAL __builtin_is_constant_evaluated()
 #  define EMIO_Z_INTERNAL_UNREACHABLE __builtin_unreachable()
 #else
-#  define Y_EMIO_IS_CONST_EVAL std::is_constant_evaluated()
+#  define EMIO_Z_INTERNAL_IS_CONST_EVAL std::is_constant_evaluated()
 #  define EMIO_Z_INTERNAL_UNREACHABLE std::terminate()
 #endif
 
