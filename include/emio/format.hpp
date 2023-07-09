@@ -132,7 +132,7 @@ constexpr result<OutputIt> vformat_to(OutputIt out, const format_args& args) noe
 template <typename Buffer, typename... Args>
   requires(std::is_base_of_v<buffer<char>, Buffer>)
 constexpr result<void> format_to(Buffer& buf, format_string<Args...> format_str, const Args&... args) noexcept {
-  if (Y_EMIO_IS_CONST_EVAL) {
+  if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::format::format_to(buf, format_str, args...));
   } else {
     EMIO_TRYV(detail::format::vformat_to(buf, make_format_args(format_str, args...)));
@@ -149,7 +149,7 @@ constexpr result<void> format_to(Buffer& buf, format_string<Args...> format_str,
  */
 template <typename... Args>
 constexpr result<void> format_to(writer<char>& wrt, format_string<Args...> format_str, const Args&... args) noexcept {
-  if (Y_EMIO_IS_CONST_EVAL) {
+  if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::format::format_to(wrt.get_buffer(), format_str, args...));
   } else {
     EMIO_TRYV(detail::format::vformat_to(wrt.get_buffer(), make_format_args(format_str, args...)));
@@ -168,7 +168,7 @@ template <typename OutputIt, typename... Args>
   requires(std::output_iterator<OutputIt, char>)
 constexpr result<OutputIt> format_to(OutputIt out, format_string<Args...> format_str, const Args&... args) noexcept {
   iterator_buffer buf{out};
-  if (Y_EMIO_IS_CONST_EVAL) {
+  if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::format::format_to(buf, format_str, args...));
   } else {
     EMIO_TRYV(detail::format::vformat_to(buf, make_format_args(format_str, args...)));
@@ -260,7 +260,7 @@ constexpr result<format_to_n_result<OutputIt>> format_to_n(OutputIt out, std::it
                                                            const Args&... args) noexcept {
   truncating_iterator tout{out, static_cast<size_t>(n)};
   iterator_buffer buf{tout};
-  if (Y_EMIO_IS_CONST_EVAL) {
+  if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::format::format_to(buf, format_str, args...));
   } else {
     EMIO_TRYV(detail::format::vformat_to(buf, make_format_args(format_str, args...)));

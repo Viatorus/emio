@@ -199,7 +199,7 @@ inline constexpr const char* digits2(size_t value) {
 // Copies two characters from src to dst.
 template <typename Char>
 inline constexpr void copy2(Char* dst, const char* src) {
-  if (!Y_EMIO_IS_CONST_EVAL) {
+  if (!EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     memcpy(dst, src, 2);
   } else {
     *dst++ = static_cast<Char>(*src++);
@@ -258,7 +258,7 @@ constexpr std::basic_string_view<Char> unchecked_substr(const std::basic_string_
 
 template <typename Size>
 constexpr char* fill_n(char* out, Size count, char value) {
-  if (Y_EMIO_IS_CONST_EVAL) {
+  if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     for (Size i = 0; i < count; i++) {
       *out++ = value;
     }
@@ -271,7 +271,7 @@ constexpr char* fill_n(char* out, Size count, char value) {
 
 template <typename Size>
 constexpr char* copy_n(const char* in, Size count, char* out) {
-  if (Y_EMIO_IS_CONST_EVAL) {
+  if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     for (Size i = 0; i < count; i++) {
       *out++ = *in++;
     }

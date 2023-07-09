@@ -475,7 +475,7 @@ class file_buffer : public buffer<char> {
    * Flushes the internal cache to the file stream.
    * @note Does not flush the file stream itself!
    */
-  constexpr result<void> flush() noexcept {
+  result<void> flush() noexcept {
     const size_t written = std::fwrite(cache_.data(), sizeof(char), this->get_used_count(), file_);
     if (written != this->get_used_count()) {
       return err::eof;
@@ -485,7 +485,7 @@ class file_buffer : public buffer<char> {
   }
 
  protected:
-  constexpr result<std::span<char>> request_write_area(const size_t /*used*/, const size_t size) noexcept override {
+  result<std::span<char>> request_write_area(const size_t /*used*/, const size_t size) noexcept override {
     EMIO_TRYV(flush());
     const std::span<char> area{cache_};
     this->set_write_area(area);

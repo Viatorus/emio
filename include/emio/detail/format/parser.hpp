@@ -131,7 +131,7 @@ template <typename Char>
 
 template <typename... Args, typename Char>
 [[nodiscard]] constexpr bool validate_format_string(std::basic_string_view<Char> format_str) noexcept {
-  if (Y_EMIO_IS_CONST_EVAL) {
+  if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     reader<Char> format_rdr{format_str};
     format_specs_checker<Char> fh{format_rdr};
     bitset<sizeof...(Args)> matched{};
