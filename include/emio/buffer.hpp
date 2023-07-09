@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <iterator>
 #include <limits>
 #include <span>
 #include <string>
