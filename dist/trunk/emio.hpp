@@ -79,6 +79,7 @@
 //
 // For the license information refer to emio.hpp
 
+#include <iterator>
 #include <limits>
 #include <span>
 #include <string>
@@ -144,12 +145,12 @@ namespace emio::detail {
   }                                          \
   EMIO_Z_INTERNAL_DEPAREN(var) = std::move(name).assume_value()
 
-#if defined(__GNUC__) || defined(__GNUG__) || defined(_MSC_VER)
+#if defined(__GNUC__) || defined(__GNUG__)
 // Separate macro instead of std::is_constant_evaluated() because code will be optimized away even in debug if inlined.
-#  define Y_EMIO_IS_CONST_EVAL __builtin_is_constant_evaluated()
+#  define EMIO_Z_INTERNAL_IS_CONST_EVAL __builtin_is_constant_evaluated()
 #  define EMIO_Z_INTERNAL_UNREACHABLE __builtin_unreachable()
 #else
-#  define Y_EMIO_IS_CONST_EVAL std::is_constant_evaluated()
+#  define EMIO_Z_INTERNAL_IS_CONST_EVAL std::is_constant_evaluated()
 #  define EMIO_Z_INTERNAL_UNREACHABLE std::terminate()
 #endif
 
@@ -349,7 +350,7 @@ inline constexpr const char* digits2(size_t value) {
 // Copies two characters from src to dst.
 template <typename Char>
 inline constexpr void copy2(Char* dst, const char* src) {
-  if (!Y_EMIO_IS_CONST_EVAL) {
+  if (!EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     memcpy(dst, src, 2);
   } else {
     *dst++ = static_cast<Char>(*src++);
@@ -408,7 +409,7 @@ constexpr std::basic_string_view<Char> unchecked_substr(const std::basic_string_
 
 template <typename Size>
 constexpr char* fill_n(char* out, Size count, char value) {
-  if (Y_EMIO_IS_CONST_EVAL) {
+  if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     for (Size i = 0; i < count; i++) {
       *out++ = value;
     }
@@ -421,7 +422,7 @@ constexpr char* fill_n(char* out, Size count, char value) {
 
 template <typename Size>
 constexpr char* copy_n(const char* in, Size count, char* out) {
-  if (Y_EMIO_IS_CONST_EVAL) {
+  if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     for (Size i = 0; i < count; i++) {
       *out++ = *in++;
     }
@@ -445,7 +446,7 @@ template <typename Char, size_t StorageSize = 32>
 class ct_vector {
  public:
   constexpr ct_vector() {
-    if (Y_EMIO_IS_CONST_EVAL) {
+    if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
       fill_n(storage_.data(), storage_.size(), 0);
     }
   }
@@ -472,7 +473,7 @@ class ct_vector {
       // NOLINTNEXTLINE(bugprone-unhandled-exception-at-new): char types cannot throw
       Char* new_data = new Char[new_size];  // NOLINT(cppcoreguidelines-owning-memory)
       copy_n(data_, size_, new_data);
-      if (Y_EMIO_IS_CONST_EVAL) {
+      if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
         // Required at compile-time because another reserve could happen without previous write to the data.
         fill_n(new_data + size_, new_size - size_, 0);
       }
@@ -600,7 +601,7 @@ class bad_result_access : public std::logic_error {
    * Constructs the bad result access from a message.
    * @param msg The exception message.
    */
-  explicit bad_result_access(const char* msg) : logic_error{msg} {}
+  explicit bad_result_access(const std::string_view& msg) : logic_error{msg.data()} {}
 };
 
 namespace detail {
@@ -612,16 +613,13 @@ inline constexpr bool exceptions_disabled = true;
 #endif
 
 // Helper function to throw or terminate, depending on whether exceptions are globally enabled or not.
-[[noreturn]] inline constexpr void throw_bad_result_access_or_terminate(const err error) noexcept(exceptions_disabled) {
-  // Use dummy check to suppress compiler warnings/errors of throwing/terminating in constexpr.
-  if (error != err{} || error == err{}) {
+[[noreturn]] inline void throw_bad_result_access_or_terminate(const err error) noexcept(exceptions_disabled) {
 #ifdef __EXCEPTIONS
-    throw bad_result_access{to_string(error).data()};
+  throw bad_result_access{to_string(error)};
 #else
-    std::terminate();
+  static_cast<void>(error);
+  std::terminate();
 #endif
-  }
-  EMIO_Z_INTERNAL_UNREACHABLE;
 }
 
 }  // namespace detail
@@ -1524,7 +1522,7 @@ class file_buffer : public buffer<char> {
    * Flushes the internal cache to the file stream.
    * @note Does not flush the file stream itself!
    */
-  constexpr result<void> flush() noexcept {
+  result<void> flush() noexcept {
     const size_t written = std::fwrite(cache_.data(), sizeof(char), this->get_used_count(), file_);
     if (written != this->get_used_count()) {
       return err::eof;
@@ -1534,7 +1532,7 @@ class file_buffer : public buffer<char> {
   }
 
  protected:
-  constexpr result<std::span<char>> request_write_area(const size_t /*used*/, const size_t size) noexcept override {
+  result<std::span<char>> request_write_area(const size_t /*used*/, const size_t size) noexcept override {
     EMIO_TRYV(flush());
     const std::span<char> area{cache_};
     this->set_write_area(area);
@@ -4722,7 +4720,7 @@ template <typename Char>
 
 template <typename... Args, typename Char>
 [[nodiscard]] constexpr bool validate_format_string(std::basic_string_view<Char> format_str) noexcept {
-  if (Y_EMIO_IS_CONST_EVAL) {
+  if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     reader<Char> format_rdr{format_str};
     format_specs_checker<Char> fh{format_rdr};
     bitset<sizeof...(Args)> matched{};
@@ -5239,7 +5237,7 @@ constexpr result<OutputIt> vformat_to(OutputIt out, const format_args& args) noe
 template <typename Buffer, typename... Args>
   requires(std::is_base_of_v<buffer<char>, Buffer>)
 constexpr result<void> format_to(Buffer& buf, format_string<Args...> format_str, const Args&... args) noexcept {
-  if (Y_EMIO_IS_CONST_EVAL) {
+  if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::format::format_to(buf, format_str, args...));
   } else {
     EMIO_TRYV(detail::format::vformat_to(buf, make_format_args(format_str, args...)));
@@ -5256,7 +5254,7 @@ constexpr result<void> format_to(Buffer& buf, format_string<Args...> format_str,
  */
 template <typename... Args>
 constexpr result<void> format_to(writer<char>& wrt, format_string<Args...> format_str, const Args&... args) noexcept {
-  if (Y_EMIO_IS_CONST_EVAL) {
+  if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::format::format_to(wrt.get_buffer(), format_str, args...));
   } else {
     EMIO_TRYV(detail::format::vformat_to(wrt.get_buffer(), make_format_args(format_str, args...)));
@@ -5275,7 +5273,7 @@ template <typename OutputIt, typename... Args>
   requires(std::output_iterator<OutputIt, char>)
 constexpr result<OutputIt> format_to(OutputIt out, format_string<Args...> format_str, const Args&... args) noexcept {
   iterator_buffer buf{out};
-  if (Y_EMIO_IS_CONST_EVAL) {
+  if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::format::format_to(buf, format_str, args...));
   } else {
     EMIO_TRYV(detail::format::vformat_to(buf, make_format_args(format_str, args...)));
@@ -5367,7 +5365,7 @@ constexpr result<format_to_n_result<OutputIt>> format_to_n(OutputIt out, std::it
                                                            const Args&... args) noexcept {
   truncating_iterator tout{out, static_cast<size_t>(n)};
   iterator_buffer buf{tout};
-  if (Y_EMIO_IS_CONST_EVAL) {
+  if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::format::format_to(buf, format_str, args...));
   } else {
     EMIO_TRYV(detail::format::vformat_to(buf, make_format_args(format_str, args...)));
