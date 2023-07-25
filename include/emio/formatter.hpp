@@ -120,6 +120,24 @@ class formatter<T> {
     }
   }
 
+  /**
+   *
+   * @param width
+   * @return
+   */
+  constexpr void set_width(int32_t width) noexcept {
+    specs_.width = std::max(0, width);
+  }
+
+  /**
+   * Set precision.
+   * @param width
+   * @return
+   */
+  constexpr void set_precision(int32_t precision) noexcept {
+    specs_.precision = std::max(0, precision);
+  }
+
  private:
   detail::format::format_specs specs_{};
 };
@@ -156,6 +174,61 @@ class formatter<T> : public formatter<detail::format::format_as_return_t<T>> {
   constexpr result<void> format(writer<char>& wtr, const T& arg) noexcept {
     return formatter<detail::format::format_as_return_t<T>>::format(wtr, format_as(arg));
   }
+};
+
+namespace detail {
+
+template <typename T>
+struct dynamic_spec_with_value;
+
+}
+
+struct dynamic_spec {
+  int32_t width{detail::format::no_width_defined};
+  int32_t precision{detail::format::no_precision_defined};
+
+  template <typename T>
+  [[nodiscard]] constexpr detail::dynamic_spec_with_value<T> with(const T& value) const noexcept;
+};
+
+namespace detail {
+
+template <typename T>
+struct dynamic_spec_with_value : dynamic_spec {
+  const T& value;
+};
+
+}  // namespace detail
+
+template <typename T>
+[[nodiscard]] constexpr detail::dynamic_spec_with_value<T> dynamic_spec::with(const T& value) const noexcept {
+  return {*this, value};
+}
+
+template <typename T>
+class formatter<detail::dynamic_spec_with_value<T>> {
+ public:
+  static constexpr result<void> validate(reader<char>& rdr) noexcept {
+    return formatter<T>::validate(rdr);
+  }
+
+  constexpr result<void> parse(reader<char>& rdr) noexcept {
+    return underlying_.parse(rdr);
+  }
+
+  constexpr result<void> format(writer<char>& wtr, const detail::dynamic_spec_with_value<T>& arg) noexcept {
+    // Alter specs.
+    if (arg.width != detail::format::no_width_defined) {
+      underlying_.set_width(arg.width);
+    }
+    if (arg.precision != detail::format::no_precision_defined) {
+      underlying_.set_precision(arg.precision);
+    }
+    return underlying_.format(wtr, arg.value);
+  }
+
+ private:
+  formatter<T> underlying_{};
 };
 
 }  // namespace emio
