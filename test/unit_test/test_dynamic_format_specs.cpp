@@ -25,9 +25,9 @@ constexpr auto format_as(const no_copy_or_move& /*unused*/) {
 
 TEST_CASE("dynamic specs") {
   SECTION("default constructed") {
-    // Specs don't overwrite anything.
-
+    // Spec doesn't overwrite anything.
     emio::dynamic_spec spec{};
+
     CHECK(emio::format("{}", spec.with(5)) == "5");
     CHECK(emio::format("{:4}", spec.with(5)) == "   5");
     CHECK(emio::format("{:f}", spec.with(5.1)) == "5.100000");
@@ -35,7 +35,7 @@ TEST_CASE("dynamic specs") {
   }
 
   SECTION("custom width and precision") {
-    // Specs always overwrite.
+    // Spec always overwrite.
     emio::dynamic_spec spec{.width = 3, .precision = 3};
 
     CHECK(emio::format("{}", spec.with(5)) == "  5");
@@ -45,11 +45,13 @@ TEST_CASE("dynamic specs") {
   }
 
   SECTION("with(...) doesn't copy or move") {
+    // Object is not copied or moved because always a reference is hold.
     emio::dynamic_spec spec{};
 
     CHECK(emio::format("{}", spec.with(no_copy_or_move{})) == "nothing");
 
     no_copy_or_move obj{};
     CHECK(emio::format("{}", spec.with(obj)) == "nothing");
+    CHECK(emio::format("{}", spec.with(std::move(obj))) == "nothing");
   }
 }
