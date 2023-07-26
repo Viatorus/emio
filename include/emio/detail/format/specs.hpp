@@ -29,8 +29,6 @@ namespace emio::detail::format {
 inline constexpr char no_sign = '\0';
 inline constexpr int no_precision = -1;
 inline constexpr char no_type = 0;
-inline constexpr int32_t no_width_defined = -std::numeric_limits<int32_t>::max();
-inline constexpr int32_t no_precision_defined = -std::numeric_limits<int32_t>::max();
 
 enum class alignment : uint8_t { none, left, center, right };
 

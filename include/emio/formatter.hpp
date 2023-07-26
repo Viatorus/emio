@@ -179,47 +179,51 @@ class formatter<T> : public formatter<detail::format::format_as_return_t<T>> {
 namespace detail {
 
 template <typename T>
-struct value_with_dynamic_spec;
+struct format_spec_with_value;
 
 }
 
 /**
  * Struct to dynamically specify width and precision.
  */
-struct dynamic_spec {
-  /// The width. Defaulted to not overwrite.
-  int32_t width{detail::format::no_width_defined};
-  /// The precision. Defaulted to not overwrite.
-  int32_t precision{detail::format::no_precision_defined};
+struct format_spec {
+  /// Constant which indicates that the spec should not overwrite existing spec defined in the format string.
+  static constexpr int32_t not_defined = -std::numeric_limits<int32_t>::max();
+
+  /// The width.
+  int32_t width{not_defined};
+  /// The precision.
+  int32_t precision{not_defined};
 
   /**
-   * Returns on object that stores an value with the dynamic specification.
+   * Returns an object that holds the value and the dynamic specification as reference.
    *
-   * @note The storage uses reference semantics and does not extend the lifetime of value. It is the programmer's
-   * responsibility to ensure that value outlive the return value. Usually, the result is only used as argument to a
-   * formatting function.
+   * @note The object uses reference semantics and does not extend the lifetime of the held objects. It is the
+   * programmer's responsibility to ensure that value outlive the return value. Usually, the result is only used as
+   * argument to a formatting function.
    *
    * @param value The value to format.
    * @return Internal type.
    */
   template <typename T>
-  [[nodiscard]] constexpr detail::value_with_dynamic_spec<T> with(const T& value) const noexcept;
+  [[nodiscard]] constexpr detail::format_spec_with_value<T> with(const T& value) const noexcept;
 };
 
 namespace detail {
 
 /**
- * Struct holding the value and the specs.
+ * Struct holding the format spec and value.
  */
 template <typename T>
-struct value_with_dynamic_spec : dynamic_spec {
+struct format_spec_with_value {
+  const format_spec& spec;
   const T& value;
 };
 
 }  // namespace detail
 
 template <typename T>
-[[nodiscard]] constexpr detail::value_with_dynamic_spec<T> dynamic_spec::with(const T& value) const noexcept {
+[[nodiscard]] constexpr detail::format_spec_with_value<T> format_spec::with(const T& value) const noexcept {
   return {*this, value};
 }
 
@@ -228,7 +232,7 @@ template <typename T>
  * @tparam T The underlying type.
  */
 template <typename T>
-class formatter<detail::value_with_dynamic_spec<T>> {
+class formatter<detail::format_spec_with_value<T>> {
  public:
   static constexpr result<void> validate(reader<char>& rdr) noexcept {
     return formatter<T>::validate(rdr);
@@ -238,13 +242,13 @@ class formatter<detail::value_with_dynamic_spec<T>> {
     return underlying_.parse(rdr);
   }
 
-  constexpr result<void> format(writer<char>& wtr, const detail::value_with_dynamic_spec<T>& arg) noexcept {
+  constexpr result<void> format(writer<char>& wtr, const detail::format_spec_with_value<T>& arg) noexcept {
     // Alter specs.
-    if (arg.width != detail::format::no_width_defined) {
-      underlying_.set_width(arg.width);
+    if (arg.spec.width != format_spec::not_defined) {
+      underlying_.set_width(arg.spec.width);
     }
-    if (arg.precision != detail::format::no_precision_defined) {
-      underlying_.set_precision(arg.precision);
+    if (arg.spec.precision != format_spec::not_defined) {
+      underlying_.set_precision(arg.spec.precision);
     }
     return underlying_.format(wtr, arg.value);
   }

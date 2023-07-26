@@ -185,7 +185,6 @@ Things that are missing:
 
 - UTF-8 support (planned)
 - range and chrono syntax (planned)
-- dynamic width and precision (planned but not via format string syntax)
 - using an identifier as arg_id: `fmt::format("{nbr}", fmt::arg("nbr", 42)` (TBD)
 - `'L'` options for locale (somehow possible but not with std::locale)
 
@@ -214,7 +213,7 @@ sign        ::=  "+" | "-" | " "
 
 width       ::=  integer
 
-type        ::=  "b" | "B" | "c" | "d" | "o" | "s" | "x" | "X"
+type        ::=  "b" | "B" | "c" | "d" | "o" | "s" | "x" | "X" | "e" | "E" | "f" | "F" | "g" | "G"
 ```
 
 The format string syntax is validated at compile-time. If a runtime format string is required, the string must be
@@ -252,6 +251,25 @@ implementations and reduce the binary size. **Note:** These type erased function
 - Returns an object that stores a format string with an array of all arguments to format.
 - Keep in mind that the storage uses reference semantics and does not extend the lifetime of args. It is the
   programmer's responsibility to ensure that args outlive the return value.
+
+#### Dynamic format specification
+
+Unlike other libraries, the format specification cannot be changed through extra replacement fields like it is e.g.
+possible with fmt to dynamically set the precision to 1 with `fmt::format("{:.{}f}", 3.14, 1);`.
+
+With emio it is possible to dynamically define _width_ and _precision_ through a `format_spec` object which is than
+passed as argument with the original value to the format function.
+
+`format_spec{.width = <width>, .precision = <precision>}`
+
+- If a spec is not defined in the struct, the spec of the parsed format string will be applied.
+
+In the example shown below the precision is set dynamically to 1:
+
+```cpp
+emio::format_spec spec{.precision = 1};
+emio::format('{}', spec.with(3.14));  // 3.1
+```
 
 ### Formatter
 

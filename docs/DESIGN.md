@@ -32,7 +32,7 @@ likely not so important for embedded systems. Some missing features are:
 - no std::locale support (no internationalization)
 - if a runtime format string is used, validation and parsing happens sequential (performance overhead)
 - some features cannot be API compatible and have to be done differently (e.g. make_format_args requires the format
-  string or dynamic width/precision)
+  string or dynamic width and precision is implemented by a wrapper object)
 
 ## Result type
 
