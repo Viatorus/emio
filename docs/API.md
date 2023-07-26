@@ -254,15 +254,15 @@ implementations and reduce the binary size. **Note:** These type erased function
 
 #### Dynamic format specification
 
-Unlike other libraries, the format specification cannot be changed through extra replacement fields like it is e.g.
-possible with fmt to dynamically set the precision to 1 with `fmt::format("{:.{}f}", 3.14, 1);`.
+Unlike other libraries, the format specification cannot be changed through extra replacement fields, as it is possible
+e.g. with fmt to dynamically set the precision to 1 with `fmt::format("{:.{}f}", 3.14, 1);`.
 
-With emio it is possible to dynamically define _width_ and _precision_ through a `format_spec` object which is than
-passed as argument with the original value to the format function.
+With emio it is possible to dynamically define _width_ and _precision_ through a `format_spec` object which is then
+passed as an argument with the original value to the format function.
 
 `format_spec{.width = <width>, .precision = <precision>}`
 
-- If a spec is not defined in the struct, the spec of the parsed format string will be applied.
+- If a spec is not defined inside the struct, the spec of the parsed format string will be applied.
 
 In the example shown below the precision is set dynamically to 1:
 
@@ -274,9 +274,7 @@ emio::format('{}', spec.with(3.14));  // 3.1
 ### Formatter
 
 There exists formatter for builtin types like bool, char, string, integers, floats, void* and non-scoped enums, ranges
-and tuple
-like types.
-Support for other standard types (e.g. chrono duration, optional) is planned.
+and tuple like types.  Support for other standard types (e.g. chrono duration, optional) is planned.
 
 Use `is_formattable_v<Type>` to check if a type is formattable.
 
