@@ -18,7 +18,7 @@ add_executable(emio_test
         detail/test_decode.cpp
         detail/test_dragon.cpp
         test_buffer.cpp
-        test_dynamic_format_specs.cpp
+        test_dynamic_format_spec.cpp
         test_format.cpp
         test_format_api.cpp
         test_format_as.cpp
