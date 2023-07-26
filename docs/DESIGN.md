@@ -27,12 +27,12 @@ If compiled with *fmt*, **191 kBytes** of flash memory is required. If *emio* is
 This is **38 times** less! Keep in mind that flash memory of many microcontrollers is between 128 kBytes and 2 MBytes.
 
 This huge advantage of *emio* comes with a price: *emio* doesn't support all features of *fmt*. But these features are
-likely not so important for embedded systems. The missing features are:
+likely not so important for embedded systems. Some missing features are:
 
 - no std::locale support (no internationalization)
 - if a runtime format string is used, validation and parsing happens sequential (performance overhead)
 - some features cannot be API compatible and have to be done differently (e.g. make_format_args requires the format
-  string or dynamic precision is not supported)
+  string or dynamic width and precision is implemented by a wrapper object)
 
 ## Result type
 
