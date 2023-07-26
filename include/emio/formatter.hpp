@@ -243,7 +243,7 @@ class formatter<detail::format_spec_with_value<T>> {
   }
 
   constexpr result<void> format(writer<char>& wtr, const detail::format_spec_with_value<T>& arg) noexcept {
-    // Alter specs.
+    // Change the spec if defined.
     if (arg.spec.width != format_spec::not_defined) {
       underlying_.set_width(arg.spec.width);
     }
