@@ -156,8 +156,7 @@ class formatter<T> {
     } else {
       rdr.pop();  // :
     }
-    EMIO_TRYV(parse_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), rdr, set_debug));
-    return success;
+    return parse_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), rdr, set_debug);
   }
 
   constexpr result<void> format(writer<char>& wtr, const T& args) const noexcept {
