@@ -39,8 +39,7 @@ TEST_CASE("ranges invalid_format or validate tests", "[ranges]") {
   CHECK(emio::format(emio::runtime{"{:n"}, arr) == emio::err::invalid_format);
   CHECK(emio::format(emio::runtime{"{::i}"}, arr) == emio::err::invalid_format);
 
-  std::array<char, 1> out;
-  emio::span_buffer buf{out};
+  emio::static_buffer<char, 1> buf{};
   CHECK(emio::format_to(buf, "{}", arr) == emio::err::eof);
   CHECK(emio::format_to(buf, "x{}", arr) == emio::err::eof);
 }
@@ -117,8 +116,7 @@ TEST_CASE("tuple_like invalid_format or validate tests", "[ranges]") {
   CHECK(emio::format(emio::runtime{"{::i}"}, p) == emio::err::invalid_format);
   CHECK(emio::format(emio::runtime{"{::}"}, std::tuple<>()) == emio::err::invalid_format);
 
-  std::array<char, 1> out;
-  emio::span_buffer buf{out};
+  emio::static_buffer<char, 1> buf{};
   CHECK(emio::format_to(buf, "{}", p) == emio::err::eof);
   CHECK(emio::format_to(buf, "x{}", p) == emio::err::eof);
 }

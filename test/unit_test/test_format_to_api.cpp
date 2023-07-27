@@ -57,8 +57,7 @@ TEST_CASE("emio::format_to with emio::buffer", "[format_to]") {
   SECTION("compile-time") {
     SECTION("success") {
       constexpr bool success = [] {
-        std::array<char, 2> arr{};
-        emio::span_buffer buf{arr};
+        emio::static_buffer<char, 2> buf{};
 
         emio::result<void> res = emio::format_to(buf, "{}", 42);
         return res && buf.view() == "42";
@@ -67,8 +66,7 @@ TEST_CASE("emio::format_to with emio::buffer", "[format_to]") {
     }
     SECTION("eof") {
       constexpr bool eof = [] {
-        std::array<char, 2> arr{};
-        emio::span_buffer buf{arr};
+        emio::static_buffer<char, 2> buf{};
 
         emio::result<void> res = emio::format_to(buf, "{}", 420);
         return res == emio::err::eof;
@@ -77,8 +75,7 @@ TEST_CASE("emio::format_to with emio::buffer", "[format_to]") {
     }
   }
   SECTION("runtime") {
-    std::array<char, 2> arr{};
-    emio::span_buffer buf{arr};
+    emio::static_buffer<char, 2> buf{};
 
     SECTION("success") {
       emio::result<void> res = emio::format_to(buf, "{}", 42);
@@ -97,8 +94,7 @@ TEST_CASE("emio::format_to with emio::writer", "[format_to]") {
   // * Call emio::format_to with an emio::writer.
   // Expected: The return type, value and the format result is correct.
 
-  std::array<char, 2> arr{};
-  emio::span_buffer buf{arr};
+  emio::static_buffer<char, 2> buf{};
   emio::writer<char> wrt{buf};
 
   SECTION("success") {
@@ -150,8 +146,7 @@ TEST_CASE("emio::vformat_to with emio::buffer", "[format_to]") {
   // * Call emio::vformat_to with an emio::span_buffer.
   // Expected: The return type, value and the format result is correct.
 
-  std::array<char, 2> arr{};
-  emio::span_buffer buf{arr};
+  emio::static_buffer<char, 2> buf{};
 
   SECTION("success") {
     emio::result<void> res = emio::vformat_to(buf, emio::make_format_args("{}", 42));
@@ -169,8 +164,7 @@ TEST_CASE("emio::vformat_to with emio::writer", "[format_to]") {
   // * Call emio::vformat_to with an emio::writer.
   // Expected: The return type, value and the format result is correct.
 
-  std::array<char, 2> arr{};
-  emio::span_buffer buf{arr};
+  emio::static_buffer<char, 2> buf{};
   emio::writer<char> wrt{buf};
 
   SECTION("success") {

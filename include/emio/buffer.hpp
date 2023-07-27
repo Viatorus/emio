@@ -248,12 +248,12 @@ span_buffer(T&&) -> span_buffer<char32_t>;
  * @tparam StorageSize The size of the storage.
  */
 template <typename Char, size_t StorageSize>
-class static_buffer final : public span_buffer<Char> {
+class static_buffer final : private std::array<Char, StorageSize>, public span_buffer<Char> {
  public:
   /**
    * Constructs and initializes the buffer with the storage.
    */
-  constexpr static_buffer() noexcept : span_buffer<Char>{storage_} {}
+  constexpr static_buffer() noexcept : span_buffer<Char>{std::span{*this}} {}
 
   constexpr static_buffer(const static_buffer&) = default;
   constexpr static_buffer(static_buffer&&) noexcept = default;
@@ -261,8 +261,8 @@ class static_buffer final : public span_buffer<Char> {
   constexpr static_buffer& operator=(static_buffer&&) noexcept = default;
   constexpr ~static_buffer() override = default;
 
- private:
-  std::array<Char, StorageSize> storage_;
+  // Note: We inherit from std::array to put the storage lifetime before span_buffer.
+  // Clang otherwise complains about it if the storage would be a member variable and used during compile-time.
 };
 
 namespace detail {
