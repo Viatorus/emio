@@ -30,7 +30,7 @@ class buffer {
   buffer(buffer&& other) = delete;
   buffer& operator=(const buffer& other) = delete;
   buffer& operator=(buffer&& other) = delete;
-  constexpr virtual ~buffer() = default;
+  virtual constexpr ~buffer() = default;
 
   /**
    * Returns a write area with the requested size on success.
@@ -77,7 +77,7 @@ class buffer {
    * @param size The requested size of a new write area.
    * @return The write area with the requested size as maximum on success or eof if no write area is available.
    */
-  constexpr virtual result<std::span<Char>> request_write_area(const size_t used, const size_t size) noexcept {
+  virtual constexpr result<std::span<Char>> request_write_area(const size_t used, const size_t size) noexcept {
     static_cast<void>(used);  // Keep params for documentation.
     static_cast<void>(size);
     return err::eof;
