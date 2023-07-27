@@ -55,9 +55,13 @@ class buffer {
    */
   constexpr result<std::span<Char>> get_write_area_of_max(size_t size) noexcept {
     const size_t remaining_capacity = area_.size() - used_;
-    if (remaining_capacity >= size) {
-      const std::span<char> area = area_.subspan(used_, size);
-      used_ += size;
+    if (fixed_ || remaining_capacity >= size) {
+      if (remaining_capacity == 0 && size != 0) {
+        return err::eof;
+      }
+      const size_t max_size = std::min(remaining_capacity, size);
+      const std::span<char> area = area_.subspan(used_, max_size);
+      used_ += max_size;
       return area;
     }
     EMIO_TRY(const std::span<Char> area, request_write_area(used_, size));
@@ -67,9 +71,10 @@ class buffer {
 
  protected:
   /**
-   * Default constructs the buffer.
+   * Constructs the buffer.
+   * @brief fixed Flag to indicate if the buffer can grow.
    */
-  constexpr buffer() = default;
+  constexpr explicit buffer(bool fixed) noexcept : fixed_{fixed} {}
 
   /**
    * Requests a write area of the given size from a subclass.
@@ -101,6 +106,7 @@ class buffer {
   }
 
  private:
+  bool fixed_{};
   size_t used_{};
   std::span<Char> area_{};
 };
@@ -122,7 +128,7 @@ class memory_buffer final : public buffer<Char> {
    * Constructs and initializes the buffer with the given capacity.
    * @param capacity The initial capacity.
    */
-  constexpr explicit memory_buffer(const size_t capacity) {
+  constexpr explicit memory_buffer(const size_t capacity) : buffer<Char>{false} {
     // Request at least the internal storage size.
     static_cast<void>(request_write_area(0, std::max(vec_.capacity(), capacity)));
   }
@@ -174,13 +180,13 @@ class span_buffer final : public buffer<Char> {
   /**
    * Constructs and initializes the buffer with an empty span.
    */
-  constexpr span_buffer() = default;
+  constexpr span_buffer() : buffer<Char>{true} {};
 
   /**
    * Constructs and initializes the buffer with the given span.
    * @param span The span.
    */
-  constexpr explicit span_buffer(const std::span<Char> span) : span_{span} {
+  constexpr explicit span_buffer(const std::span<Char> span) : buffer<Char>{true}, span_{span} {
     this->set_write_area(span_);
   }
 
@@ -294,7 +300,7 @@ class iterator_buffer<Iterator> final : public buffer<detail::get_value_type_t<I
    * @param it The output iterator.
    */
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): cache_ can be left uninitialized
-  constexpr explicit iterator_buffer(Iterator it) : it_{it} {
+  constexpr explicit iterator_buffer(Iterator it) : buffer<char_t>{false}, it_{it} {
     this->set_write_area(cache_);
   }
 
@@ -356,7 +362,7 @@ class iterator_buffer<OutputPtr*> final : public buffer<detail::get_value_type_t
    * Constructs and initializes the buffer with the given output pointer.
    * @param ptr The output pointer.
    */
-  constexpr explicit iterator_buffer(OutputPtr* ptr) : ptr_{ptr} {
+  constexpr explicit iterator_buffer(OutputPtr* ptr) : buffer<detail::get_value_type_t<OutputPtr*>>{false}, ptr_{ptr} {
     this->set_write_area({ptr, std::numeric_limits<size_t>::max()});
   }
 
@@ -401,7 +407,8 @@ class iterator_buffer<std::back_insert_iterator<Container>> final : public buffe
    * Constructs and initializes the buffer with the given back-insert iterator.
    * @param it The output iterator.
    */
-  constexpr explicit iterator_buffer(std::back_insert_iterator<Container> it) : container_{detail::get_container(it)} {
+  constexpr explicit iterator_buffer(std::back_insert_iterator<Container> it)
+      : buffer<char_t>{false}, container_{detail::get_container(it)} {
     static_cast<void>(request_write_area(0, std::min(container_.capacity(), detail::internal_buffer_size)));
   }
 
@@ -461,7 +468,7 @@ class file_buffer : public buffer<char> {
    * @param file The file stream.
    */
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): cache_ can be left uninitialized
-  constexpr explicit file_buffer(std::FILE* file) : file_{file} {
+  constexpr explicit file_buffer(std::FILE* file) : buffer<char>{false}, file_{file} {
     this->set_write_area(cache_);
   }
 
@@ -510,7 +517,7 @@ template <typename Char>
 class basic_counting_buffer final : public buffer<Char> {
  public:
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): Can be left uninitialized.
-  constexpr basic_counting_buffer() = default;
+  constexpr basic_counting_buffer() noexcept : buffer<Char>{false} {};
   constexpr basic_counting_buffer(const basic_counting_buffer&) = delete;
   constexpr basic_counting_buffer(basic_counting_buffer&&) noexcept = delete;
   constexpr basic_counting_buffer& operator=(const basic_counting_buffer&) = delete;
