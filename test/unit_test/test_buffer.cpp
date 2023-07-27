@@ -54,7 +54,7 @@ TEST_CASE("memory_buffer", "[buffer]") {
 
 TEST_CASE("memory_buffer regression bug 1", "[buffer]") {
   // Regression description:
-  // memory_buffer::request_write_area(...) passed an invalid to large write area to buffer::set_write_area(...).
+  // memory_buffer::request_write_area(...) passed an invalid too large write area to buffer::set_write_area(...).
 
   // Test strategy:
   // * Construct a memory_buffer and write 'a's into it for more than the default capacity of an std::string to
@@ -146,6 +146,7 @@ TEST_CASE("span_buffer", "[buffer]") {
   CHECK(buf.view().empty());
 
   emio::result<std::span<char>> area = buf.get_write_area_of(first_size);
+  REQUIRE(area);
   CHECK(area->size() == first_size);
   CHECK(area->data() == storage.data());
 
@@ -153,6 +154,7 @@ TEST_CASE("span_buffer", "[buffer]") {
   CHECK(buf.view().data() == storage.data());
 
   area = buf.get_write_area_of(second_size);
+  REQUIRE(area);
   CHECK(area->size() == second_size);
   CHECK(area->data() == storage.data() + first_size);
 
@@ -160,6 +162,7 @@ TEST_CASE("span_buffer", "[buffer]") {
   CHECK(buf.view().data() == storage.data());
 
   area = buf.get_write_area_of(third_size);
+  REQUIRE(area);
   CHECK(area->size() == third_size);
   CHECK(area->data() == storage.data() + first_size + second_size);
 
@@ -168,7 +171,37 @@ TEST_CASE("span_buffer", "[buffer]") {
   CHECK(buf.view() == buf.str());
 
   area = buf.get_write_area_of(1);
-  CHECK(!area);
+  REQUIRE(!area);
+
+  area = buf.get_write_area_of(0);
+  REQUIRE(area);
+  CHECK(area->empty());
+}
+
+TEST_CASE("buffer regression bug 1", "[buffer]") {
+  // Regression description:
+  // buffer::get_write_area_of_max(...) tried to request more data from the concrete buffer implementation if the
+  // requested size is greater than available. For fixed size buffers (e.g. span buffer) this will always return EOF.
+  // Instead, the remaining bytes should be returned.
+
+  // Test strategy:
+  // * Construct a span_buffer over an std::array and request more bytes than available through get_write_area_of_max.
+  // Expected: A write area matching the std::array size is returned.
+
+  std::array<char, 50> arr;
+  emio::span_buffer buf{arr};
+  emio::result<std::span<char>> area = buf.get_write_area_of_max(60);
+  REQUIRE(area);
+  CHECK(area->size() == 50);
+
+  // No write area available anymore.
+  area = buf.get_write_area_of_max(60);
+  REQUIRE(!area);
+
+  // Except for zero bytes.
+  area = buf.get_write_area_of_max(0);
+  REQUIRE(area);
+  CHECK(area->empty());
 }
 
 TEST_CASE("static_buffer", "[buffer]") {

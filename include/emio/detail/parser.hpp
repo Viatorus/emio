@@ -45,14 +45,14 @@ inline constexpr uint8_t no_more_args = std::numeric_limits<uint8_t>::max();
 template <typename Char, input_validation>
 class parser_base {
  public:
-  explicit constexpr parser_base(reader<Char>& format_rdr) noexcept : format_rdr_{format_rdr} {}
+  constexpr explicit parser_base(reader<Char>& format_rdr) noexcept : format_rdr_{format_rdr} {}
 
   parser_base(const parser_base&) = delete;
   parser_base(parser_base&&) = delete;
   parser_base& operator=(const parser_base&) = delete;
   parser_base& operator=(parser_base&&) = delete;
 
-  constexpr virtual ~parser_base() = default;
+  virtual constexpr ~parser_base() = default;
 
   constexpr result<void> parse(uint8_t& arg_nbr) noexcept {
     while (true) {
@@ -129,14 +129,14 @@ class parser_base {
 template <typename Char>
 class parser_base<Char, input_validation::disabled> {
  public:
-  explicit constexpr parser_base(reader<Char>& format_rdr) noexcept : format_rdr_{format_rdr} {}
+  constexpr explicit parser_base(reader<Char>& format_rdr) noexcept : format_rdr_{format_rdr} {}
 
   parser_base(const parser_base& other) = delete;
   parser_base(parser_base&& other) = delete;
   parser_base& operator=(const parser_base& other) = delete;
   parser_base& operator=(parser_base&& other) = delete;
 
-  constexpr virtual ~parser_base() = default;
+  virtual constexpr ~parser_base() = default;
 
   constexpr result<void> parse(uint8_t& arg_nbr) noexcept {
     while (true) {

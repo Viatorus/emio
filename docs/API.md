@@ -36,7 +36,7 @@ Every function describes the possible errors which can occur. See the source cod
 
 ## Result
 
-`template<typename T> class result;`
+`template <typename T> class result;`
 
 - The return type of almost all functions to propagate a value of type `T` on success or an error of type `emio::err`
   on failure.
@@ -107,7 +107,7 @@ Some buffers have an internal cache to provide a contiguous memory if the actual
 
 ## Reader
 
-`template<typename Char> class reader;`
+`template <typename Char> class reader;`
 
 - A class to read and parse any char sequence like a finite input stream.
 
@@ -142,7 +142,7 @@ Some buffers have an internal cache to provide a contiguous memory if the actual
 
 ## Writer
 
-`template<typename Char> class writer;`
+`template <typename Char> class writer;`
 
 - A class to write sequences of characters or other kinds of data into an output buffer.
 

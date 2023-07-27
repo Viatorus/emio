@@ -83,12 +83,12 @@ class bignum {
   /// Makes a bignum from one digit.
   template <typename T>
     requires(std::is_unsigned_v<T> && sizeof(T) <= sizeof(uint32_t))
-  explicit constexpr bignum(T v) noexcept : base_{{v}} {}
+  constexpr explicit bignum(T v) noexcept : base_{{v}} {}
 
   /// Makes a bignum from `u64` value.
   template <typename T>
     requires(std::is_unsigned_v<T> && sizeof(T) == sizeof(uint64_t))
-  explicit constexpr bignum(T v) noexcept : base_{{static_cast<uint32_t>(v), static_cast<uint32_t>(v >> 32)}} {
+  constexpr explicit bignum(T v) noexcept : base_{{static_cast<uint32_t>(v), static_cast<uint32_t>(v >> 32)}} {
     size_ += static_cast<size_t>(base_[1] > 0);
   }
 

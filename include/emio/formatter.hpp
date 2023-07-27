@@ -53,7 +53,7 @@ class formatter {
    * @param arg The argument to format.
    * @return Success if the formatting could be done.
    */
-  constexpr result<void> format(writer<char>& wtr, const T& arg) noexcept {
+  constexpr result<void> format(writer<char>& wtr, const T& arg) const noexcept {
     return wtr.write_int(sizeof(arg));
   }
 };
@@ -100,7 +100,7 @@ class formatter<T> {
     return detail::format::parse_format_specs(rdr, specs_);
   }
 
-  constexpr result<void> format(writer<char>& wtr, const T& arg) noexcept {
+  constexpr result<void> format(writer<char>& wtr, const T& arg) const noexcept {
     auto specs = specs_;  // Copy spec because format could be called multiple times (e.g. ranges).
     return write_arg(wtr, specs, arg);
   }
@@ -158,7 +158,7 @@ template <typename T>
   requires(std::is_enum_v<T> && std::is_convertible_v<T, std::underlying_type_t<T>>)
 class formatter<T> : public formatter<std::underlying_type_t<T>> {
  public:
-  constexpr result<void> format(writer<char>& wtr, const T& arg) noexcept {
+  constexpr result<void> format(writer<char>& wtr, const T& arg) const noexcept {
     return formatter<std::underlying_type_t<T>>::format(wtr, static_cast<std::underlying_type_t<T>>(arg));
   }
 };
@@ -171,7 +171,7 @@ template <typename T>
   requires(detail::format::has_format_as<T>)
 class formatter<T> : public formatter<detail::format::format_as_return_t<T>> {
  public:
-  constexpr result<void> format(writer<char>& wtr, const T& arg) noexcept {
+  constexpr result<void> format(writer<char>& wtr, const T& arg) const noexcept {
     return formatter<detail::format::format_as_return_t<T>>::format(wtr, format_as(arg));
   }
 };
@@ -243,17 +243,37 @@ class formatter<detail::format_spec_with_value<T>> {
   }
 
   constexpr result<void> format(writer<char>& wtr, const detail::format_spec_with_value<T>& arg) noexcept {
-    // Change the spec if defined.
-    if (arg.spec.width != format_spec::not_defined) {
-      underlying_.set_width(arg.spec.width);
-    }
-    if (arg.spec.precision != format_spec::not_defined) {
-      underlying_.set_precision(arg.spec.precision);
-    }
+    overwrite_spec(arg.spec);
     return underlying_.format(wtr, arg.value);
   }
 
  private:
+  template <typename F>
+    requires requires(F x) {
+               x.set_width(1);
+               x.set_precision(1);
+             }
+  static constexpr F& get_core_formatter(F& formatter) noexcept {
+    return formatter;
+  }
+
+  template <typename F>
+    requires requires(F x) { x.underlying(); }
+  static constexpr auto& get_core_formatter(F& formatter) noexcept {
+    return get_core_formatter(formatter.underlying());
+  }
+
+  constexpr void overwrite_spec(const format_spec& spec) noexcept {
+    // Overwrite the spec of the core formatter if they are dynamically defined.
+    auto& f = get_core_formatter(underlying_);
+    if (spec.width != format_spec::not_defined) {
+      f.set_width(spec.width);
+    }
+    if (spec.precision != format_spec::not_defined) {
+      f.set_precision(spec.precision);
+    }
+  }
+
   formatter<T> underlying_{};
 };
 

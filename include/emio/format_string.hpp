@@ -36,7 +36,7 @@ class runtime {
    */
   template <typename S>
     requires(std::is_constructible_v<std::basic_string_view<Char>, S>)
-  explicit constexpr runtime(const S& str) : str_{str} {}
+  constexpr explicit runtime(const S& str) : str_{str} {}
 
   /**
    * Obtains a view over the runtime format string.
@@ -167,7 +167,7 @@ class basic_valid_format_string : public basic_format_string<Char, Args...> {
   using valid_t = typename basic_format_string<Char, Args...>::valid_t;
   using basic_format_string<Char, Args...>::valid;
 
-  explicit constexpr basic_valid_format_string(valid_t /*unused*/, std::basic_string_view<Char> s) noexcept
+  constexpr explicit basic_valid_format_string(valid_t /*unused*/, std::basic_string_view<Char> s) noexcept
       : basic_format_string<Char, Args...>{valid, s} {}
 };
 
