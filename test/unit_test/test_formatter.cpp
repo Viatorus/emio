@@ -16,7 +16,7 @@ template <>
 class emio::formatter<wrap> : public emio::formatter<int> {
  public:
   template <typename Char>
-  [[nodiscard]] constexpr result<void> format(writer<Char>& wtr, const wrap& arg) noexcept {
+  constexpr result<void> format(writer<Char>& wtr, const wrap& arg) const noexcept {
     return formatter<int>::format(wtr, arg.id);
   }
 };
@@ -63,7 +63,7 @@ template <>
 class emio::formatter<foo> {
  public:
   template <typename Char>
-  [[nodiscard]] static constexpr result<void> validate(reader<Char>& rdr) noexcept {
+  static constexpr result<void> validate(reader<Char>& rdr) noexcept {
     EMIO_TRY(Char c, rdr.read_char());
     if (c == '}') {  // Format end.
       return success;
@@ -75,7 +75,7 @@ class emio::formatter<foo> {
   }
 
   template <typename Char>
-  [[nodiscard]] constexpr result<void> parse(reader<Char>& rdr) noexcept {
+  constexpr result<void> parse(reader<Char>& rdr) noexcept {
     Char c = rdr.read_char().assume_value();
     if (c == '}') {  // Format end.
       return success;
@@ -88,7 +88,7 @@ class emio::formatter<foo> {
   }
 
   template <typename Char>
-  [[nodiscard]] constexpr result<void> format(writer<Char>& wtr, const foo& arg) noexcept {
+  constexpr result<void> format(writer<Char>& wtr, const foo& arg) const noexcept {
     return emio::format_to(wtr.get_buffer(), "foo: {}", sign_ * arg.id);
   }
 
@@ -145,7 +145,7 @@ template <>
 class emio::formatter<bar> {
  public:
   template <typename Char>
-  [[nodiscard]] static result<void> validate(reader<Char>& rdr) noexcept {
+  static result<void> validate(reader<Char>& rdr) noexcept {
     EMIO_TRY(Char c, rdr.read_char());
     if (c == '}') {  // Format end.
       return success;
@@ -157,7 +157,7 @@ class emio::formatter<bar> {
   }
 
   template <typename Char>
-  [[nodiscard]] result<void> parse(reader<Char>& rdr) noexcept {
+  result<void> parse(reader<Char>& rdr) noexcept {
     Char c = rdr.read_char().assume_value();
     if (c == '}') {  // Format end.
       return success;
@@ -170,7 +170,7 @@ class emio::formatter<bar> {
   }
 
   template <typename Char>
-  [[nodiscard]] result<void> format(writer<Char>& wtr, const bar& /*arg*/) noexcept {
+  result<void> format(writer<Char>& wtr, const bar& /*arg*/) const noexcept {
     if (upper_case_) {
       return wtr.write_str("BAR");
     }
@@ -203,7 +203,7 @@ template <>
 class emio::formatter<foobar> {
  public:
   template <typename Char>
-  [[nodiscard]] constexpr result<void> parse(reader<Char>& rdr) noexcept {
+  constexpr result<void> parse(reader<Char>& rdr) noexcept {
     EMIO_TRY(Char c, rdr.read_char());
     if (c == '}') {  // Format end.
       return success;
@@ -216,7 +216,7 @@ class emio::formatter<foobar> {
   }
 
   template <typename Char>
-  [[nodiscard]] constexpr result<void> format(writer<Char>& wtr, const foobar& arg) noexcept {
+  constexpr result<void> format(writer<Char>& wtr, const foobar& arg) const noexcept {
     return emio::format_to(wtr.get_buffer(), "foobar: {}", sign_ * arg.id);
   }
 
@@ -275,7 +275,7 @@ struct bazz3 {};
 template <>
 class emio::formatter<bazz0> {
  public:
-  [[nodiscard]] constexpr result<void> validate(reader<char>& rdr) noexcept;
+  constexpr result<void> validate(reader<char>& rdr) noexcept;
 };
 
 template <>
@@ -294,7 +294,7 @@ template <>
 class emio::formatter<bazz3> {
  public:
   template <typename Char>
-  [[nodiscard]] constexpr result<void> validate(reader<Char>& rdr) noexcept;
+  constexpr result<void> validate(reader<Char>& rdr) noexcept;
 };
 
 TEST_CASE("detail::has_validate_function_v checks", "[formatter]") {

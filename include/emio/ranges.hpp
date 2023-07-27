@@ -75,7 +75,7 @@ class formatter<T> {
     return underlying_.parse(rdr);
   }
 
-  constexpr result<void> format(writer<char>& wtr, const T& arg) noexcept {
+  constexpr result<void> format(writer<char>& wtr, const T& arg) const noexcept {
     EMIO_TRYV(wtr.write_str(specs_.opening_bracket));
 
     using std::begin;
@@ -160,7 +160,7 @@ class formatter<T> {
     return success;
   }
 
-  constexpr result<void> format(writer<char>& wtr, const T& args) noexcept {
+  constexpr result<void> format(writer<char>& wtr, const T& args) const noexcept {
     EMIO_TRYV(wtr.write_str(specs_.opening_bracket));
     EMIO_TRYV(format_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), wtr, args));
     EMIO_TRYV(wtr.write_str(specs_.closing_bracket));
@@ -229,7 +229,7 @@ class formatter<T> {
 
   template <size_t N, size_t... Ns>
   constexpr result<void> format_for_each(std::index_sequence<N, Ns...> /*unused*/, writer<char>& wtr,
-                                         const T& args) noexcept {
+                                         const T& args) const noexcept {
     using std::get;
     EMIO_TRYV(get<N>(formatters_).format(wtr, get<N>(args)));
 
@@ -250,7 +250,7 @@ class formatter<T> {
   }
 
   constexpr result<void> format_for_each(std::index_sequence<> /*unused*/, writer<char>& /*wtr*/,
-                                         const T& /*args*/) noexcept {
+                                         const T& /*args*/) const noexcept {
     return success;
   }
 
