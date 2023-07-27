@@ -4451,17 +4451,37 @@ class formatter<detail::format_spec_with_value<T>> {
   }
 
   constexpr result<void> format(writer<char>& wtr, const detail::format_spec_with_value<T>& arg) noexcept {
-    // Change the spec if defined.
-    if (arg.spec.width != format_spec::not_defined) {
-      underlying_.set_width(arg.spec.width);
-    }
-    if (arg.spec.precision != format_spec::not_defined) {
-      underlying_.set_precision(arg.spec.precision);
-    }
+    overwrite_spec(arg.spec);
     return underlying_.format(wtr, arg.value);
   }
 
  private:
+  template <typename F>
+    requires requires(F x) {
+               x.set_width(1);
+               x.set_precision(1);
+             }
+  static constexpr F& get_core_formatter(F& formatter) noexcept {
+    return formatter;
+  }
+
+  template <typename F>
+    requires requires(F x) { x.underlying(); }
+  static constexpr auto& get_core_formatter(F& formatter) noexcept {
+    return get_core_formatter(formatter.underlying());
+  }
+
+  constexpr void overwrite_spec(const format_spec& spec) noexcept {
+    // Overwrite the spec of the core formatter if they are dynamically defined.
+    auto& f = get_core_formatter(underlying_);
+    if (spec.width != format_spec::not_defined) {
+      f.set_width(spec.width);
+    }
+    if (spec.precision != format_spec::not_defined) {
+      f.set_precision(spec.precision);
+    }
+  }
+
   formatter<T> underlying_{};
 };
 
@@ -5853,8 +5873,7 @@ class formatter<T> {
     } else {
       rdr.pop();  // :
     }
-    EMIO_TRYV(parse_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), rdr, set_debug));
-    return success;
+    return parse_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), rdr, set_debug);
   }
 
   constexpr result<void> format(writer<char>& wtr, const T& args) noexcept {
