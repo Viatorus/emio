@@ -207,11 +207,11 @@ TEST_CASE("buffer regression bug 1", "[buffer]") {
 TEST_CASE("static_buffer", "[buffer]") {
   // Test strategy:
   // * Construct a static buffer.
-  // * Check size of the buffer.
-  // Expected: Every size is correct.
+  // * Check max size of the buffer.
+  // Expected: The max size is correct.
 
   emio::static_buffer<char, 542> buffer;
-  CHECK(buffer.get_write_area_of(542));
+  CHECK(buffer.get_write_area_of_max(600)->size() == 542);
 }
 
 TEST_CASE("basic_counting_buffer", "[buffer]") {

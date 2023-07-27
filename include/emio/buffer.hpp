@@ -262,7 +262,7 @@ class static_buffer final : private std::array<Char, StorageSize>, public span_b
   constexpr ~static_buffer() override = default;
 
   // Note: We inherit from std::array to put the storage lifetime before span_buffer.
-  // Clang otherwise complains about it if the storage would be a member variable and used during compile-time.
+  // Clang will otherwise complain if the storage is a member variable and used during compile-time.
 };
 
 namespace detail {
@@ -547,7 +547,7 @@ namespace detail {
 template <typename Char>
 class basic_counting_buffer final : public buffer<Char> {
  public:
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): Can be left uninitialized.
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): cache_ can be left uninitialized.
   constexpr basic_counting_buffer() noexcept = default;
   constexpr basic_counting_buffer(const basic_counting_buffer&) = delete;
   constexpr basic_counting_buffer(basic_counting_buffer&&) noexcept = delete;
