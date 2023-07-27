@@ -169,7 +169,7 @@ class memory_buffer final : public buffer<Char> {
  * @tparam Char The character type.
  */
 template <typename Char = char>
-class span_buffer final : public buffer<Char> {
+class span_buffer : public buffer<Char> {
  public:
   /**
    * Constructs and initializes the buffer with an empty span.
@@ -226,6 +226,29 @@ span_buffer(T&&) -> span_buffer<char16_t>;
 template <typename T>
   requires std::is_constructible_v<std::span<char32_t>, T>
 span_buffer(T&&) -> span_buffer<char32_t>;
+
+/**
+ * This class fulfills the buffer API by providing a fixed storage.
+ * @tparam Char The character type.
+ * @tparam StorageSize The size of the storage.
+ */
+template <typename Char, size_t StorageSize>
+class static_buffer final : public span_buffer<Char> {
+ public:
+  /**
+   * Constructs and initializes the buffer with the storage.
+   */
+  constexpr static_buffer() noexcept : span_buffer<Char>{storage_} {}
+
+  constexpr static_buffer(const static_buffer&) = default;
+  constexpr static_buffer(static_buffer&&) noexcept = default;
+  constexpr static_buffer& operator=(const static_buffer&) = default;
+  constexpr static_buffer& operator=(static_buffer&&) noexcept = default;
+  constexpr ~static_buffer() override = default;
+
+ private:
+  std::array<Char, StorageSize> storage_;
+};
 
 namespace detail {
 
