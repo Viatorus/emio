@@ -1077,7 +1077,7 @@ class buffer {
   buffer(buffer&& other) = delete;
   buffer& operator=(const buffer& other) = delete;
   buffer& operator=(buffer&& other) = delete;
-  constexpr virtual ~buffer() = default;
+  virtual constexpr ~buffer() = default;
 
   /**
    * Returns a write area with the requested size on success.
@@ -1124,7 +1124,7 @@ class buffer {
    * @param size The requested size of a new write area.
    * @return The write area with the requested size as maximum on success or eof if no write area is available.
    */
-  constexpr virtual result<std::span<Char>> request_write_area(const size_t used, const size_t size) noexcept {
+  virtual constexpr result<std::span<Char>> request_write_area(const size_t used, const size_t size) noexcept {
     static_cast<void>(used);  // Keep params for documentation.
     static_cast<void>(size);
     return err::eof;
@@ -2429,14 +2429,14 @@ inline constexpr uint8_t no_more_args = std::numeric_limits<uint8_t>::max();
 template <typename Char, input_validation>
 class parser_base {
  public:
-  explicit constexpr parser_base(reader<Char>& format_rdr) noexcept : format_rdr_{format_rdr} {}
+  constexpr explicit parser_base(reader<Char>& format_rdr) noexcept : format_rdr_{format_rdr} {}
 
   parser_base(const parser_base&) = delete;
   parser_base(parser_base&&) = delete;
   parser_base& operator=(const parser_base&) = delete;
   parser_base& operator=(parser_base&&) = delete;
 
-  constexpr virtual ~parser_base() = default;
+  virtual constexpr ~parser_base() = default;
 
   constexpr result<void> parse(uint8_t& arg_nbr) noexcept {
     while (true) {
@@ -2513,14 +2513,14 @@ class parser_base {
 template <typename Char>
 class parser_base<Char, input_validation::disabled> {
  public:
-  explicit constexpr parser_base(reader<Char>& format_rdr) noexcept : format_rdr_{format_rdr} {}
+  constexpr explicit parser_base(reader<Char>& format_rdr) noexcept : format_rdr_{format_rdr} {}
 
   parser_base(const parser_base& other) = delete;
   parser_base(parser_base&& other) = delete;
   parser_base& operator=(const parser_base& other) = delete;
   parser_base& operator=(parser_base&& other) = delete;
 
-  constexpr virtual ~parser_base() = default;
+  virtual constexpr ~parser_base() = default;
 
   constexpr result<void> parse(uint8_t& arg_nbr) noexcept {
     while (true) {
@@ -2675,12 +2675,12 @@ class bignum {
   /// Makes a bignum from one digit.
   template <typename T>
     requires(std::is_unsigned_v<T> && sizeof(T) <= sizeof(uint32_t))
-  explicit constexpr bignum(T v) noexcept : base_{{v}} {}
+  constexpr explicit bignum(T v) noexcept : base_{{v}} {}
 
   /// Makes a bignum from `u64` value.
   template <typename T>
     requires(std::is_unsigned_v<T> && sizeof(T) == sizeof(uint64_t))
-  explicit constexpr bignum(T v) noexcept : base_{{static_cast<uint32_t>(v), static_cast<uint32_t>(v >> 32)}} {
+  constexpr explicit bignum(T v) noexcept : base_{{static_cast<uint32_t>(v), static_cast<uint32_t>(v >> 32)}} {
     size_ += static_cast<size_t>(base_[1] > 0);
   }
 
@@ -4261,7 +4261,7 @@ class formatter {
    * @param arg The argument to format.
    * @return Success if the formatting could be done.
    */
-  constexpr result<void> format(writer<char>& wtr, const T& arg) noexcept {
+  constexpr result<void> format(writer<char>& wtr, const T& arg) const noexcept {
     return wtr.write_int(sizeof(arg));
   }
 };
@@ -4308,7 +4308,7 @@ class formatter<T> {
     return detail::format::parse_format_specs(rdr, specs_);
   }
 
-  constexpr result<void> format(writer<char>& wtr, const T& arg) noexcept {
+  constexpr result<void> format(writer<char>& wtr, const T& arg) const noexcept {
     auto specs = specs_;  // Copy spec because format could be called multiple times (e.g. ranges).
     return write_arg(wtr, specs, arg);
   }
@@ -4366,7 +4366,7 @@ template <typename T>
   requires(std::is_enum_v<T> && std::is_convertible_v<T, std::underlying_type_t<T>>)
 class formatter<T> : public formatter<std::underlying_type_t<T>> {
  public:
-  constexpr result<void> format(writer<char>& wtr, const T& arg) noexcept {
+  constexpr result<void> format(writer<char>& wtr, const T& arg) const noexcept {
     return formatter<std::underlying_type_t<T>>::format(wtr, static_cast<std::underlying_type_t<T>>(arg));
   }
 };
@@ -4379,7 +4379,7 @@ template <typename T>
   requires(detail::format::has_format_as<T>)
 class formatter<T> : public formatter<detail::format::format_as_return_t<T>> {
  public:
-  constexpr result<void> format(writer<char>& wtr, const T& arg) noexcept {
+  constexpr result<void> format(writer<char>& wtr, const T& arg) const noexcept {
     return formatter<detail::format::format_as_return_t<T>>::format(wtr, format_as(arg));
   }
 };
@@ -4724,7 +4724,7 @@ namespace emio::detail::format {
 template <typename Char>
 class format_parser final : public parser_base<Char, input_validation::disabled> {
  public:
-  explicit constexpr format_parser(writer<Char>& wtr, reader<Char>& format_rdr) noexcept
+  constexpr explicit format_parser(writer<Char>& wtr, reader<Char>& format_rdr) noexcept
       : parser_base<Char, input_validation::disabled>{format_rdr}, wtr_{wtr} {}
 
   format_parser(const format_parser&) = delete;
@@ -4893,7 +4893,7 @@ class runtime {
    */
   template <typename S>
     requires(std::is_constructible_v<std::basic_string_view<Char>, S>)
-  explicit constexpr runtime(const S& str) : str_{str} {}
+  constexpr explicit runtime(const S& str) : str_{str} {}
 
   /**
    * Obtains a view over the runtime format string.
@@ -5024,7 +5024,7 @@ class basic_valid_format_string : public basic_format_string<Char, Args...> {
   using valid_t = typename basic_format_string<Char, Args...>::valid_t;
   using basic_format_string<Char, Args...>::valid;
 
-  explicit constexpr basic_valid_format_string(valid_t /*unused*/, std::basic_string_view<Char> s) noexcept
+  constexpr explicit basic_valid_format_string(valid_t /*unused*/, std::basic_string_view<Char> s) noexcept
       : basic_format_string<Char, Args...>{valid, s} {}
 };
 
@@ -5792,7 +5792,7 @@ class formatter<T> {
     return underlying_.parse(rdr);
   }
 
-  constexpr result<void> format(writer<char>& wtr, const T& arg) noexcept {
+  constexpr result<void> format(writer<char>& wtr, const T& arg) const noexcept {
     EMIO_TRYV(wtr.write_str(specs_.opening_bracket));
 
     using std::begin;
@@ -5876,7 +5876,7 @@ class formatter<T> {
     return parse_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), rdr, set_debug);
   }
 
-  constexpr result<void> format(writer<char>& wtr, const T& args) noexcept {
+  constexpr result<void> format(writer<char>& wtr, const T& args) const noexcept {
     EMIO_TRYV(wtr.write_str(specs_.opening_bracket));
     EMIO_TRYV(format_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), wtr, args));
     EMIO_TRYV(wtr.write_str(specs_.closing_bracket));
@@ -5945,7 +5945,7 @@ class formatter<T> {
 
   template <size_t N, size_t... Ns>
   constexpr result<void> format_for_each(std::index_sequence<N, Ns...> /*unused*/, writer<char>& wtr,
-                                         const T& args) noexcept {
+                                         const T& args) const noexcept {
     using std::get;
     EMIO_TRYV(get<N>(formatters_).format(wtr, get<N>(args)));
 
@@ -5966,7 +5966,7 @@ class formatter<T> {
   }
 
   constexpr result<void> format_for_each(std::index_sequence<> /*unused*/, writer<char>& /*wtr*/,
-                                         const T& /*args*/) noexcept {
+                                         const T& /*args*/) const noexcept {
     return success;
   }
 
