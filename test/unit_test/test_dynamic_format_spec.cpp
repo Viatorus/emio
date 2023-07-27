@@ -1,5 +1,6 @@
 // Unit under test.
 #include <emio/format.hpp>
+#include <emio/ranges.hpp>
 
 // Other includes.
 #include <catch2/catch_test_macros.hpp>
@@ -65,5 +66,12 @@ TEST_CASE("dynamic format spec") {
       return buf.view() == " 42 ";
     }();
     STATIC_CHECK(success);
+  }
+
+  SECTION("works with contiguous ranges") {
+    emio::format_spec spec{.precision = 2};
+
+    std::array<double, 3> values{2.099, 3.245, 4.5};
+    CHECK(emio::format("{::f}", spec.with(values)) == "[2.10, 3.25, 4.50]");
   }
 }
