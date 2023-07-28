@@ -47,15 +47,20 @@ class buffer {
   }
 
   /**
-   * Returns a write area which may be smaller than the requested size.
+   * Returns a write area which may be smaller than the requested size but at least >= 1, if the requested size is >= 1.
    * @note This function should be used to support subclasses with a limited internal buffer.
    * E.g. Writing a long string in chunks.
    * @param size The size the write area should maximal have.
    * @return The write area with the requested size as maximum on success or eof if no write area is available.
    */
   constexpr result<std::span<Char>> get_write_area_of_max(size_t size) noexcept {
+    // If there is enough remaining capacity in the current write area, return it.
+    // Otherwise, request a new write area from the concrete implementation.
+    // There is special case for fixed size buffers. Since they cannot grow, they simply return the
+    // remaining capacity or return EOF if hitting zero capacity.
+
     const size_t remaining_capacity = area_.size() - used_;
-    if (fixed_ || remaining_capacity >= size) {
+    if (remaining_capacity >= size || fixed_size_ == FixedSize::Yes) {
       if (remaining_capacity == 0 && size != 0) {
         return err::eof;
       }
@@ -70,11 +75,13 @@ class buffer {
   }
 
  protected:
+  enum class fixed_size : bool { yes, no };
+
   /**
    * Constructs the buffer.
-   * @brief fixed Flag to indicate if the buffer can grow.
+   * @brief fixed Flag to indicate if the buffer's size is fixed and cannot grow.
    */
-  constexpr explicit buffer(bool fixed) noexcept : fixed_{fixed} {}
+  constexpr explicit buffer(fixed_size fixed_size = fixed_size::no) noexcept : fixed_size_{fixed_size} {}
 
   /**
    * Requests a write area of the given size from a subclass.
@@ -106,7 +113,7 @@ class buffer {
   }
 
  private:
-  bool fixed_{};
+  fixed_size fixed_size_{};
   size_t used_{};
   std::span<Char> area_{};
 };
@@ -128,7 +135,7 @@ class memory_buffer final : public buffer<Char> {
    * Constructs and initializes the buffer with the given capacity.
    * @param capacity The initial capacity.
    */
-  constexpr explicit memory_buffer(const size_t capacity) : buffer<Char>{false} {
+  constexpr explicit memory_buffer(const size_t capacity) {
     // Request at least the internal storage size.
     static_cast<void>(request_write_area(0, std::max(vec_.capacity(), capacity)));
   }
@@ -180,13 +187,14 @@ class span_buffer final : public buffer<Char> {
   /**
    * Constructs and initializes the buffer with an empty span.
    */
-  constexpr span_buffer() : buffer<Char>{true} {};
+  constexpr span_buffer() : buffer<Char>{buffer<Char>::fixed_size::Yes} {};
 
   /**
    * Constructs and initializes the buffer with the given span.
    * @param span The span.
    */
-  constexpr explicit span_buffer(const std::span<Char> span) : buffer<Char>{true}, span_{span} {
+  constexpr explicit span_buffer(const std::span<Char> span)
+      : buffer<Char>{buffer<Char>::fixed_size::Yes}, span_{span} {
     this->set_write_area(span_);
   }
 
@@ -300,7 +308,7 @@ class iterator_buffer<Iterator> final : public buffer<detail::get_value_type_t<I
    * @param it The output iterator.
    */
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): cache_ can be left uninitialized
-  constexpr explicit iterator_buffer(Iterator it) : buffer<char_t>{false}, it_{it} {
+  constexpr explicit iterator_buffer(Iterator it) : it_{it} {
     this->set_write_area(cache_);
   }
 
@@ -362,7 +370,7 @@ class iterator_buffer<OutputPtr*> final : public buffer<detail::get_value_type_t
    * Constructs and initializes the buffer with the given output pointer.
    * @param ptr The output pointer.
    */
-  constexpr explicit iterator_buffer(OutputPtr* ptr) : buffer<detail::get_value_type_t<OutputPtr*>>{false}, ptr_{ptr} {
+  constexpr explicit iterator_buffer(OutputPtr* ptr) : ptr_{ptr} {
     this->set_write_area({ptr, std::numeric_limits<size_t>::max()});
   }
 
@@ -407,8 +415,7 @@ class iterator_buffer<std::back_insert_iterator<Container>> final : public buffe
    * Constructs and initializes the buffer with the given back-insert iterator.
    * @param it The output iterator.
    */
-  constexpr explicit iterator_buffer(std::back_insert_iterator<Container> it)
-      : buffer<char_t>{false}, container_{detail::get_container(it)} {
+  constexpr explicit iterator_buffer(std::back_insert_iterator<Container> it) : container_{detail::get_container(it)} {
     static_cast<void>(request_write_area(0, std::min(container_.capacity(), detail::internal_buffer_size)));
   }
 
@@ -468,7 +475,7 @@ class file_buffer : public buffer<char> {
    * @param file The file stream.
    */
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): cache_ can be left uninitialized
-  constexpr explicit file_buffer(std::FILE* file) : buffer<char>{false}, file_{file} {
+  constexpr explicit file_buffer(std::FILE* file) : file_{file} {
     this->set_write_area(cache_);
   }
 
@@ -517,7 +524,7 @@ template <typename Char>
 class basic_counting_buffer final : public buffer<Char> {
  public:
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): Can be left uninitialized.
-  constexpr basic_counting_buffer() noexcept : buffer<Char>{false} {};
+  constexpr basic_counting_buffer() noexcept {};
   constexpr basic_counting_buffer(const basic_counting_buffer&) = delete;
   constexpr basic_counting_buffer(basic_counting_buffer&&) noexcept = delete;
   constexpr basic_counting_buffer& operator=(const basic_counting_buffer&) = delete;
