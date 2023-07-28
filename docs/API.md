@@ -34,7 +34,7 @@ Every function describes the possible errors which can occur. See the source cod
 
 - Returns the name of the error code.
 
-## Result
+## result
 
 `template <typename T> class result;`
 
@@ -56,6 +56,10 @@ Every function describes the possible errors which can occur. See the source cod
 `value() -> T`
 
 - Returns the value or throws/terminates if no value is held.
+
+`value_or(T) -> T`
+
+- Returns the value or returns the passed alternative if no value is held.
 
 `assume_value() -> T`
 
@@ -81,7 +85,7 @@ There exists two helper macros to simplify the control flow:
 - Evaluates an expression *expr*. If successful, assigns the value to a declaration *var*. If unsuccessful, immediately
   returns from the calling function.
 
-## Buffer
+## buffer
 
 An abstract class which provides functionality for receiving a contiguous memory region to write into.
 
@@ -90,11 +94,15 @@ Some buffers have an internal cache to provide a contiguous memory if the actual
 
 ### memory_buffer
 
-- Endless growing buffer.
+- An endless growing buffer with an internal storage for small buffer optimization.
 
 ### span_buffer
 
 - A buffer over a specific contiguous range.
+
+### static_buffer
+
+- A buffer containing a fixed-size storage.
 
 ### iterator_buffer
 

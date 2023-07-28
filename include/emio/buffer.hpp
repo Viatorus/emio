@@ -122,7 +122,7 @@ class buffer {
 /**
  * This class fulfills the buffer API by providing an endless growing buffer.
  * @tparam Char The character type.
- * @tparam StorageSize The size of the inlined storage.
+ * @tparam StorageSize The size of the inlined storage for small buffer optimization.
  */
 template <typename Char = char, size_t StorageSize = 32>
 class memory_buffer final : public buffer<Char> {
@@ -243,7 +243,7 @@ template <typename T>
 span_buffer(T&&) -> span_buffer<char32_t>;
 
 /**
- * This class fulfills the buffer API by providing a fixed storage.
+ * This class fulfills the buffer API by providing a fixed-size storage.
  * @tparam Char The character type.
  * @tparam StorageSize The size of the storage.
  */
