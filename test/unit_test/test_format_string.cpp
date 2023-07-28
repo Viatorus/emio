@@ -78,7 +78,7 @@ TEST_CASE("runtime", "[format_string]") {
   // * Construct an emio::runtime from different string types.
   // Expected: Everything works as expected.
 
-  CHECK(emio::runtime<char>{}.view().empty());
+  CHECK(emio::runtime{}.view().empty());
 
   constexpr emio::runtime from_char_seq_at_cp{"12{3"};
   STATIC_CHECK(from_char_seq_at_cp.view() == "12{3");

@@ -113,11 +113,11 @@ Some buffers have an internal cache to provide a contiguous memory if the actual
 
 - A buffer which over an std::File (file stream) with an internal cache.
 
-## Reader
+## reader
 
-`template <typename Char> class reader;`
+` class reader;`
 
-- A class to read and parse any char sequence like a finite input stream.
+- A class to read and parse a char sequence like a finite input stream.
 
 *constructor(input)*
 
@@ -131,7 +131,7 @@ Some buffers have an internal cache to provide a contiguous memory if the actual
 
 - Returns one char.
 
-`read_n_char(n) -> result<view_t>`
+`read_n_char(n) -> result<reader>`
 
 - Returns *n* chars.
 
@@ -139,7 +139,7 @@ Some buffers have an internal cache to provide a contiguous memory if the actual
 
 - Parses an integer of type *T* with a specific *base*.
 
-`read_until/_char/str/any_of/none_of(predicate, options) -> result<view_t>`
+`read_until/_char/str/any_of/none_of(predicate, options) -> result<reader>`
 
 - Reads n chars until a given *predicate* (delimiter/group/function) applies.
 - Has *options* to configure what should happen with the predicate and what should happen if EOF is reached.
@@ -150,7 +150,7 @@ Some buffers have an internal cache to provide a contiguous memory if the actual
 
 ## Writer
 
-`template <typename Char> class writer;`
+`class writer;`
 
 - A class to write sequences of characters or other kinds of data into an output buffer.
 
@@ -305,7 +305,7 @@ class emio::formatter<foo> {
    * @param rdr The format reader.
    * @return Success if the format spec is valid.
    */
-  static constexpr result<void> validate(reader<char>& rdr) noexcept {
+  static constexpr result<void> validate(reader& rdr) noexcept {
     return rdr.read_if_match_char('}');
   }
 
@@ -314,7 +314,7 @@ class emio::formatter<foo> {
    * @param rdr The format reader.
    * @return Success if the format spec is valid and could be parsed.
    */
-  constexpr result<void> parse(reader<char>& rdr) noexcept {
+  constexpr result<void> parse(reader& rdr) noexcept {
     return rdr.read_if_match_char('}');
   }
 
@@ -324,7 +324,7 @@ class emio::formatter<foo> {
    * @param arg The argument to format.
    * @return Success if the formatting could be done.
    */
-  constexpr result<void> format(writer<char>& wtr, const foo& arg) noexcept {
+  constexpr result<void> format(writer& wtr, const foo& arg) noexcept {
     return wtr.write_int(arg.x);
   }
 };
@@ -344,7 +344,7 @@ struct foo {
 template <>
 class emio::formatter<foo> : public emio::format<int> {
  public:
-  constexpr result<void> format(writer<char>& wtr, const foo& arg) noexcept {
+  constexpr result<void> format(writer& wtr, const foo& arg) noexcept {
     return emio::format<int>(wtr, arg.x);
   }
 };

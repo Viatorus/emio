@@ -22,7 +22,7 @@ namespace detail::format {
 // Write args.
 //
 
-inline constexpr result<void> write_padding_left(writer<char>& wtr, format_specs& specs, size_t width) {
+inline constexpr result<void> write_padding_left(writer& wtr, format_specs& specs, size_t width) {
   if (specs.width == 0 || specs.width < static_cast<int>(width)) {
     specs.width = 0;
     return success;
@@ -39,7 +39,7 @@ inline constexpr result<void> write_padding_left(writer<char>& wtr, format_specs
   return wtr.write_char_n(specs.fill, static_cast<size_t>(fill_width));
 }
 
-inline constexpr result<void> write_padding_right(writer<char>& wtr, format_specs& specs) {
+inline constexpr result<void> write_padding_right(writer& wtr, format_specs& specs) {
   if (specs.width == 0 || (specs.align != alignment::left && specs.align != alignment::center)) {
     return success;
   }
@@ -47,7 +47,7 @@ inline constexpr result<void> write_padding_right(writer<char>& wtr, format_spec
 }
 
 template <alignment DefaultAlign, typename Func>
-constexpr result<void> write_padded(writer<char>& wtr, format_specs& specs, size_t width, Func&& func) {
+constexpr result<void> write_padded(writer& wtr, format_specs& specs, size_t width, Func&& func) {
   if (specs.align == alignment::none) {
     specs.align = DefaultAlign;
   }
@@ -56,12 +56,12 @@ constexpr result<void> write_padded(writer<char>& wtr, format_specs& specs, size
   return write_padding_right(wtr, specs);
 }
 
-inline constexpr result<std::pair<std::string_view, writer<char>::write_int_options>> make_write_int_options(
+inline constexpr result<std::pair<std::string_view, writer::write_int_options>> make_write_int_options(
     char spec_type) noexcept {
   using namespace alternate_form;
 
   std::string_view prefix;
-  writer<char>::write_int_options options{};
+  writer::write_int_options options{};
 
   switch (spec_type) {
   case no_type:
@@ -94,7 +94,7 @@ inline constexpr result<std::pair<std::string_view, writer<char>::write_int_opti
   return std::pair{prefix, options};
 }
 
-inline constexpr result<char> try_write_sign(writer<char>& wtr, const format_specs& specs, bool is_negative) {
+inline constexpr result<char> try_write_sign(writer& wtr, const format_specs& specs, bool is_negative) {
   char sign_to_write = no_sign;
   if (is_negative) {
     sign_to_write = '-';
@@ -108,7 +108,7 @@ inline constexpr result<char> try_write_sign(writer<char>& wtr, const format_spe
   return sign_to_write;
 }
 
-inline constexpr result<std::string_view> try_write_prefix(writer<char>& wtr, const format_specs& specs,
+inline constexpr result<std::string_view> try_write_prefix(writer& wtr, const format_specs& specs,
                                                            std::string_view prefix) {
   const bool write_prefix = specs.alternate_form && !prefix.empty();
   if (write_prefix && specs.zero_flag) {
@@ -123,7 +123,7 @@ inline constexpr result<std::string_view> try_write_prefix(writer<char>& wtr, co
 
 template <typename Arg>
   requires(std::is_integral_v<Arg> && !std::is_same_v<Arg, bool> && !std::is_same_v<Arg, char>)
-constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const Arg& arg) noexcept {
+constexpr result<void> write_arg(writer& wtr, format_specs& specs, const Arg& arg) noexcept {
   if (specs.type == 'c') {
     return write_padded<alignment::left>(wtr, specs, 1, [&] {
       return wtr.write_char(static_cast<char>(arg));
@@ -166,7 +166,7 @@ constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const A
   });
 }
 
-inline constexpr result<void> write_non_finite(writer<char>& wtr, bool upper_case, bool is_inf) {
+inline constexpr result<void> write_non_finite(writer& wtr, bool upper_case, bool is_inf) {
   if (is_inf) {
     EMIO_TRYV(wtr.write_str(upper_case ? "INF" : "inf"));
   } else {
@@ -247,7 +247,7 @@ inline constexpr char* write_exponent(char* it, int exp) {
   return it;
 }
 
-inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& specs, fp_format_specs& fp_specs,
+inline constexpr result<void> write_decimal(writer& wtr, format_specs& specs, fp_format_specs& fp_specs,
                                             bool is_negative, const format_fp_result_t& f) noexcept {
   const char* significand = f.digits.data();
   int significand_size = static_cast<int>(f.digits.size());
@@ -400,7 +400,7 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
 
 inline constexpr std::array<char, 1> zero_digit{'0'};
 
-inline constexpr format_fp_result_t format_decimal(buffer<char>& buffer, const fp_format_specs& fp_specs,
+inline constexpr format_fp_result_t format_decimal(buffer& buffer, const fp_format_specs& fp_specs,
                                                    const decode_result_t& decoded) {
   if (decoded.category == category::zero) {
     return format_fp_result_t{zero_digit, 1};
@@ -426,7 +426,7 @@ inline constexpr format_fp_result_t format_decimal(buffer<char>& buffer, const f
   EMIO_Z_INTERNAL_UNREACHABLE;
 }
 
-inline constexpr result<void> format_and_write_decimal(writer<char>& wtr, format_specs& specs,
+inline constexpr result<void> format_and_write_decimal(writer& wtr, format_specs& specs,
                                                        const decode_result_t& decoded) noexcept {
   fp_format_specs fp_specs = parse_fp_format_specs(specs);
 
@@ -453,11 +453,11 @@ inline constexpr result<void> format_and_write_decimal(writer<char>& wtr, format
 
 template <typename Arg>
   requires(std::is_floating_point_v<Arg> && sizeof(Arg) <= sizeof(double))
-constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const Arg& arg) noexcept {
+constexpr result<void> write_arg(writer& wtr, format_specs& specs, const Arg& arg) noexcept {
   return format_and_write_decimal(wtr, specs, decode(arg));
 }
 
-inline constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const std::string_view arg) noexcept {
+inline constexpr result<void> write_arg(writer& wtr, format_specs& specs, const std::string_view arg) noexcept {
   if (specs.type != '?') {
     return write_padded<alignment::left>(wtr, specs, arg.size(), [&] {
       return wtr.write_str(arg);
@@ -470,7 +470,7 @@ inline constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, 
 
 template <typename Arg>
   requires(std::is_same_v<Arg, char>)
-constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const Arg arg) noexcept {
+constexpr result<void> write_arg(writer& wtr, format_specs& specs, const Arg arg) noexcept {
   // If a type other than None/c is specified, write out as integer instead of char.
   if (specs.type != no_type && specs.type != 'c' && specs.type != '?') {
     return write_arg(wtr, specs, static_cast<uint8_t>(arg));
@@ -487,7 +487,7 @@ constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const A
 
 template <typename Arg>
   requires(std::is_same_v<Arg, void*> || std::is_same_v<Arg, std::nullptr_t>)
-constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, Arg arg) noexcept {
+constexpr result<void> write_arg(writer& wtr, format_specs& specs, Arg arg) noexcept {
   specs.alternate_form = true;
   specs.type = 'x';
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): valid cast
@@ -496,7 +496,7 @@ constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, Arg arg
 
 template <typename Arg>
   requires(std::is_same_v<Arg, bool>)
-constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, Arg arg) noexcept {
+constexpr result<void> write_arg(writer& wtr, format_specs& specs, Arg arg) noexcept {
   // If a type other than None/s is specified, write out as 1/0 instead of true/false.
   if (specs.type != no_type && specs.type != 's') {
     return write_arg(wtr, specs, static_cast<uint8_t>(arg));
@@ -516,7 +516,7 @@ constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, Arg arg
 //
 
 // specs is passed by reference instead as return type to reduce copying of big value (and code bloat)
-inline constexpr result<void> validate_format_specs(reader<char>& rdr, format_specs& specs) noexcept {
+inline constexpr result<void> validate_format_specs(reader& rdr, format_specs& specs) noexcept {
   EMIO_TRY(char c, rdr.read_char());
   if (c == '}') {  // Format end.
     return success;
@@ -596,7 +596,7 @@ inline constexpr result<void> validate_format_specs(reader<char>& rdr, format_sp
   return err::invalid_format;
 }
 
-inline constexpr result<void> parse_format_specs(reader<char>& rdr, format_specs& specs) noexcept {
+inline constexpr result<void> parse_format_specs(reader& rdr, format_specs& specs) noexcept {
   char c = rdr.read_char().assume_value();
   if (c == '}') {  // Format end.
     return success;
@@ -753,17 +753,17 @@ inline constexpr bool has_formatter_v = std::is_constructible_v<formatter<Arg>>;
 template <typename T>
 concept has_validate_function_v = requires {
                                     {
-                                      formatter<T>::validate(std::declval<reader<char>&>())
+                                      formatter<T>::validate(std::declval<reader&>())
                                       } -> std::same_as<result<void>>;
                                   };
 
 template <typename T>
 concept has_any_validate_function_v =
     requires { &formatter<T>::validate; } || std::is_member_function_pointer_v<decltype(&formatter<T>::validate)> ||
-    requires { std::declval<formatter<T>>().validate(std::declval<reader<char>&>()); };
+    requires { std::declval<formatter<T>>().validate(std::declval<reader&>()); };
 
 template <typename Arg>
-constexpr result<void> validate_for(reader<char>& format_is) noexcept {
+constexpr result<void> validate_for(reader& format_is) noexcept {
   // Check if a formatter exist and a correct validate method is implemented. If not, use the parse method.
   if constexpr (has_formatter_v<Arg>) {
     if constexpr (has_validate_function_v<Arg>) {
@@ -787,10 +787,10 @@ inline constexpr bool is_core_type_v =
 
 template <input_validation FormatStringValidation, typename T>
 concept formatter_parse_supports_format_string_validation =
-    requires(T formatter) { formatter.template parse<FormatStringValidation>(std::declval<reader<char>>()); };
+    requires(T formatter) { formatter.template parse<FormatStringValidation>(std::declval<reader>()); };
 
 template <input_validation FormatStringValidation, typename T>
-inline constexpr result<void> invoke_formatter_parse(T& formatter, reader<char>& format_is) noexcept {
+inline constexpr result<void> invoke_formatter_parse(T& formatter, reader& format_is) noexcept {
   if constexpr (formatter_parse_supports_format_string_validation<FormatStringValidation, T>) {
     return formatter.template parse<FormatStringValidation>(format_is);
   } else {

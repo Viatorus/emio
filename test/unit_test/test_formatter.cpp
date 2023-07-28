@@ -15,8 +15,7 @@ struct wrap {
 template <>
 class emio::formatter<wrap> : public emio::formatter<int> {
  public:
-  template <typename Char>
-  constexpr result<void> format(writer<Char>& wtr, const wrap& arg) const noexcept {
+  constexpr result<void> format(writer& wtr, const wrap& arg) const noexcept {
     return formatter<int>::format(wtr, arg.id);
   }
 };
@@ -29,7 +28,7 @@ TEST_CASE("formatter with inherit from emio::formatter", "[formatter]") {
   SECTION("compile-time") {
     SECTION("simple") {
       constexpr bool success = [] {
-        emio::static_buffer<char, 10> buf{};
+        emio::static_buffer<10> buf{};
 
         static_cast<void>(emio::format_to(buf, "{}", wrap{42}).value());
         return buf.view() == "42";
@@ -38,7 +37,7 @@ TEST_CASE("formatter with inherit from emio::formatter", "[formatter]") {
     }
     SECTION("complex") {
       constexpr bool success = [] {
-        emio::static_buffer<char, 10> buf{};
+        emio::static_buffer<10> buf{};
 
         static_cast<void>(emio::format_to(buf, "{:x<4x}", wrap{42}).value());
         return buf.view() == "2axx";
@@ -62,9 +61,8 @@ struct foo {
 template <>
 class emio::formatter<foo> {
  public:
-  template <typename Char>
-  static constexpr result<void> validate(reader<Char>& rdr) noexcept {
-    EMIO_TRY(Char c, rdr.read_char());
+  static constexpr result<void> validate(reader& rdr) noexcept {
+    EMIO_TRY(const char c, rdr.read_char());
     if (c == '}') {  // Format end.
       return success;
     }
@@ -74,9 +72,8 @@ class emio::formatter<foo> {
     return emio::err::invalid_format;
   }
 
-  template <typename Char>
-  constexpr result<void> parse(reader<Char>& rdr) noexcept {
-    Char c = rdr.read_char().assume_value();
+  constexpr result<void> parse(reader& rdr) noexcept {
+    const char c = rdr.read_char().assume_value();
     if (c == '}') {  // Format end.
       return success;
     }
@@ -87,8 +84,7 @@ class emio::formatter<foo> {
     return success;
   }
 
-  template <typename Char>
-  constexpr result<void> format(writer<Char>& wtr, const foo& arg) const noexcept {
+  constexpr result<void> format(writer& wtr, const foo& arg) const noexcept {
     return emio::format_to(wtr.get_buffer(), "foo: {}", sign_ * arg.id);
   }
 
@@ -104,7 +100,7 @@ TEST_CASE("formatter with constexpr methods", "[formatter]") {
   SECTION("compile-time") {
     SECTION("simple") {
       constexpr bool success = [] {
-        emio::static_buffer<char, 10> buf{};
+        emio::static_buffer<10> buf{};
 
         static_cast<void>(emio::format_to(buf, "{}", foo{42}).value());
         return buf.view() == "foo: 42";
@@ -113,7 +109,7 @@ TEST_CASE("formatter with constexpr methods", "[formatter]") {
     }
     SECTION("advanced") {
       constexpr bool success = [] {
-        emio::static_buffer<char, 10> buf{};
+        emio::static_buffer<10> buf{};
 
         static_cast<void>(emio::format_to(buf, "{:-}", foo{42}).value());
         return buf.view() == "foo: -42";
@@ -122,7 +118,7 @@ TEST_CASE("formatter with constexpr methods", "[formatter]") {
     }
     SECTION("error") {
       constexpr bool success = [] {
-        emio::static_buffer<char, 10> buf{};
+        emio::static_buffer<10> buf{};
 
         return emio::format_to(buf, emio::runtime{"{:+}"}, foo{42}) == emio::err::invalid_format;
       }();
@@ -144,9 +140,8 @@ struct bar {};
 template <>
 class emio::formatter<bar> {
  public:
-  template <typename Char>
-  static result<void> validate(reader<Char>& rdr) noexcept {
-    EMIO_TRY(Char c, rdr.read_char());
+  static result<void> validate(reader& rdr) noexcept {
+    EMIO_TRY(const char c, rdr.read_char());
     if (c == '}') {  // Format end.
       return success;
     }
@@ -156,9 +151,8 @@ class emio::formatter<bar> {
     return emio::err::invalid_format;
   }
 
-  template <typename Char>
-  result<void> parse(reader<Char>& rdr) noexcept {
-    Char c = rdr.read_char().assume_value();
+  result<void> parse(reader& rdr) noexcept {
+    const char c = rdr.read_char().assume_value();
     if (c == '}') {  // Format end.
       return success;
     }
@@ -169,8 +163,7 @@ class emio::formatter<bar> {
     return success;
   }
 
-  template <typename Char>
-  result<void> format(writer<Char>& wtr, const bar& /*arg*/) const noexcept {
+  result<void> format(writer& wtr, const bar& /*arg*/) const noexcept {
     if (upper_case_) {
       return wtr.write_str("BAR");
     }
@@ -202,9 +195,8 @@ struct foobar {
 template <>
 class emio::formatter<foobar> {
  public:
-  template <typename Char>
-  constexpr result<void> parse(reader<Char>& rdr) noexcept {
-    EMIO_TRY(Char c, rdr.read_char());
+  constexpr result<void> parse(reader& rdr) noexcept {
+    EMIO_TRY(const char c, rdr.read_char());
     if (c == '}') {  // Format end.
       return success;
     }
@@ -215,8 +207,7 @@ class emio::formatter<foobar> {
     return emio::err::invalid_format;
   }
 
-  template <typename Char>
-  constexpr result<void> format(writer<Char>& wtr, const foobar& arg) const noexcept {
+  constexpr result<void> format(writer& wtr, const foobar& arg) const noexcept {
     return emio::format_to(wtr.get_buffer(), "foobar: {}", sign_ * arg.id);
   }
 
@@ -232,7 +223,7 @@ TEST_CASE("formatter with constexpr methods but without validate function", "[fo
   SECTION("compile-time") {
     SECTION("simple") {
       constexpr bool success = [] {
-        emio::static_buffer<char, 10> buf{};
+        emio::static_buffer<10> buf{};
 
         static_cast<void>(emio::format_to(buf, "{}", foobar{42}).value());
         return buf.view() == "foobar: 42";
@@ -241,7 +232,7 @@ TEST_CASE("formatter with constexpr methods but without validate function", "[fo
     }
     SECTION("advanced") {
       constexpr bool success = [] {
-        emio::static_buffer<char, 11> buf{};
+        emio::static_buffer<11> buf{};
 
         static_cast<void>(emio::format_to(buf, "{:-}", foobar{42}).value());
         return buf.view() == "foobar: -42";
@@ -250,7 +241,7 @@ TEST_CASE("formatter with constexpr methods but without validate function", "[fo
     }
     SECTION("error") {
       constexpr bool success = [] {
-        emio::static_buffer<char, 10> buf{};
+        emio::static_buffer<10> buf{};
 
         return emio::format_to(buf, emio::runtime{"{:+}"}, foobar{42}) == emio::err::invalid_format;
       }();
@@ -275,7 +266,7 @@ struct bazz3 {};
 template <>
 class emio::formatter<bazz0> {
  public:
-  constexpr result<void> validate(reader<char>& rdr) noexcept;
+  constexpr result<void> validate(reader& rdr) noexcept;
 };
 
 template <>
@@ -293,8 +284,7 @@ class emio::formatter<bazz2> {
 template <>
 class emio::formatter<bazz3> {
  public:
-  template <typename Char>
-  constexpr result<void> validate(reader<Char>& rdr) noexcept;
+  constexpr result<void> validate(reader& rdr) noexcept;
 };
 
 TEST_CASE("detail::has_validate_function_v checks", "[formatter]") {

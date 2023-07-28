@@ -22,7 +22,7 @@ TEST_CASE("format_as", "[formatter]") {
   SECTION("compile-time") {
     SECTION("simple") {
       constexpr bool success = [] {
-        emio::static_buffer<char, 10> buf{};
+        emio::static_buffer<10> buf{};
 
         static_cast<void>(emio::format_to(buf, "{}", foo::bar{42}).value());
         return buf.view() == "42";
@@ -31,7 +31,7 @@ TEST_CASE("format_as", "[formatter]") {
     }
     SECTION("complex") {
       constexpr bool success = [] {
-        emio::static_buffer<char, 10> buf{};
+        emio::static_buffer<10> buf{};
 
         static_cast<void>(emio::format_to(buf, "{:x<4x}", foo::bar{42}).value());
         return buf.view() == "2axx";

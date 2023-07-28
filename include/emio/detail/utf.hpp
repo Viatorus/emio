@@ -19,9 +19,9 @@ constexpr bool needs_escape(uint32_t cp) {
   return cp < 0x20 || cp >= 0x7f || cp == '\'' || cp == '"' || cp == '\\';
 }
 
-template <typename Char, typename OutputIt>
-constexpr OutputIt write_escaped(std::basic_string_view<Char> sv, OutputIt out) {
-  for (Char c : sv) {
+template <typename OutputIt>
+constexpr OutputIt write_escaped(std::string_view sv, OutputIt out) {
+  for (const char c : sv) {
     if (!needs_escape(static_cast<uint32_t>(c))) {
       *(out++) = c;
     } else {
@@ -57,7 +57,7 @@ constexpr OutputIt write_escaped(std::basic_string_view<Char> sv, OutputIt out) 
         const auto abs = detail::to_absolute(detail::to_unsigned(c));
         const size_t number_of_digits = count_digits<16>(abs);
         // Fill up with zeros.
-        for (size_t i = 0; i < 2 * sizeof(Char) - number_of_digits; i++) {
+        for (size_t i = 0; i < 2 * sizeof(char) - number_of_digits; i++) {
           *(out++) = '0';
         }
         out += to_signed(number_of_digits);
@@ -70,16 +70,15 @@ constexpr OutputIt write_escaped(std::basic_string_view<Char> sv, OutputIt out) 
   return out;
 }
 
-template <typename Char>
-constexpr size_t count_size_when_escaped(std::basic_string_view<Char> sv) {
+constexpr size_t count_size_when_escaped(std::string_view sv) {
   size_t count = 0;
-  for (Char c : sv) {
+  for (const char c : sv) {
     if (!needs_escape(static_cast<uint32_t>(c))) {
       count += 1;
     } else if (c == '\n' || c == '\r' || c == '\t' || c == '\\' || c == '\'' || c == '"') {
       count += 2;
     } else {
-      count += 2 + 2 * sizeof(Char);  // \xAB...
+      count += 2 + 2 * sizeof(char);  // \xAB...
     }
   }
   return count;

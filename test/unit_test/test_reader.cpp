@@ -79,7 +79,7 @@ TEST_CASE("reader::constructor", "[reader]") {
 
   STATIC_CHECK(std::is_same_v<decltype(s1), decltype(s2)>);
   STATIC_CHECK(std::is_same_v<decltype(s2), decltype(s3)>);
-  STATIC_CHECK(std::is_same_v<decltype(s3), emio::reader<char>>);
+  STATIC_CHECK(std::is_same_v<decltype(s3), emio::reader>);
 
   CHECK(s1.read_remaining() == "abc");
   CHECK(s2.read_remaining() == "abc");
@@ -308,7 +308,7 @@ TEST_CASE("reader::read_until_options", "[reader]") {
     const bool ignore_eof = GENERATE(true, false);
     const char delimiter = should_succeed ? 'c' : 'x';
 
-    const emio::reader<char>::read_until_options options{
+    const emio::reader::read_until_options options{
         .include_delimiter = include_delimiter,
         .keep_delimiter = keep_delimiter,
         .ignore_eof = ignore_eof,
@@ -341,7 +341,7 @@ TEST_CASE("reader::read_until_options", "[reader]") {
     emio::reader reader{""};
 
     const bool ignore_eof = GENERATE(true, false);
-    const emio::reader<char>::read_until_options options{
+    const emio::reader::read_until_options options{
         .ignore_eof = ignore_eof,
     };
 

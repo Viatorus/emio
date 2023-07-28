@@ -57,7 +57,7 @@ TEST_CASE("emio::format_to with emio::buffer", "[format_to]") {
   SECTION("compile-time") {
     SECTION("success") {
       constexpr bool success = [] {
-        emio::static_buffer<char, 2> buf{};
+        emio::static_buffer<2> buf{};
 
         emio::result<void> res = emio::format_to(buf, "{}", 42);
         return res && buf.view() == "42";
@@ -66,7 +66,7 @@ TEST_CASE("emio::format_to with emio::buffer", "[format_to]") {
     }
     SECTION("eof") {
       constexpr bool eof = [] {
-        emio::static_buffer<char, 2> buf{};
+        emio::static_buffer<2> buf{};
 
         emio::result<void> res = emio::format_to(buf, "{}", 420);
         return res == emio::err::eof;
@@ -75,7 +75,7 @@ TEST_CASE("emio::format_to with emio::buffer", "[format_to]") {
     }
   }
   SECTION("runtime") {
-    emio::static_buffer<char, 2> buf{};
+    emio::static_buffer<2> buf{};
 
     SECTION("success") {
       emio::result<void> res = emio::format_to(buf, "{}", 42);
@@ -94,8 +94,8 @@ TEST_CASE("emio::format_to with emio::writer", "[format_to]") {
   // * Call emio::format_to with an emio::writer.
   // Expected: The return type, value and the format result is correct.
 
-  emio::static_buffer<char, 2> buf{};
-  emio::writer<char> wrt{buf};
+  emio::static_buffer<2> buf{};
+  emio::writer wrt{buf};
 
   SECTION("success") {
     emio::result<void> res = emio::format_to(wrt, "{}", 42);
@@ -146,7 +146,7 @@ TEST_CASE("emio::vformat_to with emio::buffer", "[format_to]") {
   // * Call emio::vformat_to with an emio::span_buffer.
   // Expected: The return type, value and the format result is correct.
 
-  emio::static_buffer<char, 2> buf{};
+  emio::static_buffer<2> buf{};
 
   SECTION("success") {
     emio::result<void> res = emio::vformat_to(buf, emio::make_format_args("{}", 42));
@@ -164,8 +164,8 @@ TEST_CASE("emio::vformat_to with emio::writer", "[format_to]") {
   // * Call emio::vformat_to with an emio::writer.
   // Expected: The return type, value and the format result is correct.
 
-  emio::static_buffer<char, 2> buf{};
-  emio::writer<char> wrt{buf};
+  emio::static_buffer<2> buf{};
+  emio::writer wrt{buf};
 
   SECTION("success") {
     emio::result<void> res = emio::vformat_to(wrt, emio::make_format_args("{}", 42));

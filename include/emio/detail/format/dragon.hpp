@@ -64,7 +64,7 @@ struct format_fp_result_t {
 
 enum class format_exact_mode { significand_digits, decimal_point };
 
-inline constexpr format_fp_result_t format_exact(const finite_result_t& dec, emio::buffer<char>& buf,
+inline constexpr format_fp_result_t format_exact(const finite_result_t& dec, emio::buffer& buf,
                                                  format_exact_mode mode, int16_t number_of_digits) noexcept {
   EMIO_Z_DEV_ASSERT(dec.mant > 0);
   EMIO_Z_DEV_ASSERT(dec.minus > 0);
@@ -204,7 +204,7 @@ inline constexpr format_fp_result_t format_exact(const finite_result_t& dec, emi
   return {dst.subspan(0, len), k};
 }
 
-inline constexpr format_fp_result_t format_shortest(const finite_result_t& dec, emio::buffer<char>& buf) noexcept {
+inline constexpr format_fp_result_t format_shortest(const finite_result_t& dec, emio::buffer& buf) noexcept {
   // the number `v` to format is known to be:
   // - equal to `mant * 2^exp`;
   // - preceded by `(mant - 2 * minus) * 2^exp` in the original type; and

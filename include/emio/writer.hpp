@@ -16,22 +16,20 @@ namespace emio {
 
 /**
  * This class operates on a buffer and allows writing sequences of characters or other kinds of data into it.
- * @tparam Char The character type.
  */
-template <typename Char = char>
 class writer {
  public:
   /**
    * Constructs a writer with a given buffer.
    * @param buf The buffer.
    */
-  constexpr writer(buffer<Char>& buf) noexcept : buf_{buf} {}
+  constexpr writer(buffer& buf) noexcept : buf_{buf} {}
 
   /**
    * Returns the buffer.
    * @return The buffer.
    */
-  [[nodiscard]] constexpr buffer<Char>& get_buffer() noexcept {
+  [[nodiscard]] constexpr buffer& get_buffer() noexcept {
     return buf_;
   }
 
@@ -40,7 +38,7 @@ class writer {
    * @param c The character.
    * @return EOF if the buffer is to small.
    */
-  constexpr result<void> write_char(const Char c) noexcept {
+  constexpr result<void> write_char(const char c) noexcept {
     EMIO_TRY(const auto area, buf_.get_write_area_of(1));
     area[0] = c;
     return success;
@@ -52,7 +50,7 @@ class writer {
    * @param n The number of times the character should be written.
    * @return EOF if the buffer is to small.
    */
-  constexpr result<void> write_char_n(const Char c, const size_t n) noexcept {
+  constexpr result<void> write_char_n(const char c, const size_t n) noexcept {
     // Perform write in multiple chunks, to support buffers with an internal cache.
     size_t remaining_size = n;
     while (remaining_size != 0) {
@@ -68,8 +66,8 @@ class writer {
    * @param c The character.
    * @return EOF if the buffer is to small.
    */
-  constexpr result<void> write_char_escaped(const Char c) noexcept {
-    const std::basic_string_view<Char> sv(&c, 1);
+  constexpr result<void> write_char_escaped(const char c) noexcept {
+    const std::string_view sv(&c, 1);
     const size_t required_size = detail::count_size_when_escaped(sv) + 2;
     EMIO_TRY(const auto area, buf_.get_write_area_of(required_size));
     auto it = area.data();
@@ -84,9 +82,9 @@ class writer {
    * @param sv The char sequence.
    * @return EOF if the buffer is to small.
    */
-  constexpr result<void> write_str(const std::basic_string_view<Char> sv) noexcept {
+  constexpr result<void> write_str(const std::string_view sv) noexcept {
     // Perform write in multiple chunks, to support buffers with an internal cache.
-    const Char* ptr = sv.data();
+    const char* ptr = sv.data();
     size_t remaining_size = sv.size();
     while (remaining_size != 0) {
       EMIO_TRY(const auto area, buf_.get_write_area_of_max(remaining_size));
@@ -101,7 +99,7 @@ class writer {
    * @param sv The char sequence.
    * @return EOF if the buffer is to small.
    */
-  constexpr result<void> write_str_escaped(const std::basic_string_view<Char> sv) noexcept {
+  constexpr result<void> write_str_escaped(const std::string_view sv) noexcept {
     const size_t required_size = detail::count_size_when_escaped(sv) + 2;
     // TODO: Split writes into multiple chunks.
     //  Not that easy because the remaining size of the sv is != the required output size.
@@ -129,12 +127,17 @@ class writer {
    */
   template <typename T>
     requires(std::is_integral_v<T>)
-  constexpr result<void> write_int(const T integer, const write_int_options& options = {}) noexcept {
+  constexpr result<void> write_int(const T integer,
+                                   const write_int_options& options = default_write_int_options()) noexcept {
     // Reduce code generation by upcasting the integer.
     return write_int_impl(detail::integer_upcast(integer), options);
   }
 
  private:
+  static constexpr write_int_options default_write_int_options() noexcept {
+    return {};
+  }
+
   template <typename T>
     requires(std::is_integral_v<T>)
   constexpr result<void> write_int_impl(const T integer, const write_int_options& options) noexcept {
@@ -155,7 +158,7 @@ class writer {
     return success;
   }
 
-  buffer<Char>& buf_;
+  buffer& buf_;
 };
 
 }  // namespace emio

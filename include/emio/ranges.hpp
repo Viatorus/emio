@@ -21,7 +21,7 @@ template <typename T>
   requires(detail::format::is_valid_range<T> && !detail::format::is_contiguous_but_not_span<T>)
 class formatter<T> {
  public:
-  static constexpr result<void> validate(reader<char>& rdr) noexcept {
+  static constexpr result<void> validate(reader& rdr) noexcept {
     EMIO_TRY(char c, rdr.read_char());
     if (c == 'n') {
       EMIO_TRY(c, rdr.read_char());
@@ -60,7 +60,7 @@ class formatter<T> {
     specs_.closing_bracket = closing_bracket;
   }
 
-  constexpr result<void> parse(reader<char>& rdr) noexcept {
+  constexpr result<void> parse(reader& rdr) noexcept {
     char c = rdr.peek().assume_value();
     if (c == 'n') {
       set_brackets({}, {});
@@ -75,7 +75,7 @@ class formatter<T> {
     return underlying_.parse(rdr);
   }
 
-  constexpr result<void> format(writer<char>& wtr, const T& arg) const noexcept {
+  constexpr result<void> format(writer& wtr, const T& arg) const noexcept {
     EMIO_TRYV(wtr.write_str(specs_.opening_bracket));
 
     using std::begin;
@@ -128,7 +128,7 @@ class formatter<T> {
     specs_.closing_bracket = closing_bracket;
   }
 
-  static constexpr result<void> validate(reader<char>& rdr) noexcept {
+  static constexpr result<void> validate(reader& rdr) noexcept {
     EMIO_TRY(char c, rdr.read_char());
     if (c == 'n') {
       EMIO_TRY(c, rdr.read_char());
@@ -143,7 +143,7 @@ class formatter<T> {
     }
   }
 
-  constexpr result<void> parse(reader<char>& rdr) noexcept {
+  constexpr result<void> parse(reader& rdr) noexcept {
     char c = rdr.peek().assume_value();
     if (c == 'n') {
       set_brackets({}, {});
@@ -159,7 +159,7 @@ class formatter<T> {
     return parse_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), rdr, set_debug);
   }
 
-  constexpr result<void> format(writer<char>& wtr, const T& args) const noexcept {
+  constexpr result<void> format(writer& wtr, const T& args) const noexcept {
     EMIO_TRYV(wtr.write_str(specs_.opening_bracket));
     EMIO_TRYV(format_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), wtr, args));
     EMIO_TRYV(wtr.write_str(specs_.closing_bracket));
@@ -168,10 +168,10 @@ class formatter<T> {
 
  private:
   template <size_t... Ns>
-  static constexpr result<void> validate_for_each(std::index_sequence<Ns...> /*unused*/, reader<char>& rdr) noexcept {
+  static constexpr result<void> validate_for_each(std::index_sequence<Ns...> /*unused*/, reader& rdr) noexcept {
     size_t reader_pos = 0;
     result<void> res = success;
-    const auto validate = [&reader_pos, &res]<typename U>(std::type_identity<U> /*unused*/, reader<char> r /*copy!*/) {
+    const auto validate = [&reader_pos, &res]<typename U>(std::type_identity<U> /*unused*/, reader r /*copy!*/) {
       res = U::validate(r);
       if (res.has_error()) {
         return false;
@@ -192,18 +192,18 @@ class formatter<T> {
     return res;
   }
 
-  static constexpr result<void> validate_for_each(std::index_sequence<> /*unused*/, reader<char>& /*rdr*/) noexcept {
+  static constexpr result<void> validate_for_each(std::index_sequence<> /*unused*/, reader& /*rdr*/) noexcept {
     return err::invalid_format;
   }
 
   template <size_t... Ns>
-  constexpr result<void> parse_for_each(std::index_sequence<Ns...> /*unused*/, reader<char>& rdr,
+  constexpr result<void> parse_for_each(std::index_sequence<Ns...> /*unused*/, reader& rdr,
                                         const bool set_debug) noexcept {
     using std::get;
 
     size_t reader_pos = 0;
     result<void> res = success;
-    const auto parse = [&reader_pos, &res, set_debug](auto& f, reader<char> r /*copy!*/) {
+    const auto parse = [&reader_pos, &res, set_debug](auto& f, reader r /*copy!*/) {
       detail::format::maybe_set_debug_format(f, set_debug);
       res = f.parse(r);
       reader_pos = r.pos();
@@ -217,7 +217,7 @@ class formatter<T> {
     return res;
   }
 
-  constexpr result<void> parse_for_each(std::index_sequence<> /*unused*/, reader<char>& rdr,
+  constexpr result<void> parse_for_each(std::index_sequence<> /*unused*/, reader& rdr,
                                         const bool set_debug) noexcept {
     if (set_debug) {
       rdr.pop();  // }
@@ -227,7 +227,7 @@ class formatter<T> {
   }
 
   template <size_t N, size_t... Ns>
-  constexpr result<void> format_for_each(std::index_sequence<N, Ns...> /*unused*/, writer<char>& wtr,
+  constexpr result<void> format_for_each(std::index_sequence<N, Ns...> /*unused*/, writer& wtr,
                                          const T& args) const noexcept {
     using std::get;
     EMIO_TRYV(get<N>(formatters_).format(wtr, get<N>(args)));
@@ -248,7 +248,7 @@ class formatter<T> {
     return res;
   }
 
-  constexpr result<void> format_for_each(std::index_sequence<> /*unused*/, writer<char>& /*wtr*/,
+  constexpr result<void> format_for_each(std::index_sequence<> /*unused*/, writer& /*wtr*/,
                                          const T& /*args*/) const noexcept {
     return success;
   }

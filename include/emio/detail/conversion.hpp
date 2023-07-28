@@ -249,9 +249,7 @@ constexpr OutputIt write_number(T abs_number, int base, bool upper, OutputIt nex
 
 inline constexpr size_t npos = std::string_view::npos;
 
-template <typename Char>
-constexpr std::basic_string_view<Char> unchecked_substr(const std::basic_string_view<Char>& str, size_t pos,
-                                                        size_t n = npos) noexcept {
+constexpr std::string_view unchecked_substr(const std::string_view& str, size_t pos, size_t n = npos) noexcept {
   const size_t rlen = std::min(n, str.length() - pos);
   return {str.data() + pos, rlen};
 }

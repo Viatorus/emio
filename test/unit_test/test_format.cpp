@@ -806,7 +806,7 @@ TEST(format_test, format_explicitly_convertible_to_std_string_view) {
 
 TEST_CASE("format at compile-time") {
   constexpr bool success = [] {
-    emio::static_buffer<char, 17> buf{};
+    emio::static_buffer<17> buf{};
 
     emio::result<void> res = emio::format_to(buf, "{} {:.2f} {}{}", 42, 42.24, "x,", 'y');
     return res && buf.view() == "42 42.24 x,y";
