@@ -188,14 +188,14 @@ class span_buffer final : public buffer<Char> {
   /**
    * Constructs and initializes the buffer with an empty span.
    */
-  constexpr span_buffer() : buffer<Char>{buffer<Char>::fixed_size::Yes} {};
+  constexpr span_buffer() : buffer<Char>{buffer<Char>::fixed_size::yes} {};
 
   /**
    * Constructs and initializes the buffer with the given span.
    * @param span The span.
    */
   constexpr explicit span_buffer(const std::span<Char> span)
-      : buffer<Char>{buffer<Char>::fixed_size::Yes}, span_{span} {
+      : buffer<Char>{buffer<Char>::fixed_size::yes}, span_{span} {
     this->set_write_area(span_);
   }
 
