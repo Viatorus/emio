@@ -375,7 +375,6 @@ class iterator_buffer<OutputPtr*> final : public buffer {
   iterator_buffer(iterator_buffer&&) = delete;
   iterator_buffer& operator=(const iterator_buffer&) = delete;
   iterator_buffer& operator=(iterator_buffer&&) = delete;
-
   ~iterator_buffer() override = default;
 
   /**
@@ -513,6 +512,7 @@ namespace detail {
 /**
  * A buffer that counts the number of code points written. Discards the output.
  */
+// NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): cache_ can be left uninitialized.
 class basic_counting_buffer final : public buffer {
  public:
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): cache_ can be left uninitialized.

@@ -312,7 +312,7 @@ class reader {
     T maybe_overflowed_value{};
     T signed_flag{1};
 
-    EMIO_TRY(char c, peek());
+    EMIO_TRY(char c, peek());  // NOLINTNEXTLINE(misc-const-correctness): false-positive
     if (c == '-') {
       if constexpr (std::is_unsigned_v<T>) {
         return err::invalid_data;

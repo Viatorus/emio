@@ -85,7 +85,7 @@ There exists two helper macros to simplify the control flow:
 - Evaluates an expression *expr*. If successful, assigns the value to a declaration *var*. If unsuccessful, immediately
   returns from the calling function.
 
-## buffer
+## Buffer
 
 An abstract class which provides functionality for receiving a contiguous memory region to write into.
 
@@ -113,7 +113,7 @@ Some buffers have an internal cache to provide a contiguous memory if the actual
 
 - A buffer which over an std::File (file stream) with an internal cache.
 
-## reader
+## Reader
 
 ` class reader;`
 
