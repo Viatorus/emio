@@ -1101,10 +1101,19 @@ class buffer {
    * @return The write area with the requested size as maximum on success or eof if no write area is available.
    */
   constexpr result<std::span<Char>> get_write_area_of_max(size_t size) noexcept {
+    // If there is enough remaining capacity in the current write area, return it.
+    // Otherwise, request a new write area from the concrete implementation.
+    // There is a special case for fixed size buffers. Since they cannot grow, they simply return the
+    // remaining capacity or EOF, if hitting zero capacity.
+
     const size_t remaining_capacity = area_.size() - used_;
-    if (remaining_capacity >= size) {
-      const std::span<char> area = area_.subspan(used_, size);
-      used_ += size;
+    if (remaining_capacity >= size || fixed_size_ == fixed_size::yes) {
+      if (remaining_capacity == 0 && size != 0) {
+        return err::eof;
+      }
+      const size_t max_size = std::min(remaining_capacity, size);
+      const std::span<char> area = area_.subspan(used_, max_size);
+      used_ += max_size;
       return area;
     }
     EMIO_TRY(const std::span<Char> area, request_write_area(used_, size));
@@ -1113,10 +1122,14 @@ class buffer {
   }
 
  protected:
+  /// Flag to indicate if the buffer's size is fixed and cannot grow.
+  enum class fixed_size : bool { no, yes };
+
   /**
-   * Default constructs the buffer.
+   * Constructs the buffer.
+   * @brief fixed Flag to indicate if the buffer's size is fixed and cannot grow.
    */
-  constexpr buffer() = default;
+  constexpr explicit buffer(fixed_size fixed = fixed_size::no) noexcept : fixed_size_{fixed} {}
 
   /**
    * Requests a write area of the given size from a subclass.
@@ -1148,6 +1161,7 @@ class buffer {
   }
 
  private:
+  fixed_size fixed_size_{fixed_size::no};
   size_t used_{};
   std::span<Char> area_{};
 };
@@ -1221,13 +1235,14 @@ class span_buffer final : public buffer<Char> {
   /**
    * Constructs and initializes the buffer with an empty span.
    */
-  constexpr span_buffer() = default;
+  constexpr span_buffer() : buffer<Char>{buffer<Char>::fixed_size::yes} {};
 
   /**
    * Constructs and initializes the buffer with the given span.
    * @param span The span.
    */
-  constexpr explicit span_buffer(const std::span<Char> span) : span_{span} {
+  constexpr explicit span_buffer(const std::span<Char> span)
+      : buffer<Char>{buffer<Char>::fixed_size::yes}, span_{span} {
     this->set_write_area(span_);
   }
 
@@ -1557,7 +1572,7 @@ template <typename Char>
 class basic_counting_buffer final : public buffer<Char> {
  public:
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): Can be left uninitialized.
-  constexpr basic_counting_buffer() = default;
+  constexpr basic_counting_buffer() noexcept = default;
   constexpr basic_counting_buffer(const basic_counting_buffer&) = delete;
   constexpr basic_counting_buffer(basic_counting_buffer&&) noexcept = delete;
   constexpr basic_counting_buffer& operator=(const basic_counting_buffer&) = delete;
