@@ -58,8 +58,7 @@ TEST_CASE("dynamic format spec") {
 
   SECTION("compile-time") {
     constexpr bool success = [] {
-      std::array<char, 10> arr;
-      emio::span_buffer buf{arr};
+      emio::static_buffer<char, 10> buf{};
 
       emio::format_spec spec{.width = 4};
       static_cast<void>(emio::format_to(buf, "{:^}", spec.with(42)).value());

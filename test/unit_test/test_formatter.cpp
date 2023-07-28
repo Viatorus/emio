@@ -29,8 +29,8 @@ TEST_CASE("formatter with inherit from emio::formatter", "[formatter]") {
   SECTION("compile-time") {
     SECTION("simple") {
       constexpr bool success = [] {
-        std::array<char, 10> arr;
-        emio::span_buffer buf{arr};
+        emio::static_buffer<char, 10> buf{};
+
         static_cast<void>(emio::format_to(buf, "{}", wrap{42}).value());
         return buf.view() == "42";
       }();
@@ -38,8 +38,8 @@ TEST_CASE("formatter with inherit from emio::formatter", "[formatter]") {
     }
     SECTION("complex") {
       constexpr bool success = [] {
-        std::array<char, 10> arr;
-        emio::span_buffer buf{arr};
+        emio::static_buffer<char, 10> buf{};
+
         static_cast<void>(emio::format_to(buf, "{:x<4x}", wrap{42}).value());
         return buf.view() == "2axx";
       }();
@@ -104,8 +104,8 @@ TEST_CASE("formatter with constexpr methods", "[formatter]") {
   SECTION("compile-time") {
     SECTION("simple") {
       constexpr bool success = [] {
-        std::array<char, 10> arr;
-        emio::span_buffer buf{arr};
+        emio::static_buffer<char, 10> buf{};
+
         static_cast<void>(emio::format_to(buf, "{}", foo{42}).value());
         return buf.view() == "foo: 42";
       }();
@@ -113,8 +113,8 @@ TEST_CASE("formatter with constexpr methods", "[formatter]") {
     }
     SECTION("advanced") {
       constexpr bool success = [] {
-        std::array<char, 10> arr;
-        emio::span_buffer buf{arr};
+        emio::static_buffer<char, 10> buf{};
+
         static_cast<void>(emio::format_to(buf, "{:-}", foo{42}).value());
         return buf.view() == "foo: -42";
       }();
@@ -122,8 +122,8 @@ TEST_CASE("formatter with constexpr methods", "[formatter]") {
     }
     SECTION("error") {
       constexpr bool success = [] {
-        std::array<char, 10> arr;
-        emio::span_buffer buf{arr};
+        emio::static_buffer<char, 10> buf{};
+
         return emio::format_to(buf, emio::runtime{"{:+}"}, foo{42}) == emio::err::invalid_format;
       }();
       STATIC_CHECK(success);
@@ -232,8 +232,8 @@ TEST_CASE("formatter with constexpr methods but without validate function", "[fo
   SECTION("compile-time") {
     SECTION("simple") {
       constexpr bool success = [] {
-        std::array<char, 10> arr;
-        emio::span_buffer buf{arr};
+        emio::static_buffer<char, 10> buf{};
+
         static_cast<void>(emio::format_to(buf, "{}", foobar{42}).value());
         return buf.view() == "foobar: 42";
       }();
@@ -241,8 +241,8 @@ TEST_CASE("formatter with constexpr methods but without validate function", "[fo
     }
     SECTION("advanced") {
       constexpr bool success = [] {
-        std::array<char, 11> arr;
-        emio::span_buffer buf{arr};
+        emio::static_buffer<char, 11> buf{};
+
         static_cast<void>(emio::format_to(buf, "{:-}", foobar{42}).value());
         return buf.view() == "foobar: -42";
       }();
@@ -250,8 +250,8 @@ TEST_CASE("formatter with constexpr methods but without validate function", "[fo
     }
     SECTION("error") {
       constexpr bool success = [] {
-        std::array<char, 10> arr;
-        emio::span_buffer buf{arr};
+        emio::static_buffer<char, 10> buf{};
+
         return emio::format_to(buf, emio::runtime{"{:+}"}, foobar{42}) == emio::err::invalid_format;
       }();
       STATIC_CHECK(success);

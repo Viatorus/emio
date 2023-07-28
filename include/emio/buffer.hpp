@@ -122,7 +122,7 @@ class buffer {
 /**
  * This class fulfills the buffer API by providing an endless growing buffer.
  * @tparam Char The character type.
- * @tparam StorageSize The size of the inlined storage.
+ * @tparam StorageSize The size of the inlined storage for small buffer optimization.
  */
 template <typename Char = char, size_t StorageSize = 32>
 class memory_buffer final : public buffer<Char> {
@@ -183,7 +183,7 @@ class memory_buffer final : public buffer<Char> {
  * @tparam Char The character type.
  */
 template <typename Char = char>
-class span_buffer final : public buffer<Char> {
+class span_buffer : public buffer<Char> {
  public:
   /**
    * Constructs and initializes the buffer with an empty span.
@@ -241,6 +241,29 @@ span_buffer(T&&) -> span_buffer<char16_t>;
 template <typename T>
   requires std::is_constructible_v<std::span<char32_t>, T>
 span_buffer(T&&) -> span_buffer<char32_t>;
+
+/**
+ * This class fulfills the buffer API by providing a fixed-size storage.
+ * @tparam Char The character type.
+ * @tparam StorageSize The size of the storage.
+ */
+template <typename Char, size_t StorageSize>
+class static_buffer final : private std::array<Char, StorageSize>, public span_buffer<Char> {
+ public:
+  /**
+   * Constructs and initializes the buffer with the storage.
+   */
+  constexpr static_buffer() noexcept : span_buffer<Char>{std::span{*this}} {}
+
+  constexpr static_buffer(const static_buffer&) = default;
+  constexpr static_buffer(static_buffer&&) noexcept = default;
+  constexpr static_buffer& operator=(const static_buffer&) = default;
+  constexpr static_buffer& operator=(static_buffer&&) noexcept = default;
+  constexpr ~static_buffer() override = default;
+
+  // Note: We inherit from std::array to put the storage lifetime before span_buffer.
+  // Clang will otherwise complain if the storage is a member variable and used during compile-time.
+};
 
 namespace detail {
 
@@ -524,7 +547,7 @@ namespace detail {
 template <typename Char>
 class basic_counting_buffer final : public buffer<Char> {
  public:
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): Can be left uninitialized.
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): cache_ can be left uninitialized.
   constexpr basic_counting_buffer() noexcept = default;
   constexpr basic_counting_buffer(const basic_counting_buffer&) = delete;
   constexpr basic_counting_buffer(basic_counting_buffer&&) noexcept = delete;
