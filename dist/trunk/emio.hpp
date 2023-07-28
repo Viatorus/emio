@@ -400,9 +400,7 @@ constexpr OutputIt write_number(T abs_number, int base, bool upper, OutputIt nex
 
 inline constexpr size_t npos = std::string_view::npos;
 
-template <typename Char>
-constexpr std::basic_string_view<Char> unchecked_substr(const std::basic_string_view<Char>& str, size_t pos,
-                                                        size_t n = npos) noexcept {
+constexpr std::string_view unchecked_substr(const std::string_view& str, size_t pos, size_t n = npos) noexcept {
   const size_t rlen = std::min(n, str.length() - pos);
   return {str.data() + pos, rlen};
 }
@@ -507,7 +505,7 @@ class ct_vector {
     return data_ != storage_.data() && data_ != nullptr;
   }
 
-  std::array<char, StorageSize> storage_;
+  std::array<Char, StorageSize> storage_;
   Char* data_{storage_.data()};
   size_t size_{};
   size_t capacity_{StorageSize};
@@ -1066,11 +1064,9 @@ constexpr bool operator==(const result<T>& left, const err right) {
 namespace emio {
 
 /**
- * This class provides the basic API and functionality for receiving a contiguous memory region to write into.
+ * This class provides the basic API and functionality for receiving a contiguous memory region of chars to write into.
  * @note Use a specific subclass for a concrete instantiation.
- * @tparam Char The character type.
  */
-template <typename Char = char>
 class buffer {
  public:
   buffer(const buffer& other) = delete;
@@ -1084,8 +1080,8 @@ class buffer {
    * @param size The size the write area should have.
    * @return The write area with the requested size on success or eof if no write area is available.
    */
-  constexpr result<std::span<Char>> get_write_area_of(size_t size) noexcept {
-    EMIO_TRY(const std::span<Char> area, get_write_area_of_max(size));
+  constexpr result<std::span<char>> get_write_area_of(size_t size) noexcept {
+    EMIO_TRY(const std::span<char> area, get_write_area_of_max(size));
     if (area.size() < size) {
       used_ -= area.size();
       return err::eof;
@@ -1100,7 +1096,7 @@ class buffer {
    * @param size The size the write area should maximal have.
    * @return The write area with the requested size as maximum on success or eof if no write area is available.
    */
-  constexpr result<std::span<Char>> get_write_area_of_max(size_t size) noexcept {
+  constexpr result<std::span<char>> get_write_area_of_max(size_t size) noexcept {
     // If there is enough remaining capacity in the current write area, return it.
     // Otherwise, request a new write area from the concrete implementation.
     // There is a special case for fixed size buffers. Since they cannot grow, they simply return the
@@ -1116,7 +1112,7 @@ class buffer {
       used_ += max_size;
       return area;
     }
-    EMIO_TRY(const std::span<Char> area, request_write_area(used_, size));
+    EMIO_TRY(const std::span<char> area, request_write_area(used_, size));
     used_ += area.size();
     return area;
   }
@@ -1137,7 +1133,7 @@ class buffer {
    * @param size The requested size of a new write area.
    * @return The write area with the requested size as maximum on success or eof if no write area is available.
    */
-  virtual constexpr result<std::span<Char>> request_write_area(const size_t used, const size_t size) noexcept {
+  virtual constexpr result<std::span<char>> request_write_area(const size_t used, const size_t size) noexcept {
     static_cast<void>(used);  // Keep params for documentation.
     static_cast<void>(size);
     return err::eof;
@@ -1147,7 +1143,7 @@ class buffer {
    * Sets a new write area in the base class object to use.
    * @param area The new write area.
    */
-  constexpr void set_write_area(const std::span<Char> area) noexcept {
+  constexpr void set_write_area(const std::span<char> area) noexcept {
     area_ = area;
     used_ = 0;
   }
@@ -1163,16 +1159,15 @@ class buffer {
  private:
   fixed_size fixed_size_{fixed_size::no};
   size_t used_{};
-  std::span<Char> area_{};
+  std::span<char> area_{};
 };
 
 /**
  * This class fulfills the buffer API by providing an endless growing buffer.
- * @tparam Char The character type.
  * @tparam StorageSize The size of the inlined storage for small buffer optimization.
  */
-template <typename Char = char, size_t StorageSize = 32>
-class memory_buffer final : public buffer<Char> {
+template <size_t StorageSize = 32>
+class memory_buffer final : public buffer {
  public:
   /**
    * Constructs and initializes the buffer with the internal storage size.
@@ -1198,7 +1193,7 @@ class memory_buffer final : public buffer<Char> {
    * Obtains a view over the underlying string object.
    * @return The view.
    */
-  [[nodiscard]] constexpr std::basic_string_view<Char> view() const noexcept {
+  [[nodiscard]] constexpr std::string_view view() const noexcept {
     return {vec_.data(), used_ + this->get_used_count()};
   }
 
@@ -1206,43 +1201,40 @@ class memory_buffer final : public buffer<Char> {
    * Obtains a copy of the underlying string object.
    * @return The string.
    */
-  [[nodiscard]] constexpr std::basic_string<Char> str() const {
+  [[nodiscard]] std::string str() const {
     return std::string{view()};
   }
 
  protected:
-  constexpr result<std::span<Char>> request_write_area(const size_t used, const size_t size) noexcept override {
+  constexpr result<std::span<char>> request_write_area(const size_t used, const size_t size) noexcept override {
     const size_t new_size = vec_.size() + size;
     vec_.reserve(new_size);
     used_ += used;
-    const std::span<Char> area{vec_.data() + used_, size};
+    const std::span<char> area{vec_.data() + used_, size};
     this->set_write_area(area);
     return area;
   }
 
  private:
   size_t used_{};
-  detail::ct_vector<Char, StorageSize> vec_{};
+  detail::ct_vector<char, StorageSize> vec_{};
 };
 
 /**
  * This class fulfills the buffer API by using a span over an contiguous range.
- * @tparam Char The character type.
  */
-template <typename Char = char>
-class span_buffer : public buffer<Char> {
+class span_buffer : public buffer {
  public:
   /**
    * Constructs and initializes the buffer with an empty span.
    */
-  constexpr span_buffer() : buffer<Char>{buffer<Char>::fixed_size::yes} {};
+  constexpr span_buffer() : buffer{fixed_size::yes} {};
 
   /**
    * Constructs and initializes the buffer with the given span.
    * @param span The span.
    */
-  constexpr explicit span_buffer(const std::span<Char> span)
-      : buffer<Char>{buffer<Char>::fixed_size::yes}, span_{span} {
+  constexpr explicit span_buffer(const std::span<char> span) : buffer{fixed_size::yes}, span_{span} {
     this->set_write_area(span_);
   }
 
@@ -1264,43 +1256,25 @@ class span_buffer : public buffer<Char> {
    * Obtains a copy of the underlying string object.
    * @return The string.
    */
-  [[nodiscard]] std::basic_string<Char> str() const {
+  [[nodiscard]] std::string str() const {
     return std::string{view()};
   }
 
  private:
-  std::span<Char> span_;
+  std::span<char> span_;
 };
-
-// Deduction guides.
-template <typename T>
-  requires std::is_constructible_v<std::span<char>, T>
-span_buffer(T&&) -> span_buffer<char>;
-
-template <typename T>
-  requires std::is_constructible_v<std::span<char8_t>, T>
-span_buffer(T&&) -> span_buffer<char8_t>;
-
-template <typename T>
-  requires std::is_constructible_v<std::span<char16_t>, T>
-span_buffer(T&&) -> span_buffer<char16_t>;
-
-template <typename T>
-  requires std::is_constructible_v<std::span<char32_t>, T>
-span_buffer(T&&) -> span_buffer<char32_t>;
 
 /**
  * This class fulfills the buffer API by providing a fixed-size storage.
- * @tparam Char The character type.
  * @tparam StorageSize The size of the storage.
  */
-template <typename Char, size_t StorageSize>
-class static_buffer final : private std::array<Char, StorageSize>, public span_buffer<Char> {
+template <size_t StorageSize>
+class static_buffer final : private std::array<char, StorageSize>, public span_buffer {
  public:
   /**
    * Constructs and initializes the buffer with the storage.
    */
-  constexpr static_buffer() noexcept : span_buffer<Char>{std::span{*this}} {}
+  constexpr static_buffer() noexcept : span_buffer{std::span{*this}} {}
 
   constexpr static_buffer(const static_buffer&) = default;
   constexpr static_buffer(static_buffer&&) noexcept = default;
@@ -1346,10 +1320,10 @@ struct get_value_type<std::ostreambuf_iterator<Char, Traits>> {
 template <typename T>
 using get_value_type_t = typename get_value_type<T>::type;
 
-template <typename Char, typename InputIt, typename OutputIt>
+template <typename InputIt, typename OutputIt>
 constexpr auto copy_str(InputIt it, InputIt end, OutputIt out) -> OutputIt {
   while (it != end) {
-    *out++ = static_cast<Char>(*it++);
+    *out++ = static_cast<char>(*it++);
   }
   return out;
 }
@@ -1369,10 +1343,7 @@ class iterator_buffer;
 template <typename Iterator>
   requires(std::input_or_output_iterator<Iterator> &&
            std::output_iterator<Iterator, detail::get_value_type_t<Iterator>>)
-class iterator_buffer<Iterator> final : public buffer<detail::get_value_type_t<Iterator>> {
- private:
-  using char_t = detail::get_value_type_t<Iterator>;
-
+class iterator_buffer<Iterator> final : public buffer {
  public:
   /**
    * Constructs and initializes the buffer with the given output iterator.
@@ -1399,7 +1370,7 @@ class iterator_buffer<Iterator> final : public buffer<detail::get_value_type_t<I
    * Flushes the internal cache to the output iterator.
    */
   constexpr void flush() noexcept {
-    it_ = detail::copy_str<char_t>(cache_.data(), cache_.data() + this->get_used_count(), it_);
+    it_ = detail::copy_str(cache_.data(), cache_.data() + this->get_used_count(), it_);
     this->set_write_area(cache_);
   }
 
@@ -1413,9 +1384,9 @@ class iterator_buffer<Iterator> final : public buffer<detail::get_value_type_t<I
   }
 
  protected:
-  constexpr result<std::span<char_t>> request_write_area(const size_t /*used*/, const size_t size) noexcept override {
+  constexpr result<std::span<char>> request_write_area(const size_t /*used*/, const size_t size) noexcept override {
     flush();
-    const std::span<char_t> area{cache_};
+    const std::span<char> area{cache_};
     this->set_write_area(area);
     if (size > cache_.size()) {
       return area;
@@ -1425,7 +1396,7 @@ class iterator_buffer<Iterator> final : public buffer<detail::get_value_type_t<I
 
  private:
   Iterator it_;
-  std::array<char_t, detail::internal_buffer_size> cache_;
+  std::array<char, detail::internal_buffer_size> cache_;
 };
 
 /**
@@ -1435,7 +1406,7 @@ class iterator_buffer<Iterator> final : public buffer<detail::get_value_type_t<I
 template <typename OutputPtr>
   requires(std::input_or_output_iterator<OutputPtr*> &&
            std::output_iterator<OutputPtr*, detail::get_value_type_t<OutputPtr*>>)
-class iterator_buffer<OutputPtr*> final : public buffer<detail::get_value_type_t<OutputPtr*>> {
+class iterator_buffer<OutputPtr*> final : public buffer {
  public:
   /**
    * Constructs and initializes the buffer with the given output pointer.
@@ -1477,10 +1448,7 @@ class iterator_buffer<OutputPtr*> final : public buffer<detail::get_value_type_t
  */
 template <typename Container>
   requires std::contiguous_iterator<typename Container::iterator>
-class iterator_buffer<std::back_insert_iterator<Container>> final : public buffer<typename Container::value_type> {
- private:
-  using char_t = typename Container::value_type;
-
+class iterator_buffer<std::back_insert_iterator<Container>> final : public buffer {
  public:
   /**
    * Constructs and initializes the buffer with the given back-insert iterator.
@@ -1519,11 +1487,11 @@ class iterator_buffer<std::back_insert_iterator<Container>> final : public buffe
   }
 
  protected:
-  constexpr result<std::span<char_t>> request_write_area(const size_t used, const size_t size) noexcept override {
+  constexpr result<std::span<char>> request_write_area(const size_t used, const size_t size) noexcept override {
     const size_t new_size = container_.size() + size;
     container_.resize(new_size);
     used_ += used;
-    const std::span<char_t> area{container_.data() + used_, new_size};
+    const std::span<char> area{container_.data() + used_, new_size};
     this->set_write_area(area);
     return area.subspan(0, size);
   }
@@ -1539,7 +1507,7 @@ iterator_buffer(Iterator&&) -> iterator_buffer<std::decay_t<Iterator>>;
 /**
  * This class fulfills the buffer API by using a file stream and an internal cache.
  */
-class file_buffer : public buffer<char> {
+class file_buffer : public buffer {
  public:
   /**
    * Constructs and initializes the buffer with the given file stream.
@@ -1589,10 +1557,8 @@ namespace detail {
 
 /**
  * A buffer that counts the number of code points written. Discards the output.
- * @tparam Char The used character type.
  */
-template <typename Char>
-class basic_counting_buffer final : public buffer<Char> {
+class basic_counting_buffer final : public buffer {
  public:
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): cache_ can be left uninitialized.
   constexpr basic_counting_buffer() noexcept = default;
@@ -1600,7 +1566,7 @@ class basic_counting_buffer final : public buffer<Char> {
   constexpr basic_counting_buffer(basic_counting_buffer&&) noexcept = delete;
   constexpr basic_counting_buffer& operator=(const basic_counting_buffer&) = delete;
   constexpr basic_counting_buffer& operator=(basic_counting_buffer&&) noexcept = delete;
-  constexpr ~basic_counting_buffer() override = default;
+  constexpr ~basic_counting_buffer() override;
 
   /**
    * Calculates the number of Char's that were written.
@@ -1611,9 +1577,9 @@ class basic_counting_buffer final : public buffer<Char> {
   }
 
  protected:
-  constexpr result<std::span<Char>> request_write_area(const size_t used, const size_t size) noexcept override {
+  constexpr result<std::span<char>> request_write_area(const size_t used, const size_t size) noexcept override {
     used_ += used;
-    const std::span<Char> area{cache_};
+    const std::span<char> area{cache_};
     this->set_write_area(area);
     if (size > cache_.size()) {
       return area;
@@ -1623,8 +1589,10 @@ class basic_counting_buffer final : public buffer<Char> {
 
  private:
   size_t used_{};
-  std::array<Char, detail::internal_buffer_size> cache_;
+  std::array<char, detail::internal_buffer_size> cache_;
 };
+
+constexpr basic_counting_buffer::~basic_counting_buffer() = default;
 
 }  // namespace detail
 
@@ -1647,9 +1615,9 @@ constexpr bool needs_escape(uint32_t cp) {
   return cp < 0x20 || cp >= 0x7f || cp == '\'' || cp == '"' || cp == '\\';
 }
 
-template <typename Char, typename OutputIt>
-constexpr OutputIt write_escaped(std::basic_string_view<Char> sv, OutputIt out) {
-  for (Char c : sv) {
+template <typename OutputIt>
+constexpr OutputIt write_escaped(std::string_view sv, OutputIt out) {
+  for (const char c : sv) {
     if (!needs_escape(static_cast<uint32_t>(c))) {
       *(out++) = c;
     } else {
@@ -1685,7 +1653,7 @@ constexpr OutputIt write_escaped(std::basic_string_view<Char> sv, OutputIt out) 
         const auto abs = detail::to_absolute(detail::to_unsigned(c));
         const size_t number_of_digits = count_digits<16>(abs);
         // Fill up with zeros.
-        for (size_t i = 0; i < 2 * sizeof(Char) - number_of_digits; i++) {
+        for (size_t i = 0; i < 2 * sizeof(char) - number_of_digits; i++) {
           *(out++) = '0';
         }
         out += to_signed(number_of_digits);
@@ -1698,16 +1666,15 @@ constexpr OutputIt write_escaped(std::basic_string_view<Char> sv, OutputIt out) 
   return out;
 }
 
-template <typename Char>
-constexpr size_t count_size_when_escaped(std::basic_string_view<Char> sv) {
+constexpr size_t count_size_when_escaped(std::string_view sv) {
   size_t count = 0;
-  for (Char c : sv) {
+  for (const char c : sv) {
     if (!needs_escape(static_cast<uint32_t>(c))) {
       count += 1;
     } else if (c == '\n' || c == '\r' || c == '\t' || c == '\\' || c == '\'' || c == '"') {
       count += 2;
     } else {
-      count += 2 + 2 * sizeof(Char);  // \xAB...
+      count += 2 + 2 * sizeof(char);  // \xAB...
     }
   }
   return count;
@@ -1719,22 +1686,20 @@ namespace emio {
 
 /**
  * This class operates on a buffer and allows writing sequences of characters or other kinds of data into it.
- * @tparam Char The character type.
  */
-template <typename Char = char>
 class writer {
  public:
   /**
    * Constructs a writer with a given buffer.
    * @param buf The buffer.
    */
-  constexpr writer(buffer<Char>& buf) noexcept : buf_{buf} {}
+  constexpr writer(buffer& buf) noexcept : buf_{buf} {}
 
   /**
    * Returns the buffer.
    * @return The buffer.
    */
-  [[nodiscard]] constexpr buffer<Char>& get_buffer() noexcept {
+  [[nodiscard]] constexpr buffer& get_buffer() noexcept {
     return buf_;
   }
 
@@ -1743,7 +1708,7 @@ class writer {
    * @param c The character.
    * @return EOF if the buffer is to small.
    */
-  constexpr result<void> write_char(const Char c) noexcept {
+  constexpr result<void> write_char(const char c) noexcept {
     EMIO_TRY(const auto area, buf_.get_write_area_of(1));
     area[0] = c;
     return success;
@@ -1755,7 +1720,7 @@ class writer {
    * @param n The number of times the character should be written.
    * @return EOF if the buffer is to small.
    */
-  constexpr result<void> write_char_n(const Char c, const size_t n) noexcept {
+  constexpr result<void> write_char_n(const char c, const size_t n) noexcept {
     // Perform write in multiple chunks, to support buffers with an internal cache.
     size_t remaining_size = n;
     while (remaining_size != 0) {
@@ -1771,8 +1736,8 @@ class writer {
    * @param c The character.
    * @return EOF if the buffer is to small.
    */
-  constexpr result<void> write_char_escaped(const Char c) noexcept {
-    const std::basic_string_view<Char> sv(&c, 1);
+  constexpr result<void> write_char_escaped(const char c) noexcept {
+    const std::string_view sv(&c, 1);
     const size_t required_size = detail::count_size_when_escaped(sv) + 2;
     EMIO_TRY(const auto area, buf_.get_write_area_of(required_size));
     auto it = area.data();
@@ -1787,9 +1752,9 @@ class writer {
    * @param sv The char sequence.
    * @return EOF if the buffer is to small.
    */
-  constexpr result<void> write_str(const std::basic_string_view<Char> sv) noexcept {
+  constexpr result<void> write_str(const std::string_view sv) noexcept {
     // Perform write in multiple chunks, to support buffers with an internal cache.
-    const Char* ptr = sv.data();
+    const char* ptr = sv.data();
     size_t remaining_size = sv.size();
     while (remaining_size != 0) {
       EMIO_TRY(const auto area, buf_.get_write_area_of_max(remaining_size));
@@ -1804,7 +1769,7 @@ class writer {
    * @param sv The char sequence.
    * @return EOF if the buffer is to small.
    */
-  constexpr result<void> write_str_escaped(const std::basic_string_view<Char> sv) noexcept {
+  constexpr result<void> write_str_escaped(const std::string_view sv) noexcept {
     const size_t required_size = detail::count_size_when_escaped(sv) + 2;
     // TODO: Split writes into multiple chunks.
     //  Not that easy because the remaining size of the sv is != the required output size.
@@ -1832,12 +1797,17 @@ class writer {
    */
   template <typename T>
     requires(std::is_integral_v<T>)
-  constexpr result<void> write_int(const T integer, const write_int_options& options = {}) noexcept {
+  constexpr result<void> write_int(const T integer,
+                                   const write_int_options& options = default_write_int_options()) noexcept {
     // Reduce code generation by upcasting the integer.
     return write_int_impl(detail::integer_upcast(integer), options);
   }
 
  private:
+  static constexpr write_int_options default_write_int_options() noexcept {
+    return {};
+  }
+
   template <typename T>
     requires(std::is_integral_v<T>)
   constexpr result<void> write_int_impl(const T integer, const write_int_options& options) noexcept {
@@ -1858,7 +1828,7 @@ class writer {
     return success;
   }
 
-  buffer<Char>& buf_;
+  buffer& buf_;
 };
 
 }  // namespace emio
@@ -2021,17 +1991,13 @@ namespace emio {
  * This class operates on a char sequence and allows reading and parsing from it.
  * The reader interprets the char sequence as finite input stream. After every successful operation the read position
  * moves on until the last char of the sequence has been consumed.
- * @tparam Char The character type.
  */
-template <typename Char>
 class reader {
  public:
-  /// The view type.
-  using view_t = std::basic_string_view<Char>;
   /// The size type.
-  using size_type = typename std::basic_string_view<Char>::size_type;
+  using size_type = typename std::string_view::size_type;
   /// Special value to indicate the end of the view or an error by functions returning an index.
-  static constexpr size_type npos = std::basic_string_view<Char>::npos;
+  static constexpr size_type npos = std::string_view::npos;
 
   /**
    * Constructs an empty reader.
@@ -2039,7 +2005,7 @@ class reader {
   constexpr reader() = default;
 
   // Don't allow temporary strings or any nullptr.
-  constexpr reader(std::basic_string<Char>&&) = delete;
+  constexpr reader(std::string&&) = delete;
   constexpr reader(std::nullptr_t) = delete;
   constexpr reader(int) = delete;
 
@@ -2048,9 +2014,9 @@ class reader {
    * @param input The char sequence.
    */
   template <typename Arg>
-    requires(std::is_constructible_v<view_t, Arg>)
+    requires(std::is_constructible_v<std::string_view, Arg>)
   // NOLINTNEXTLINE(bugprone-forwarding-reference-overload): Is guarded by require clause.
-  constexpr explicit(!std::is_convertible_v<Arg, view_t>) reader(Arg&& input) noexcept
+  constexpr explicit(!std::is_convertible_v<Arg, std::string_view>) reader(Arg&& input) noexcept
       : input_{std::forward<Arg>(input)} {}
 
   /**
@@ -2081,7 +2047,7 @@ class reader {
    * Obtains a view of the not yet read chars of the stream.
    * @return The view over the remaining chars.
    */
-  [[nodiscard]] constexpr std::basic_string_view<Char> view_remaining() const noexcept {
+  [[nodiscard]] constexpr std::string_view view_remaining() const noexcept {
     const size_t x = input_.size() - pos_;
     if (x == 0) {
       return {};
@@ -2093,8 +2059,8 @@ class reader {
    * Reads all remaining chars from the stream.
    * @return The remaining chars. Could be empty.
    */
-  [[nodiscard]] constexpr view_t read_remaining() noexcept {
-    const view_t remaining_view = view_remaining();
+  [[nodiscard]] constexpr std::string_view read_remaining() noexcept {
+    const std::string_view remaining_view = view_remaining();
     pop(remaining_view.size());
     return remaining_view;
   }
@@ -2126,8 +2092,8 @@ class reader {
    * Returns the next char from the stream without consuming it.
    * @return EOF if the end of the stream has been reached.
    */
-  constexpr result<Char> peek() noexcept {
-    const view_t remaining = view_remaining();
+  constexpr result<char> peek() noexcept {
+    const std::string_view remaining = view_remaining();
     if (!remaining.empty()) {
       return remaining[0];
     }
@@ -2138,8 +2104,8 @@ class reader {
    * Reads one char from the stream.
    * @return EOF if the end of the stream has been reached.
    */
-  constexpr result<Char> read_char() noexcept {
-    const view_t remaining = view_remaining();
+  constexpr result<char> read_char() noexcept {
+    const std::string_view remaining = view_remaining();
     if (!remaining.empty()) {
       pop();
       return remaining[0];
@@ -2152,11 +2118,11 @@ class reader {
    * @param n The number of chars to read.
    * @return EOF if the end of the stream has been reached before reading n chars.
    */
-  constexpr result<view_t> read_n_chars(const size_t n) noexcept {
-    const view_t remaining = view_remaining();
+  constexpr result<std::string_view> read_n_chars(const size_t n) noexcept {
+    const std::string_view remaining = view_remaining();
     if (remaining.size() >= n) {
       pop(n);
-      return view_t{remaining.data(), remaining.data() + n};
+      return std::string_view{remaining.data(), remaining.data() + n};
     }
     return err::eof;
   }
@@ -2210,7 +2176,8 @@ class reader {
    * @return invalid_data if the delimiter hasn't been found and ignore_eof is set to true or EOF if the stream is
    * empty.
    */
-  constexpr result<view_t> read_until_char(const Char delimiter, const read_until_options& options = {}) noexcept {
+  constexpr result<std::string_view> read_until_char(
+      const char delimiter, const read_until_options& options = default_read_until_options()) noexcept {
     return read_until_pos(view_remaining().find(delimiter), options);
   }
 
@@ -2221,8 +2188,8 @@ class reader {
    * @return invalid_data if the delimiter hasn't been found and ignore_eof is set to true or EOF if the stream is
    * empty.
    */
-  constexpr result<view_t> read_until_str(const std::basic_string_view<Char> delimiter,
-                                          const read_until_options& options = {}) {
+  constexpr result<std::string_view> read_until_str(const std::string_view delimiter,
+                                                    const read_until_options& options = default_read_until_options()) {
     return read_until_pos(view_remaining().find(delimiter), options, delimiter.size());
   }
 
@@ -2232,8 +2199,8 @@ class reader {
    * @param options The read until options.
    * @return invalid_data if no char has been found and ignore_eof is set to True or EOF if the stream is empty.
    */
-  constexpr result<view_t> read_until_any_of(const std::basic_string_view<Char> group,
-                                             const read_until_options& options = {}) noexcept {
+  constexpr result<std::string_view> read_until_any_of(
+      const std::string_view group, const read_until_options& options = default_read_until_options()) noexcept {
     return read_until_pos(view_remaining().find_first_of(group), options);
   }
 
@@ -2244,8 +2211,8 @@ class reader {
    * @return invalid_data if a char not in the group has been found and ignore_eof is set to True or EOF if the stream
    * is empty.
    */
-  constexpr result<view_t> read_until_none_of(const std::basic_string_view<Char> group,
-                                              const read_until_options& options = {}) noexcept {
+  constexpr result<std::string_view> read_until_none_of(
+      const std::string_view group, const read_until_options& options = default_read_until_options()) noexcept {
     return read_until_pos(view_remaining().find_first_not_of(group), options);
   }
 
@@ -2257,10 +2224,11 @@ class reader {
    * empty.
    */
   template <typename Predicate>
-    requires(std::is_invocable_r_v<bool, Predicate, Char>)
-  constexpr result<view_t> read_until(Predicate&& predicate, const read_until_options& options = {}) noexcept(
-      std::is_nothrow_invocable_r_v<bool, Predicate, Char>) {
-    const view_t sv = view_remaining();
+    requires(std::is_invocable_r_v<bool, Predicate, char>)
+  constexpr result<std::string_view>
+  read_until(Predicate&& predicate, const read_until_options& options = default_read_until_options()) noexcept(
+      std::is_nothrow_invocable_r_v<bool, Predicate, char>) {
+    const std::string_view sv = view_remaining();
     const auto begin = sv.data();
     const auto end = sv.data() + sv.size();
     const auto it = std::find_if(begin, end, predicate);
@@ -2274,7 +2242,7 @@ class reader {
    * @return invalid_data if the chars don't match or EOF if the end of the stream has been reached.
    */
   constexpr result<char> read_if_match_char(const char c) noexcept {
-    EMIO_TRY(const Char p, peek());
+    EMIO_TRY(const char p, peek());
     if (p == c) {
       pop();
       return c;
@@ -2287,8 +2255,8 @@ class reader {
    * @param sv The expected char sequence.
    * @return invalid_data if the chars don't match or EOF if the end of the stream has been reached.
    */
-  constexpr result<view_t> read_if_match_str(const std::basic_string_view<Char> sv) noexcept {
-    const view_t remaining = view_remaining();
+  constexpr result<std::string_view> read_if_match_str(const std::string_view sv) noexcept {
+    const std::string_view remaining = view_remaining();
     if (remaining.size() < sv.size()) {
       return err::eof;
     }
@@ -2300,6 +2268,10 @@ class reader {
   }
 
  private:
+  static constexpr read_until_options default_read_until_options() noexcept {
+    return {};
+  }
+
   template <typename T>
     requires(std::is_integral_v<T>)
   constexpr result<T> parse_int_impl(const int base) {
@@ -2311,7 +2283,7 @@ class reader {
     T maybe_overflowed_value{};
     T signed_flag{1};
 
-    EMIO_TRY(Char c, peek());
+    EMIO_TRY(char c, peek());
     if (c == '-') {
       if constexpr (std::is_unsigned_v<T>) {
         return err::invalid_data;
@@ -2352,9 +2324,9 @@ class reader {
     }
   }
 
-  constexpr result<view_t> read_until_pos(size_t pos, const read_until_options& options,
-                                          const size_type delimiter_size = 1) noexcept {
-    const view_t remaining = view_remaining();
+  constexpr result<std::string_view> read_until_pos(size_t pos, const read_until_options& options,
+                                                    const size_type delimiter_size = 1) noexcept {
+    const std::string_view remaining = view_remaining();
     if (remaining.empty()) {
       return err::eof;
     }
@@ -2377,18 +2349,8 @@ class reader {
   }
 
   size_t pos_{};
-  std::basic_string_view<Char> input_;
+  std::string_view input_;
 };
-
-// Deduction guides.
-template <typename Char>
-reader(std::basic_string_view<Char>) -> reader<Char>;
-
-template <typename Char, typename Traits, typename Alloc>
-reader(std::basic_string<Char, Traits, Alloc>) -> reader<Char>;
-
-template <typename Char>
-reader(const Char*) -> reader<Char>;
 
 }  // namespace emio
 
@@ -2464,10 +2426,10 @@ inline constexpr std::string_view hex_upper{"0X"};
 
 inline constexpr uint8_t no_more_args = std::numeric_limits<uint8_t>::max();
 
-template <typename Char, input_validation>
+template <input_validation>
 class parser_base {
  public:
-  constexpr explicit parser_base(reader<Char>& format_rdr) noexcept : format_rdr_{format_rdr} {}
+  constexpr explicit parser_base(reader& format_rdr) noexcept : format_rdr_{format_rdr} {}
 
   parser_base(const parser_base&) = delete;
   parser_base(parser_base&&) = delete;
@@ -2478,14 +2440,14 @@ class parser_base {
 
   constexpr result<void> parse(uint8_t& arg_nbr) noexcept {
     while (true) {
-      result<Char> res = format_rdr_.read_char();
+      result<char> res = format_rdr_.read_char();
       if (res == err::eof) {
         return success;
       }
       if (!res) {
         return res;
       }
-      Char c = res.assume_value();
+      char c = res.assume_value();
       if (c == '{') {
         EMIO_TRY(c, format_rdr_.peek());  // If failed: Incorrect escaped {.
         if (c != '{') {
@@ -2505,15 +2467,15 @@ class parser_base {
   }
 
  protected:
-  virtual constexpr result<void> process(Char c) noexcept = 0;
+  virtual constexpr result<void> process(char c) noexcept = 0;
 
-  reader<Char>& format_rdr_;
+  reader& format_rdr_;
 
  private:
   constexpr result<void> parse_replacement_field(uint8_t& arg_nbr) noexcept {
     EMIO_TRYV(parse_field_name(arg_nbr));
 
-    EMIO_TRY(Char c, format_rdr_.peek());
+    EMIO_TRY(char c, format_rdr_.peek());
     if (c == '}') {
       return success;
     }
@@ -2526,7 +2488,7 @@ class parser_base {
   }
 
   constexpr result<void> parse_field_name(uint8_t& arg_nbr) noexcept {
-    EMIO_TRY(Char c, format_rdr_.peek());
+    EMIO_TRY(char c, format_rdr_.peek());
     if (detail::isdigit(c)) {               // Positional argument.
       if (use_positional_args_ == false) {  // If first argument was positional -> failure.
         return err::invalid_format;
@@ -2548,10 +2510,10 @@ class parser_base {
   uint8_t increment_arg_number_{};
 };
 
-template <typename Char>
-class parser_base<Char, input_validation::disabled> {
+template <>
+class parser_base<input_validation::disabled> {
  public:
-  constexpr explicit parser_base(reader<Char>& format_rdr) noexcept : format_rdr_{format_rdr} {}
+  constexpr explicit parser_base(reader& format_rdr) noexcept : format_rdr_{format_rdr} {}
 
   parser_base(const parser_base& other) = delete;
   parser_base(parser_base&& other) = delete;
@@ -2562,11 +2524,11 @@ class parser_base<Char, input_validation::disabled> {
 
   constexpr result<void> parse(uint8_t& arg_nbr) noexcept {
     while (true) {
-      result<Char> res = format_rdr_.read_char();
+      result<char> res = format_rdr_.read_char();
       if (res == err::eof) {
         return success;
       }
-      Char c = res.assume_value();
+      char c = res.assume_value();
       if (c == '{') {
         c = format_rdr_.peek().assume_value();
         if (c != '{') {
@@ -2581,14 +2543,14 @@ class parser_base<Char, input_validation::disabled> {
   }
 
  protected:
-  virtual constexpr result<void> process(Char c) noexcept = 0;
+  virtual constexpr result<void> process(char c) noexcept = 0;
 
-  reader<Char>& format_rdr_;
+  reader& format_rdr_;
 
  private:
   constexpr result<void> parse_replacement_field(uint8_t& arg_nbr) noexcept {
     parse_field_name(arg_nbr);
-    Char c = format_rdr_.peek().assume_value();
+    char c = format_rdr_.peek().assume_value();
     if (c == '}') {
       return success;
     }
@@ -2597,7 +2559,7 @@ class parser_base<Char, input_validation::disabled> {
   }
 
   constexpr void parse_field_name(uint8_t& arg_nbr) noexcept {
-    Char c = format_rdr_.peek().assume_value();
+    char c = format_rdr_.peek().assume_value();
     if (detail::isdigit(c)) {  // Positional argument.
       arg_nbr = format_rdr_.template parse_int<uint8_t>().assume_value();
       use_positional_args_ = true;
@@ -3083,7 +3045,7 @@ struct format_fp_result_t {
 
 enum class format_exact_mode { significand_digits, decimal_point };
 
-inline constexpr format_fp_result_t format_exact(const finite_result_t& dec, emio::buffer<char>& buf,
+inline constexpr format_fp_result_t format_exact(const finite_result_t& dec, emio::buffer& buf,
                                                  format_exact_mode mode, int16_t number_of_digits) noexcept {
   EMIO_Z_DEV_ASSERT(dec.mant > 0);
   EMIO_Z_DEV_ASSERT(dec.minus > 0);
@@ -3223,7 +3185,7 @@ inline constexpr format_fp_result_t format_exact(const finite_result_t& dec, emi
   return {dst.subspan(0, len), k};
 }
 
-inline constexpr format_fp_result_t format_shortest(const finite_result_t& dec, emio::buffer<char>& buf) noexcept {
+inline constexpr format_fp_result_t format_shortest(const finite_result_t& dec, emio::buffer& buf) noexcept {
   // the number `v` to format is known to be:
   // - equal to `mant * 2^exp`;
   // - preceded by `(mant - 2 * minus) * 2^exp` in the original type; and
@@ -3426,7 +3388,7 @@ namespace detail::format {
 // Write args.
 //
 
-inline constexpr result<void> write_padding_left(writer<char>& wtr, format_specs& specs, size_t width) {
+inline constexpr result<void> write_padding_left(writer& wtr, format_specs& specs, size_t width) {
   if (specs.width == 0 || specs.width < static_cast<int>(width)) {
     specs.width = 0;
     return success;
@@ -3443,7 +3405,7 @@ inline constexpr result<void> write_padding_left(writer<char>& wtr, format_specs
   return wtr.write_char_n(specs.fill, static_cast<size_t>(fill_width));
 }
 
-inline constexpr result<void> write_padding_right(writer<char>& wtr, format_specs& specs) {
+inline constexpr result<void> write_padding_right(writer& wtr, format_specs& specs) {
   if (specs.width == 0 || (specs.align != alignment::left && specs.align != alignment::center)) {
     return success;
   }
@@ -3451,7 +3413,7 @@ inline constexpr result<void> write_padding_right(writer<char>& wtr, format_spec
 }
 
 template <alignment DefaultAlign, typename Func>
-constexpr result<void> write_padded(writer<char>& wtr, format_specs& specs, size_t width, Func&& func) {
+constexpr result<void> write_padded(writer& wtr, format_specs& specs, size_t width, Func&& func) {
   if (specs.align == alignment::none) {
     specs.align = DefaultAlign;
   }
@@ -3460,12 +3422,12 @@ constexpr result<void> write_padded(writer<char>& wtr, format_specs& specs, size
   return write_padding_right(wtr, specs);
 }
 
-inline constexpr result<std::pair<std::string_view, writer<char>::write_int_options>> make_write_int_options(
+inline constexpr result<std::pair<std::string_view, writer::write_int_options>> make_write_int_options(
     char spec_type) noexcept {
   using namespace alternate_form;
 
   std::string_view prefix;
-  writer<char>::write_int_options options{};
+  writer::write_int_options options{};
 
   switch (spec_type) {
   case no_type:
@@ -3498,7 +3460,7 @@ inline constexpr result<std::pair<std::string_view, writer<char>::write_int_opti
   return std::pair{prefix, options};
 }
 
-inline constexpr result<char> try_write_sign(writer<char>& wtr, const format_specs& specs, bool is_negative) {
+inline constexpr result<char> try_write_sign(writer& wtr, const format_specs& specs, bool is_negative) {
   char sign_to_write = no_sign;
   if (is_negative) {
     sign_to_write = '-';
@@ -3512,7 +3474,7 @@ inline constexpr result<char> try_write_sign(writer<char>& wtr, const format_spe
   return sign_to_write;
 }
 
-inline constexpr result<std::string_view> try_write_prefix(writer<char>& wtr, const format_specs& specs,
+inline constexpr result<std::string_view> try_write_prefix(writer& wtr, const format_specs& specs,
                                                            std::string_view prefix) {
   const bool write_prefix = specs.alternate_form && !prefix.empty();
   if (write_prefix && specs.zero_flag) {
@@ -3527,7 +3489,7 @@ inline constexpr result<std::string_view> try_write_prefix(writer<char>& wtr, co
 
 template <typename Arg>
   requires(std::is_integral_v<Arg> && !std::is_same_v<Arg, bool> && !std::is_same_v<Arg, char>)
-constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const Arg& arg) noexcept {
+constexpr result<void> write_arg(writer& wtr, format_specs& specs, const Arg& arg) noexcept {
   if (specs.type == 'c') {
     return write_padded<alignment::left>(wtr, specs, 1, [&] {
       return wtr.write_char(static_cast<char>(arg));
@@ -3570,7 +3532,7 @@ constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const A
   });
 }
 
-inline constexpr result<void> write_non_finite(writer<char>& wtr, bool upper_case, bool is_inf) {
+inline constexpr result<void> write_non_finite(writer& wtr, bool upper_case, bool is_inf) {
   if (is_inf) {
     EMIO_TRYV(wtr.write_str(upper_case ? "INF" : "inf"));
   } else {
@@ -3651,7 +3613,7 @@ inline constexpr char* write_exponent(char* it, int exp) {
   return it;
 }
 
-inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& specs, fp_format_specs& fp_specs,
+inline constexpr result<void> write_decimal(writer& wtr, format_specs& specs, fp_format_specs& fp_specs,
                                             bool is_negative, const format_fp_result_t& f) noexcept {
   const char* significand = f.digits.data();
   int significand_size = static_cast<int>(f.digits.size());
@@ -3804,7 +3766,7 @@ inline constexpr result<void> write_decimal(writer<char>& wtr, format_specs& spe
 
 inline constexpr std::array<char, 1> zero_digit{'0'};
 
-inline constexpr format_fp_result_t format_decimal(buffer<char>& buffer, const fp_format_specs& fp_specs,
+inline constexpr format_fp_result_t format_decimal(buffer& buffer, const fp_format_specs& fp_specs,
                                                    const decode_result_t& decoded) {
   if (decoded.category == category::zero) {
     return format_fp_result_t{zero_digit, 1};
@@ -3830,7 +3792,7 @@ inline constexpr format_fp_result_t format_decimal(buffer<char>& buffer, const f
   EMIO_Z_INTERNAL_UNREACHABLE;
 }
 
-inline constexpr result<void> format_and_write_decimal(writer<char>& wtr, format_specs& specs,
+inline constexpr result<void> format_and_write_decimal(writer& wtr, format_specs& specs,
                                                        const decode_result_t& decoded) noexcept {
   fp_format_specs fp_specs = parse_fp_format_specs(specs);
 
@@ -3857,11 +3819,11 @@ inline constexpr result<void> format_and_write_decimal(writer<char>& wtr, format
 
 template <typename Arg>
   requires(std::is_floating_point_v<Arg> && sizeof(Arg) <= sizeof(double))
-constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const Arg& arg) noexcept {
+constexpr result<void> write_arg(writer& wtr, format_specs& specs, const Arg& arg) noexcept {
   return format_and_write_decimal(wtr, specs, decode(arg));
 }
 
-inline constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const std::string_view arg) noexcept {
+inline constexpr result<void> write_arg(writer& wtr, format_specs& specs, const std::string_view arg) noexcept {
   if (specs.type != '?') {
     return write_padded<alignment::left>(wtr, specs, arg.size(), [&] {
       return wtr.write_str(arg);
@@ -3874,7 +3836,7 @@ inline constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, 
 
 template <typename Arg>
   requires(std::is_same_v<Arg, char>)
-constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const Arg arg) noexcept {
+constexpr result<void> write_arg(writer& wtr, format_specs& specs, const Arg arg) noexcept {
   // If a type other than None/c is specified, write out as integer instead of char.
   if (specs.type != no_type && specs.type != 'c' && specs.type != '?') {
     return write_arg(wtr, specs, static_cast<uint8_t>(arg));
@@ -3891,7 +3853,7 @@ constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, const A
 
 template <typename Arg>
   requires(std::is_same_v<Arg, void*> || std::is_same_v<Arg, std::nullptr_t>)
-constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, Arg arg) noexcept {
+constexpr result<void> write_arg(writer& wtr, format_specs& specs, Arg arg) noexcept {
   specs.alternate_form = true;
   specs.type = 'x';
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): valid cast
@@ -3900,7 +3862,7 @@ constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, Arg arg
 
 template <typename Arg>
   requires(std::is_same_v<Arg, bool>)
-constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, Arg arg) noexcept {
+constexpr result<void> write_arg(writer& wtr, format_specs& specs, Arg arg) noexcept {
   // If a type other than None/s is specified, write out as 1/0 instead of true/false.
   if (specs.type != no_type && specs.type != 's') {
     return write_arg(wtr, specs, static_cast<uint8_t>(arg));
@@ -3920,7 +3882,7 @@ constexpr result<void> write_arg(writer<char>& wtr, format_specs& specs, Arg arg
 //
 
 // specs is passed by reference instead as return type to reduce copying of big value (and code bloat)
-inline constexpr result<void> validate_format_specs(reader<char>& rdr, format_specs& specs) noexcept {
+inline constexpr result<void> validate_format_specs(reader& rdr, format_specs& specs) noexcept {
   EMIO_TRY(char c, rdr.read_char());
   if (c == '}') {  // Format end.
     return success;
@@ -4000,7 +3962,7 @@ inline constexpr result<void> validate_format_specs(reader<char>& rdr, format_sp
   return err::invalid_format;
 }
 
-inline constexpr result<void> parse_format_specs(reader<char>& rdr, format_specs& specs) noexcept {
+inline constexpr result<void> parse_format_specs(reader& rdr, format_specs& specs) noexcept {
   char c = rdr.read_char().assume_value();
   if (c == '}') {  // Format end.
     return success;
@@ -4157,17 +4119,17 @@ inline constexpr bool has_formatter_v = std::is_constructible_v<formatter<Arg>>;
 template <typename T>
 concept has_validate_function_v = requires {
                                     {
-                                      formatter<T>::validate(std::declval<reader<char>&>())
+                                      formatter<T>::validate(std::declval<reader&>())
                                       } -> std::same_as<result<void>>;
                                   };
 
 template <typename T>
 concept has_any_validate_function_v =
     requires { &formatter<T>::validate; } || std::is_member_function_pointer_v<decltype(&formatter<T>::validate)> ||
-    requires { std::declval<formatter<T>>().validate(std::declval<reader<char>&>()); };
+    requires { std::declval<formatter<T>>().validate(std::declval<reader&>()); };
 
 template <typename Arg>
-constexpr result<void> validate_for(reader<char>& format_is) noexcept {
+constexpr result<void> validate_for(reader& format_is) noexcept {
   // Check if a formatter exist and a correct validate method is implemented. If not, use the parse method.
   if constexpr (has_formatter_v<Arg>) {
     if constexpr (has_validate_function_v<Arg>) {
@@ -4191,10 +4153,10 @@ inline constexpr bool is_core_type_v =
 
 template <input_validation FormatStringValidation, typename T>
 concept formatter_parse_supports_format_string_validation =
-    requires(T formatter) { formatter.template parse<FormatStringValidation>(std::declval<reader<char>>()); };
+    requires(T formatter) { formatter.template parse<FormatStringValidation>(std::declval<reader>()); };
 
 template <input_validation FormatStringValidation, typename T>
-inline constexpr result<void> invoke_formatter_parse(T& formatter, reader<char>& format_is) noexcept {
+inline constexpr result<void> invoke_formatter_parse(T& formatter, reader& format_is) noexcept {
   if constexpr (formatter_parse_supports_format_string_validation<FormatStringValidation, T>) {
     return formatter.template parse<FormatStringValidation>(format_is);
   } else {
@@ -4280,7 +4242,7 @@ class formatter {
    * @param rdr The format reader.
    * @return Success if the format spec is valid.
    */
-  static constexpr result<void> validate(reader<char>& rdr) noexcept {
+  static constexpr result<void> validate(reader& rdr) noexcept {
     return rdr.read_if_match_char('}');
   }
 
@@ -4289,7 +4251,7 @@ class formatter {
    * @param rdr The format reader.
    * @return Success if the format spec is valid and could be parsed.
    */
-  constexpr result<void> parse(reader<char>& rdr) noexcept {
+  constexpr result<void> parse(reader& rdr) noexcept {
     return rdr.read_if_match_char('}');
   }
 
@@ -4299,7 +4261,7 @@ class formatter {
    * @param arg The argument to format.
    * @return Success if the formatting could be done.
    */
-  constexpr result<void> format(writer<char>& wtr, const T& arg) const noexcept {
+  constexpr result<void> format(writer& wtr, const T& arg) const noexcept {
     return wtr.write_int(sizeof(arg));
   }
 };
@@ -4318,7 +4280,7 @@ template <typename T>
   requires(detail::format::is_core_type_v<T>)
 class formatter<T> {
  public:
-  static constexpr result<void> validate(reader<char>& rdr) noexcept {
+  static constexpr result<void> validate(reader& rdr) noexcept {
     detail::format::format_specs specs{};
     EMIO_TRYV(validate_format_specs(rdr, specs));
     if constexpr (std::is_same_v<T, bool>) {
@@ -4342,11 +4304,11 @@ class formatter<T> {
     return success;
   }
 
-  constexpr result<void> parse(reader<char>& rdr) noexcept {
+  constexpr result<void> parse(reader& rdr) noexcept {
     return detail::format::parse_format_specs(rdr, specs_);
   }
 
-  constexpr result<void> format(writer<char>& wtr, const T& arg) const noexcept {
+  constexpr result<void> format(writer& wtr, const T& arg) const noexcept {
     auto specs = specs_;  // Copy spec because format could be called multiple times (e.g. ranges).
     return write_arg(wtr, specs, arg);
   }
@@ -4404,7 +4366,7 @@ template <typename T>
   requires(std::is_enum_v<T> && std::is_convertible_v<T, std::underlying_type_t<T>>)
 class formatter<T> : public formatter<std::underlying_type_t<T>> {
  public:
-  constexpr result<void> format(writer<char>& wtr, const T& arg) const noexcept {
+  constexpr result<void> format(writer& wtr, const T& arg) const noexcept {
     return formatter<std::underlying_type_t<T>>::format(wtr, static_cast<std::underlying_type_t<T>>(arg));
   }
 };
@@ -4417,7 +4379,7 @@ template <typename T>
   requires(detail::format::has_format_as<T>)
 class formatter<T> : public formatter<detail::format::format_as_return_t<T>> {
  public:
-  constexpr result<void> format(writer<char>& wtr, const T& arg) const noexcept {
+  constexpr result<void> format(writer& wtr, const T& arg) const noexcept {
     return formatter<detail::format::format_as_return_t<T>>::format(wtr, format_as(arg));
   }
 };
@@ -4480,15 +4442,15 @@ template <typename T>
 template <typename T>
 class formatter<detail::format_spec_with_value<T>> {
  public:
-  static constexpr result<void> validate(reader<char>& rdr) noexcept {
+  static constexpr result<void> validate(reader& rdr) noexcept {
     return formatter<T>::validate(rdr);
   }
 
-  constexpr result<void> parse(reader<char>& rdr) noexcept {
+  constexpr result<void> parse(reader& rdr) noexcept {
     return underlying_.parse(rdr);
   }
 
-  constexpr result<void> format(writer<char>& wtr, const detail::format_spec_with_value<T>& arg) noexcept {
+  constexpr result<void> format(writer& wtr, const detail::format_spec_with_value<T>& arg) noexcept {
     overwrite_spec(arg.spec);
     return underlying_.format(wtr, arg.value);
   }
@@ -4546,7 +4508,7 @@ class format_validation_arg {
   // No destructor & delete call to concept_t because model_t holds only a reference.
   ~format_validation_arg() = default;
 
-  result<void> validate(reader<char>& format_is) const noexcept {
+  result<void> validate(reader& format_is) const noexcept {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): only way to get the object back
     return reinterpret_cast<const concept_t*>(&storage_)->validate(format_is);
   }
@@ -4560,7 +4522,7 @@ class format_validation_arg {
     concept_t& operator=(const concept_t&) = delete;
     concept_t& operator=(concept_t&&) = delete;
 
-    virtual result<void> validate(reader<char>& format_is) const noexcept = 0;
+    virtual result<void> validate(reader& format_is) const noexcept = 0;
 
    protected:
     ~concept_t() = default;
@@ -4575,7 +4537,7 @@ class format_validation_arg {
     model_t& operator=(const model_t&) = delete;
     model_t& operator=(model_t&&) = delete;
 
-    result<void> validate(reader<char>& format_is) const noexcept override {
+    result<void> validate(reader& format_is) const noexcept override {
       return validate_for<std::remove_cvref_t<T>>(format_is);
     }
 
@@ -4589,7 +4551,6 @@ class format_validation_arg {
 /**
  * Format arguments just for format string validation.
  */
-template <typename Char>
 class format_validation_args {
  public:
   format_validation_args(const format_validation_args&) = delete;
@@ -4598,7 +4559,7 @@ class format_validation_args {
   format_validation_args& operator=(format_validation_args&&) = delete;
   ~format_validation_args() = default;
 
-  [[nodiscard]] std::basic_string_view<Char> get_format_str() const noexcept {
+  [[nodiscard]] std::string_view get_format_str() const noexcept {
     return format_str_;
   }
 
@@ -4607,23 +4568,23 @@ class format_validation_args {
   }
 
  protected:
-  format_validation_args(std::basic_string_view<Char> format_str, std::span<const format_validation_arg> args)
+  format_validation_args(std::string_view format_str, std::span<const format_validation_arg> args)
       : format_str_{format_str}, args_{args} {}
 
  private:
-  std::basic_string_view<Char> format_str_;
+  std::string_view format_str_;
   std::span<const detail::format::format_validation_arg> args_;
 };
 
 /**
  * Format arguments storage just for format string validation.
  */
-template <typename Char, size_t NbrOfArgs>
-class basic_format_validation_args_storage : public format_validation_args<Char> {
+template <size_t NbrOfArgs>
+class basic_format_validation_args_storage : public format_validation_args {
  public:
   template <typename... Args>
-  basic_format_validation_args_storage(std::basic_string_view<Char> str, const Args&... args)
-      : format_validation_args<Char>{str, args_storage_}, args_storage_{format_validation_arg{args}...} {}
+  basic_format_validation_args_storage(std::string_view str, const Args&... args)
+      : format_validation_args{str, args_storage_}, args_storage_{format_validation_arg{args}...} {}
 
   basic_format_validation_args_storage(const basic_format_validation_args_storage&) = delete;
   basic_format_validation_args_storage(basic_format_validation_args_storage&&) = delete;
@@ -4635,16 +4596,14 @@ class basic_format_validation_args_storage : public format_validation_args<Char>
   std::array<format_validation_arg, NbrOfArgs> args_storage_;
 };
 
-template <typename Char, typename... Args>
-basic_format_validation_args_storage<Char, sizeof...(Args)> make_format_validation_args(
-    std::basic_string_view<Char> format_str) {
+template <typename... Args>
+basic_format_validation_args_storage<sizeof...(Args)> make_format_validation_args(std::string_view format_str) {
   return {format_str, std::type_identity<Args>{}...};
 }
 
 /**
  * Type erased format argument for formatting.
  */
-template <typename Char>
 class basic_format_arg {
  public:
   template <typename T>
@@ -4660,7 +4619,7 @@ class basic_format_arg {
   basic_format_arg& operator=(basic_format_arg&&) = delete;
   ~basic_format_arg() = default;  // No destructor & delete call to concept_t because model_t holds only a reference.
 
-  result<void> format(writer<Char>& wtr, reader<Char>& format_is) const noexcept {
+  result<void> format(writer& wtr, reader& format_is) const noexcept {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): only way to get the object back
     return reinterpret_cast<const concept_t*>(&storage_)->format(wtr, format_is);
   }
@@ -4674,7 +4633,7 @@ class basic_format_arg {
     concept_t& operator=(const concept_t&) = delete;
     concept_t& operator=(concept_t&&) = delete;
 
-    virtual result<void> format(writer<Char>& wtr, reader<Char>& format_is) const noexcept = 0;
+    virtual result<void> format(writer& wtr, reader& format_is) const noexcept = 0;
 
    protected:
     ~concept_t() = default;
@@ -4690,7 +4649,7 @@ class basic_format_arg {
     model_t& operator=(const model_t&) = delete;
     model_t& operator=(model_t&&) = delete;
 
-    result<void> format(writer<Char>& wtr, reader<Char>& format_is) const noexcept override {
+    result<void> format(writer& wtr, reader& format_is) const noexcept override {
       formatter<std::remove_cvref_t<T>> formatter;
       EMIO_TRYV(invoke_formatter_parse<input_validation::disabled>(formatter, format_is));
       return formatter.format(wtr, value_);
@@ -4709,7 +4668,6 @@ class basic_format_arg {
 /**
  * Format arguments for formatting.
  */
-template <typename Char>
 class basic_format_args {
  public:
   basic_format_args(const basic_format_args&) = delete;
@@ -4718,32 +4676,32 @@ class basic_format_args {
   basic_format_args& operator=(basic_format_args&&) = delete;
   ~basic_format_args() = default;
 
-  result<std::basic_string_view<Char>> get_format_str() const noexcept {
+  result<std::string_view> get_format_str() const noexcept {
     return format_str_;
   }
 
-  [[nodiscard]] std::span<const basic_format_arg<Char>> get_args() const noexcept {
+  [[nodiscard]] std::span<const basic_format_arg> get_args() const noexcept {
     return args_;
   }
 
  protected:
-  basic_format_args(result<std::basic_string_view<Char>> format_str, std::span<const basic_format_arg<Char>> args)
+  basic_format_args(result<std::string_view> format_str, std::span<const basic_format_arg> args)
       : format_str_{format_str}, args_{args} {}
 
  private:
-  result<std::basic_string_view<Char>> format_str_;
-  std::span<const basic_format_arg<Char>> args_;
+  result<std::string_view> format_str_;
+  std::span<const basic_format_arg> args_;
 };
 
 /**
  * Format arguments storage for formatting.
  */
-template <typename Char, size_t NbrOfArgs>
-class basic_format_args_storage : public basic_format_args<Char> {
+template <size_t NbrOfArgs>
+class basic_format_args_storage : public basic_format_args {
  public:
   template <typename... Args>
-  basic_format_args_storage(result<std::basic_string_view<Char>> str, const Args&... args)
-      : basic_format_args<Char>{str, args_storage_}, args_storage_{basic_format_arg<Char>{args}...} {}
+  basic_format_args_storage(result<std::string_view> str, const Args&... args)
+      : basic_format_args{str, args_storage_}, args_storage_{basic_format_arg{args}...} {}
 
   basic_format_args_storage(const basic_format_args_storage&) = delete;
   basic_format_args_storage(basic_format_args_storage&&) = delete;
@@ -4752,18 +4710,17 @@ class basic_format_args_storage : public basic_format_args<Char> {
   ~basic_format_args_storage() = default;
 
  private:
-  std::array<basic_format_arg<Char>, NbrOfArgs> args_storage_;
+  std::array<basic_format_arg, NbrOfArgs> args_storage_;
 };
 
 }  // namespace emio::detail::format
 
 namespace emio::detail::format {
 
-template <typename Char>
-class format_parser final : public parser_base<Char, input_validation::disabled> {
+class format_parser final : public parser_base<input_validation::disabled> {
  public:
-  constexpr explicit format_parser(writer<Char>& wtr, reader<Char>& format_rdr) noexcept
-      : parser_base<Char, input_validation::disabled>{format_rdr}, wtr_{wtr} {}
+  constexpr explicit format_parser(writer& wtr, reader& format_rdr) noexcept
+      : parser_base<input_validation::disabled>{format_rdr}, wtr_{wtr} {}
 
   format_parser(const format_parser&) = delete;
   format_parser(format_parser&&) = delete;
@@ -4801,17 +4758,15 @@ class format_parser final : public parser_base<Char, input_validation::disabled>
     }
   }
 
-  writer<Char>& wtr_;
+  writer& wtr_;
 };
 
 // Explicit out-of-class definition because of GCC bug: ~format_parser() used before its definition.
-template <typename Char>
-constexpr format_parser<Char>::~format_parser() noexcept = default;
+constexpr format_parser::~format_parser() noexcept = default;
 
-template <typename Char>
-class format_specs_checker final : public parser_base<Char, input_validation::enabled> {
+class format_specs_checker final : public parser_base<input_validation::enabled> {
  public:
-  using parser_base<Char, input_validation::enabled>::parser_base;
+  using parser_base<input_validation::enabled>::parser_base;
 
   format_specs_checker(const format_specs_checker& other) = delete;
   format_specs_checker(format_specs_checker&& other) = delete;
@@ -4846,13 +4801,11 @@ class format_specs_checker final : public parser_base<Char, input_validation::en
 };
 
 // Explicit out-of-class definition because of GCC bug: ~format_parser() used before its definition.
-template <typename Char>
-constexpr format_specs_checker<Char>::~format_specs_checker() noexcept = default;
+constexpr format_specs_checker::~format_specs_checker() noexcept = default;
 
-template <typename Char>
-[[nodiscard]] bool validate_format_string_fallback(const format_validation_args<Char>& args) noexcept {
-  reader<Char> format_rdr{args.get_format_str()};
-  format_specs_checker<Char> fh{format_rdr};
+[[nodiscard]] inline bool validate_format_string_fallback(const format_validation_args& args) noexcept {
+  reader format_rdr{args.get_format_str()};
+  format_specs_checker fh{format_rdr};
   bitset<128> matched{};
   const size_t arg_cnt = args.get_args().size();
   while (true) {
@@ -4875,11 +4828,11 @@ template <typename Char>
   return matched.all_first(arg_cnt);
 }
 
-template <typename... Args, typename Char>
-[[nodiscard]] constexpr bool validate_format_string(std::basic_string_view<Char> format_str) noexcept {
+template <typename... Args>
+[[nodiscard]] constexpr bool validate_format_string(std::string_view format_str) noexcept {
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
-    reader<Char> format_rdr{format_str};
-    format_specs_checker<Char> fh{format_rdr};
+    reader format_rdr{format_str};
+    format_specs_checker fh{format_rdr};
     bitset<sizeof...(Args)> matched{};
     while (true) {
       uint8_t arg_nbr{detail::no_more_args};
@@ -4900,7 +4853,7 @@ template <typename... Args, typename Char>
     }
     return matched.all();
   } else {
-    return validate_format_string_fallback(make_format_validation_args<Char, Args...>(format_str));
+    return validate_format_string_fallback(make_format_validation_args<Args...>(format_str));
   }
 }
 
@@ -4910,9 +4863,7 @@ namespace emio {
 
 /**
  * This class represents a not yet validated format string, which has to be validated at runtime.
- * @tparam Char The character type.
  */
-template <typename Char>
 class runtime {
  public:
   /**
@@ -4921,7 +4872,7 @@ class runtime {
   constexpr runtime() = default;
 
   // Don't allow temporary strings or any nullptr.
-  constexpr runtime(std::basic_string<Char>&&) = delete;
+  constexpr runtime(std::string&&) = delete;
   constexpr runtime(std::nullptr_t) = delete;
   constexpr runtime(int) = delete;
 
@@ -4930,41 +4881,30 @@ class runtime {
    * @param str The char sequence.
    */
   template <typename S>
-    requires(std::is_constructible_v<std::basic_string_view<Char>, S>)
+    requires(std::is_constructible_v<std::string_view, S>)
   constexpr explicit runtime(const S& str) : str_{str} {}
 
   /**
    * Obtains a view over the runtime format string.
    * @return The view.
    */
-  [[nodiscard]] constexpr std::basic_string_view<Char> view() const noexcept {
+  [[nodiscard]] constexpr std::string_view view() const noexcept {
     return str_;
   }
 
  private:
-  std::basic_string_view<Char> str_;
+  std::string_view str_;
 };
 
-// Deduction guides.
-template <typename Char>
-runtime(std::basic_string_view<Char>) -> runtime<Char>;
-
-template <typename Char, typename Traits, typename Alloc>
-runtime(std::basic_string<Char, Traits, Alloc>) -> runtime<Char>;
-
-template <typename Char>
-runtime(const Char*) -> runtime<Char>;
-
-template <typename Char, typename... Args>
+template <typename... Args>
 class basic_valid_format_string;
 
 /**
  * This class represents a validated format string. The format string is either valid or not.
  * @note The validation happens at object construction.
- * @tparam Char The character type.
  * @tparam Args The argument types to format.
  */
-template <typename Char, typename... Args>
+template <typename... Args>
 class basic_format_string {
  public:
   /**
@@ -4973,9 +4913,9 @@ class basic_format_string {
    * @param s The char sequence.
    */
   template <typename S>
-    requires(std::is_constructible_v<std::basic_string_view<Char>, S>)
+    requires(std::is_constructible_v<std::string_view, S>)
   consteval basic_format_string(const S& s) noexcept {
-    std::basic_string_view<Char> str{s};
+    std::string_view str{s};
     if (detail::format::validate_format_string<Args...>(str)) {
       str_ = str;
     } else {
@@ -4988,8 +4928,8 @@ class basic_format_string {
    * Constructs and validates a runtime format string at runtime.
    * @param s The runtime format string.
    */
-  constexpr basic_format_string(runtime<Char> s) noexcept {
-    std::basic_string_view<Char> str{s.view()};
+  constexpr basic_format_string(runtime s) noexcept {
+    std::string_view str{s.view()};
     if (detail::format::validate_format_string<Args...>(str)) {
       str_ = str;
     }
@@ -4999,7 +4939,7 @@ class basic_format_string {
    * Returns the validated format string as view.
    * @return The view or invalid_format if the validation failed.
    */
-  constexpr result<std::basic_string_view<Char>> get() const noexcept {
+  constexpr result<std::string_view> get() const noexcept {
     return str_;
   }
 
@@ -5007,9 +4947,9 @@ class basic_format_string {
    * Returns format string as valid one.
    * @return The valid format string or invalid_format if the validation failed.
    */
-  constexpr result<basic_valid_format_string<Char, Args...>> as_valid() const noexcept {
+  constexpr result<basic_valid_format_string<Args...>> as_valid() const noexcept {
     if (str_.has_value()) {
-      return basic_valid_format_string<Char, Args...>{valid, str_.assume_value()};
+      return basic_valid_format_string<Args...>{valid, str_.assume_value()};
     }
     return err::invalid_format;
   }
@@ -5018,19 +4958,18 @@ class basic_format_string {
   static constexpr struct valid_t {
   } valid{};
 
-  constexpr explicit basic_format_string(valid_t /*unused*/, std::basic_string_view<Char> s) noexcept : str_{s} {}
+  constexpr explicit basic_format_string(valid_t /*unused*/, std::string_view s) noexcept : str_{s} {}
 
  private:
-  result<std::basic_string_view<Char>> str_{err::invalid_format};  ///< Validated format string.
+  result<std::string_view> str_{err::invalid_format};  ///< Validated format string.
 };
 
 /**
  * This class represents a validated format string. The format string can only be valid.
- * @tparam Char The character type.
  * @tparam Args The argument types to format.
  */
-template <typename Char, typename... Args>
-class basic_valid_format_string : public basic_format_string<Char, Args...> {
+template <typename... Args>
+class basic_valid_format_string : public basic_format_string<Args...> {
  public:
   /**
    * Constructs and validates the format string from any suitable char sequence at compile-time.
@@ -5038,8 +4977,8 @@ class basic_valid_format_string : public basic_format_string<Char, Args...> {
    * @param s The char sequence.
    */
   template <typename S>
-    requires(std::is_constructible_v<std::basic_string_view<Char>, S>)
-  consteval basic_valid_format_string(const S& s) noexcept : basic_format_string<Char, Args...>{s} {}
+    requires(std::is_constructible_v<std::string_view, S>)
+  consteval basic_valid_format_string(const S& s) noexcept : basic_format_string<Args...>{s} {}
 
   /**
    * Constructs and validates a format string at runtime.
@@ -5047,9 +4986,9 @@ class basic_valid_format_string : public basic_format_string<Char, Args...> {
    * @return The valid format string or invalid_format if the validation failed.
    */
   template <typename S>
-    requires(std::is_constructible_v<std::basic_string_view<Char>, S>)
-  static constexpr result<basic_valid_format_string<Char, Args...>> from(const S& s) noexcept {
-    std::basic_string_view<Char> str{s};
+    requires(std::is_constructible_v<std::string_view, S>)
+  static constexpr result<basic_valid_format_string<Args...>> from(const S& s) noexcept {
+    std::string_view str{s};
     if (!detail::format::validate_format_string<Args...>(str)) {
       return err::invalid_format;
     }
@@ -5057,33 +4996,32 @@ class basic_valid_format_string : public basic_format_string<Char, Args...> {
   }
 
  private:
-  friend class basic_format_string<Char, Args...>;
+  friend class basic_format_string<Args...>;
 
-  using valid_t = typename basic_format_string<Char, Args...>::valid_t;
-  using basic_format_string<Char, Args...>::valid;
+  using valid_t = typename basic_format_string<Args...>::valid_t;
+  using basic_format_string<Args...>::valid;
 
-  constexpr explicit basic_valid_format_string(valid_t /*unused*/, std::basic_string_view<Char> s) noexcept
-      : basic_format_string<Char, Args...>{valid, s} {}
+  constexpr explicit basic_valid_format_string(valid_t /*unused*/, std::string_view s) noexcept
+      : basic_format_string<Args...>{valid, s} {}
 };
 
 // Alias template types.
 template <typename... Args>
-using format_string = basic_format_string<char, std::type_identity_t<Args>...>;
+using format_string = basic_format_string<std::type_identity_t<Args>...>;
 
 template <typename... Args>
-using valid_format_string = basic_valid_format_string<char, std::type_identity_t<Args>...>;
+using valid_format_string = basic_valid_format_string<std::type_identity_t<Args>...>;
 
 }  // namespace emio
 
 namespace emio::detail::format {
 
 // Non constexpr version.
-template <typename Char>
-result<void> vformat_to(buffer<Char>& buf, const basic_format_args<Char>& args) noexcept {
-  EMIO_TRY(const std::basic_string_view<Char> str, args.get_format_str());
-  reader<Char> format_rdr{str};
-  writer<char> wtr{buf};
-  format_parser<Char> fh{wtr, format_rdr};
+inline result<void> vformat_to(buffer& buf, const basic_format_args& args) noexcept {
+  EMIO_TRY(const std::string_view str, args.get_format_str());
+  reader format_rdr{str};
+  writer wtr{buf};
+  format_parser fh{wtr, format_rdr};
   while (true) {
     uint8_t arg_nbr{detail::no_more_args};
     if (auto res = fh.parse(arg_nbr); !res) {
@@ -5100,13 +5038,13 @@ result<void> vformat_to(buffer<Char>& buf, const basic_format_args<Char>& args) 
 }
 
 // Constexpr version.
-template <typename Char, typename... Args>
-constexpr result<void> format_to(buffer<Char>& buf, basic_format_string<Char, Args...> format_str,
+template <typename... Args>
+constexpr result<void> format_to(buffer& buf, basic_format_string<Args...> format_str,
                                  const Args&... args) noexcept {
-  EMIO_TRY(std::basic_string_view<Char> str, format_str.get());
-  reader<Char> format_rdr{str};
-  writer<Char> wtr{buf};
-  format_parser<Char> fh{wtr, format_rdr};
+  EMIO_TRY(std::string_view str, format_str.get());
+  reader format_rdr{str};
+  writer wtr{buf};
+  format_parser fh{wtr, format_rdr};
   while (true) {
     uint8_t arg_nbr{detail::no_more_args};
     if (auto res = fh.parse(arg_nbr); !res) {
@@ -5280,11 +5218,10 @@ namespace emio {
  * @note This type should only be "constructed" via make_format_args(format_str, args...) and passed directly to an
  * formatting function.
  */
-template <typename Char>
-using basic_format_args = detail::format::basic_format_args<Char>;
+using basic_format_args = detail::format::basic_format_args;
 
 // Alias type.
-using format_args = detail::format::basic_format_args<char>;
+using format_args = detail::format::basic_format_args;
 
 /**
  * Returns an object that stores a format string with an array of all arguments to format.
@@ -5298,7 +5235,7 @@ using format_args = detail::format::basic_format_args<char>;
  * @return Internal type. Implicit convertible to format_args.
  */
 template <typename... Args>
-[[nodiscard]] detail::format::basic_format_args_storage<char, sizeof...(Args)> make_format_args(
+[[nodiscard]] detail::format::basic_format_args_storage<sizeof...(Args)> make_format_args(
     format_string<Args...> format_str, const Args&... args) noexcept {
   return {format_str.get(), args...};
 }
@@ -5310,7 +5247,7 @@ template <typename... Args>
  * failed.
  */
 inline result<size_t> vformatted_size(format_args&& args) noexcept {
-  detail::basic_counting_buffer<char> buf{};
+  detail::basic_counting_buffer buf{};
   EMIO_TRYV(detail::format::vformat_to(buf, args));
   return buf.count();
 }
@@ -5324,7 +5261,7 @@ inline result<size_t> vformatted_size(format_args&& args) noexcept {
 template <typename... Args>
 [[nodiscard]] constexpr size_t formatted_size(valid_format_string<Args...> format_str,
                                               const Args&... args) noexcept(detail::exceptions_disabled) {
-  detail::basic_counting_buffer<char> buf{};
+  detail::basic_counting_buffer buf{};
   detail::format::format_to(buf, format_str, args...).value();
   return buf.count();
 }
@@ -5337,10 +5274,10 @@ template <typename... Args>
  * validation failed.
  */
 template <typename T, typename... Args>
-  requires(std::is_same_v<T, runtime<char>> || std::is_same_v<T, format_string<Args...>>)
+  requires(std::is_same_v<T, runtime> || std::is_same_v<T, format_string<Args...>>)
 constexpr result<size_t> formatted_size(T format_str, const Args&... args) noexcept {
-  detail::basic_counting_buffer<char> buf{};
-  basic_format_string<char, Args...> str{format_str};
+  detail::basic_counting_buffer buf{};
+  basic_format_string<Args...> str{format_str};
   EMIO_TRYV(detail::format::format_to(buf, str, args...));
   return buf.count();
 }
@@ -5352,7 +5289,7 @@ constexpr result<size_t> formatted_size(T format_str, const Args&... args) noexc
  * @return Success or EOF if the buffer is to small or invalid_format if the format string validation failed.
  */
 template <typename Buffer>
-  requires(std::is_base_of_v<buffer<char>, Buffer>)
+  requires(std::is_base_of_v<buffer, Buffer>)
 result<void> vformat_to(Buffer& buf, const format_args& args) noexcept {
   EMIO_TRYV(detail::format::vformat_to(buf, args));
   return success;
@@ -5364,7 +5301,7 @@ result<void> vformat_to(Buffer& buf, const format_args& args) noexcept {
  * @param args The format args with the format string.
  * @return Success or EOF if the buffer is to small or invalid_format if the format string validation failed.
  */
-inline result<void> vformat_to(writer<char>& wrt, const format_args& args) noexcept {
+inline result<void> vformat_to(writer& wrt, const format_args& args) noexcept {
   EMIO_TRYV(detail::format::vformat_to(wrt.get_buffer(), args));
   return success;
 }
@@ -5392,7 +5329,7 @@ constexpr result<OutputIt> vformat_to(OutputIt out, const format_args& args) noe
  * @return Success or EOF if the buffer is to small or invalid_format if the format string validation failed.
  */
 template <typename Buffer, typename... Args>
-  requires(std::is_base_of_v<buffer<char>, Buffer>)
+  requires(std::is_base_of_v<buffer, Buffer>)
 constexpr result<void> format_to(Buffer& buf, format_string<Args...> format_str, const Args&... args) noexcept {
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::format::format_to(buf, format_str, args...));
@@ -5410,7 +5347,7 @@ constexpr result<void> format_to(Buffer& buf, format_string<Args...> format_str,
  * @return Success or EOF if the buffer is to small or invalid_format if the format string validation failed.
  */
 template <typename... Args>
-constexpr result<void> format_to(writer<char>& wrt, format_string<Args...> format_str, const Args&... args) noexcept {
+constexpr result<void> format_to(writer& wrt, format_string<Args...> format_str, const Args&... args) noexcept {
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::format::format_to(wrt.get_buffer(), format_str, args...));
   } else {
@@ -5445,7 +5382,7 @@ constexpr result<OutputIt> format_to(OutputIt out, format_string<Args...> format
  * failed.
  */
 inline result<std::string> vformat(const format_args& args) noexcept {
-  memory_buffer<char> buf;
+  memory_buffer buf;
   if (auto res = detail::format::vformat_to(buf, args); !res) {
     return res.assume_error();
   }
@@ -5472,7 +5409,7 @@ template <typename... Args>
  * failed.
  */
 template <typename T, typename... Args>
-  requires(std::is_same_v<T, runtime<char>> || std::is_same_v<T, format_string<Args...>>)
+  requires(std::is_same_v<T, runtime> || std::is_same_v<T, format_string<Args...>>)
 result<std::string> format(T format_str, const Args&... args) noexcept {
   return vformat(make_format_args(format_str, args...));
 }
@@ -5564,7 +5501,7 @@ void print(valid_format_string<Args...> format_str, const Args&... args) {
  * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
  */
 template <typename T, typename... Args>
-  requires(std::is_same_v<T, runtime<char>> || std::is_same_v<T, format_string<Args...>>)
+  requires(std::is_same_v<T, runtime> || std::is_same_v<T, format_string<Args...>>)
 result<void> print(T format_str, const Args&... args) {
   return vprint(stdout, make_format_args(format_str, args...));
 }
@@ -5619,7 +5556,7 @@ void println(valid_format_string<Args...> format_str, const Args&... args) {
  * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
  */
 template <typename T, typename... Args>
-  requires(std::is_same_v<T, runtime<char>> || std::is_same_v<T, format_string<Args...>>)
+  requires(std::is_same_v<T, runtime> || std::is_same_v<T, format_string<Args...>>)
 result<void> println(T format_str, const Args&... args) {
   return vprintln(stdout, make_format_args(format_str, args...));
 }
@@ -5776,7 +5713,7 @@ template <typename T>
   requires(detail::format::is_valid_range<T> && !detail::format::is_contiguous_but_not_span<T>)
 class formatter<T> {
  public:
-  static constexpr result<void> validate(reader<char>& rdr) noexcept {
+  static constexpr result<void> validate(reader& rdr) noexcept {
     EMIO_TRY(char c, rdr.read_char());
     if (c == 'n') {
       EMIO_TRY(c, rdr.read_char());
@@ -5815,7 +5752,7 @@ class formatter<T> {
     specs_.closing_bracket = closing_bracket;
   }
 
-  constexpr result<void> parse(reader<char>& rdr) noexcept {
+  constexpr result<void> parse(reader& rdr) noexcept {
     char c = rdr.peek().assume_value();
     if (c == 'n') {
       set_brackets({}, {});
@@ -5830,7 +5767,7 @@ class formatter<T> {
     return underlying_.parse(rdr);
   }
 
-  constexpr result<void> format(writer<char>& wtr, const T& arg) const noexcept {
+  constexpr result<void> format(writer& wtr, const T& arg) const noexcept {
     EMIO_TRYV(wtr.write_str(specs_.opening_bracket));
 
     using std::begin;
@@ -5883,7 +5820,7 @@ class formatter<T> {
     specs_.closing_bracket = closing_bracket;
   }
 
-  static constexpr result<void> validate(reader<char>& rdr) noexcept {
+  static constexpr result<void> validate(reader& rdr) noexcept {
     EMIO_TRY(char c, rdr.read_char());
     if (c == 'n') {
       EMIO_TRY(c, rdr.read_char());
@@ -5898,7 +5835,7 @@ class formatter<T> {
     }
   }
 
-  constexpr result<void> parse(reader<char>& rdr) noexcept {
+  constexpr result<void> parse(reader& rdr) noexcept {
     char c = rdr.peek().assume_value();
     if (c == 'n') {
       set_brackets({}, {});
@@ -5914,7 +5851,7 @@ class formatter<T> {
     return parse_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), rdr, set_debug);
   }
 
-  constexpr result<void> format(writer<char>& wtr, const T& args) const noexcept {
+  constexpr result<void> format(writer& wtr, const T& args) const noexcept {
     EMIO_TRYV(wtr.write_str(specs_.opening_bracket));
     EMIO_TRYV(format_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), wtr, args));
     EMIO_TRYV(wtr.write_str(specs_.closing_bracket));
@@ -5923,10 +5860,10 @@ class formatter<T> {
 
  private:
   template <size_t... Ns>
-  static constexpr result<void> validate_for_each(std::index_sequence<Ns...> /*unused*/, reader<char>& rdr) noexcept {
+  static constexpr result<void> validate_for_each(std::index_sequence<Ns...> /*unused*/, reader& rdr) noexcept {
     size_t reader_pos = 0;
     result<void> res = success;
-    const auto validate = [&reader_pos, &res]<typename U>(std::type_identity<U> /*unused*/, reader<char> r /*copy!*/) {
+    const auto validate = [&reader_pos, &res]<typename U>(std::type_identity<U> /*unused*/, reader r /*copy!*/) {
       res = U::validate(r);
       if (res.has_error()) {
         return false;
@@ -5947,18 +5884,18 @@ class formatter<T> {
     return res;
   }
 
-  static constexpr result<void> validate_for_each(std::index_sequence<> /*unused*/, reader<char>& /*rdr*/) noexcept {
+  static constexpr result<void> validate_for_each(std::index_sequence<> /*unused*/, reader& /*rdr*/) noexcept {
     return err::invalid_format;
   }
 
   template <size_t... Ns>
-  constexpr result<void> parse_for_each(std::index_sequence<Ns...> /*unused*/, reader<char>& rdr,
+  constexpr result<void> parse_for_each(std::index_sequence<Ns...> /*unused*/, reader& rdr,
                                         const bool set_debug) noexcept {
     using std::get;
 
     size_t reader_pos = 0;
     result<void> res = success;
-    const auto parse = [&reader_pos, &res, set_debug](auto& f, reader<char> r /*copy!*/) {
+    const auto parse = [&reader_pos, &res, set_debug](auto& f, reader r /*copy!*/) {
       detail::format::maybe_set_debug_format(f, set_debug);
       res = f.parse(r);
       reader_pos = r.pos();
@@ -5972,7 +5909,7 @@ class formatter<T> {
     return res;
   }
 
-  constexpr result<void> parse_for_each(std::index_sequence<> /*unused*/, reader<char>& rdr,
+  constexpr result<void> parse_for_each(std::index_sequence<> /*unused*/, reader& rdr,
                                         const bool set_debug) noexcept {
     if (set_debug) {
       rdr.pop();  // }
@@ -5982,7 +5919,7 @@ class formatter<T> {
   }
 
   template <size_t N, size_t... Ns>
-  constexpr result<void> format_for_each(std::index_sequence<N, Ns...> /*unused*/, writer<char>& wtr,
+  constexpr result<void> format_for_each(std::index_sequence<N, Ns...> /*unused*/, writer& wtr,
                                          const T& args) const noexcept {
     using std::get;
     EMIO_TRYV(get<N>(formatters_).format(wtr, get<N>(args)));
@@ -6003,7 +5940,7 @@ class formatter<T> {
     return res;
   }
 
-  constexpr result<void> format_for_each(std::index_sequence<> /*unused*/, writer<char>& /*wtr*/,
+  constexpr result<void> format_for_each(std::index_sequence<> /*unused*/, writer& /*wtr*/,
                                          const T& /*args*/) const noexcept {
     return success;
   }
