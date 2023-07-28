@@ -37,8 +37,7 @@ inline result<void> vformat_to(buffer& buf, const basic_format_args& args) noexc
 
 // Constexpr version.
 template <typename... Args>
-constexpr result<void> format_to(buffer& buf, basic_format_string<Args...> format_str,
-                                 const Args&... args) noexcept {
+constexpr result<void> format_to(buffer& buf, basic_format_string<Args...> format_str, const Args&... args) noexcept {
   EMIO_TRY(std::string_view str, format_str.get());
   reader format_rdr{str};
   writer wtr{buf};

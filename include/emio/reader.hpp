@@ -254,9 +254,10 @@ class reader {
    */
   template <typename Predicate>
     requires(std::is_invocable_r_v<bool, Predicate, char>)
-  constexpr result<std::string_view>
-  read_until(Predicate&& predicate, const read_until_options& options = default_read_until_options()) noexcept(
-      std::is_nothrow_invocable_r_v<bool, Predicate, char>) {
+  constexpr result<std::string_view> read_until(
+      Predicate&& predicate,
+      const read_until_options& options =
+          default_read_until_options()) noexcept(std::is_nothrow_invocable_r_v<bool, Predicate, char>) {
     const std::string_view sv = view_remaining();
     const auto begin = sv.data();
     const auto end = sv.data() + sv.size();

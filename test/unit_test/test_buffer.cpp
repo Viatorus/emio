@@ -25,8 +25,7 @@ TEST_CASE("memory_buffer", "[buffer]") {
   const bool default_constructed = GENERATE(true, false);
   INFO("Default constructed: " << default_constructed);
 
-  emio::memory_buffer<15> buf =
-      default_constructed ? emio::memory_buffer<15>{} : emio::memory_buffer<15>{18};
+  emio::memory_buffer<15> buf = default_constructed ? emio::memory_buffer<15>{} : emio::memory_buffer<15>{18};
   CHECK(buf.view().empty());
 
   emio::result<std::span<char>> area = buf.get_write_area_of(first_size);

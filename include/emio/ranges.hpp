@@ -217,8 +217,7 @@ class formatter<T> {
     return res;
   }
 
-  constexpr result<void> parse_for_each(std::index_sequence<> /*unused*/, reader& rdr,
-                                        const bool set_debug) noexcept {
+  constexpr result<void> parse_for_each(std::index_sequence<> /*unused*/, reader& rdr, const bool set_debug) noexcept {
     if (set_debug) {
       rdr.pop();  // }
       return success;
