@@ -70,7 +70,7 @@ class writer {
     const std::string_view sv(&c, 1);
     const size_t required_size = detail::count_size_when_escaped(sv) + 2;
     EMIO_TRY(const auto area, buf_.get_write_area_of(required_size));
-    auto it = area.data();
+    char* it = area.data();
     *(it++) = '\'';
     it = detail::write_escaped(sv, it);
     *it = '\'';
@@ -104,7 +104,7 @@ class writer {
     // TODO: Split writes into multiple chunks.
     //  Not that easy because the remaining size of the sv is != the required output size.
     EMIO_TRY(const auto area, buf_.get_write_area_of(required_size));
-    auto it = area.data();
+    char* it = area.data();
     *(it++) = '"';
     it = detail::write_escaped(sv, it);
     *(it) = '"';

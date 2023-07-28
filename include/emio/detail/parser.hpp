@@ -91,7 +91,7 @@ class parser_base {
   constexpr result<void> parse_replacement_field(uint8_t& arg_nbr) noexcept {
     EMIO_TRYV(parse_field_name(arg_nbr));
 
-    EMIO_TRY(char c, format_rdr_.peek());
+    EMIO_TRY(const char c, format_rdr_.peek());
     if (c == '}') {
       return success;
     }
@@ -104,7 +104,7 @@ class parser_base {
   }
 
   constexpr result<void> parse_field_name(uint8_t& arg_nbr) noexcept {
-    EMIO_TRY(char c, format_rdr_.peek());
+    EMIO_TRY(const char c, format_rdr_.peek());
     if (detail::isdigit(c)) {               // Positional argument.
       if (use_positional_args_ == false) {  // If first argument was positional -> failure.
         return err::invalid_format;
@@ -166,7 +166,7 @@ class parser_base<input_validation::disabled> {
  private:
   constexpr result<void> parse_replacement_field(uint8_t& arg_nbr) noexcept {
     parse_field_name(arg_nbr);
-    char c = format_rdr_.peek().assume_value();
+    const char c = format_rdr_.peek().assume_value();
     if (c == '}') {
       return success;
     }
@@ -175,7 +175,7 @@ class parser_base<input_validation::disabled> {
   }
 
   constexpr void parse_field_name(uint8_t& arg_nbr) noexcept {
-    char c = format_rdr_.peek().assume_value();
+    const char c = format_rdr_.peek().assume_value();
     if (detail::isdigit(c)) {  // Positional argument.
       arg_nbr = format_rdr_.template parse_int<uint8_t>().assume_value();
       use_positional_args_ = true;

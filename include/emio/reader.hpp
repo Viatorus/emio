@@ -121,7 +121,7 @@ class reader {
    * Returns the next char from the stream without consuming it.
    * @return EOF if the end of the stream has been reached.
    */
-  constexpr result<char> peek() noexcept {
+  constexpr result<char> peek() const noexcept {
     const std::string_view remaining = view_remaining();
     if (!remaining.empty()) {
       return remaining[0];
@@ -254,15 +254,14 @@ class reader {
    */
   template <typename Predicate>
     requires(std::is_invocable_r_v<bool, Predicate, char>)
-  constexpr result<std::string_view> read_until(
-      Predicate&& predicate,
-      const read_until_options& options =
-          default_read_until_options()) noexcept(std::is_nothrow_invocable_r_v<bool, Predicate, char>) {
+  constexpr result<std::string_view>
+  read_until(Predicate&& predicate, const read_until_options& options = default_read_until_options()) noexcept(
+      std::is_nothrow_invocable_r_v<bool, Predicate, char>) {
     const std::string_view sv = view_remaining();
-    const auto begin = sv.data();
-    const auto end = sv.data() + sv.size();
-    const auto it = std::find_if(begin, end, predicate);
-    const auto pos = (it != end) ? std::distance(begin, it) : 0;
+    const char* begin = sv.data();
+    const char* end = sv.data() + sv.size();
+    const char* it = std::find_if(begin, end, predicate);
+    const intptr_t pos = (it != end) ? std::distance(begin, it) : 0;
     return read_until_pos(static_cast<size_t>(pos), options);
   }
 

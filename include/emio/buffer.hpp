@@ -193,10 +193,10 @@ class span_buffer : public buffer {
     this->set_write_area(span_);
   }
 
-  constexpr span_buffer(const span_buffer&) = default;
-  constexpr span_buffer(span_buffer&&) noexcept = default;
-  constexpr span_buffer& operator=(const span_buffer&) = default;
-  constexpr span_buffer& operator=(span_buffer&&) noexcept = default;
+  constexpr span_buffer(const span_buffer&) = delete;
+  constexpr span_buffer(span_buffer&&) noexcept = delete;
+  constexpr span_buffer& operator=(const span_buffer&) = delete;
+  constexpr span_buffer& operator=(span_buffer&&) noexcept = delete;
   constexpr ~span_buffer() override = default;
 
   /**
@@ -224,17 +224,17 @@ class span_buffer : public buffer {
  * @tparam StorageSize The size of the storage.
  */
 template <size_t StorageSize>
-class static_buffer final : private std::array<char, StorageSize>, public span_buffer {
+class static_buffer : private std::array<char, StorageSize>, public span_buffer {
  public:
   /**
    * Constructs and initializes the buffer with the storage.
    */
   constexpr static_buffer() noexcept : span_buffer{std::span{*this}} {}
 
-  constexpr static_buffer(const static_buffer&) = default;
-  constexpr static_buffer(static_buffer&&) noexcept = default;
-  constexpr static_buffer& operator=(const static_buffer&) = default;
-  constexpr static_buffer& operator=(static_buffer&&) noexcept = default;
+  constexpr static_buffer(const static_buffer&) = delete;
+  constexpr static_buffer(static_buffer&&) noexcept = delete;
+  constexpr static_buffer& operator=(const static_buffer&) = delete;
+  constexpr static_buffer& operator=(static_buffer&&) noexcept = delete;
   constexpr ~static_buffer() override = default;
 
   // Note: We inherit from std::array to put the storage lifetime before span_buffer.
