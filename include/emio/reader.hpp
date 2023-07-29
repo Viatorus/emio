@@ -254,10 +254,9 @@ class reader {
    */
   template <typename Predicate>
     requires(std::is_invocable_r_v<bool, Predicate, char>)
-  constexpr result<std::string_view> read_until(
-      Predicate&& predicate,
-      const read_until_options& options =
-          default_read_until_options()) noexcept(std::is_nothrow_invocable_r_v<bool, Predicate, char>) {
+  constexpr result<std::string_view>
+  read_until(Predicate&& predicate, const read_until_options& options = default_read_until_options()) noexcept(
+      std::is_nothrow_invocable_r_v<bool, Predicate, char>) {
     const std::string_view sv = view_remaining();
     const char* begin = sv.data();
     const char* end = sv.data() + sv.size();
@@ -298,7 +297,9 @@ class reader {
   }
 
  private:
-  static constexpr read_until_options default_read_until_options() noexcept {
+  // Helper function since GCC and Clang complain about "member initializer for '...' needed within definition of
+  // enclosing class". Which is a bug.
+  [[nodiscard]] static constexpr read_until_options default_read_until_options() noexcept {
     return {};
   }
 

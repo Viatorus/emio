@@ -134,6 +134,8 @@ class writer {
   }
 
  private:
+  // Helper function since GCC and Clang complain about "member initializer for '...' needed within definition of
+  // enclosing class". Which is a bug.
   static constexpr write_int_options default_write_int_options() noexcept {
     return {};
   }
