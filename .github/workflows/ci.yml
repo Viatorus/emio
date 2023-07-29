@@ -208,6 +208,10 @@ jobs:
         run: cmake --build build -t size-coverage
 
   size-test-embedded:
+    strategy:
+      matrix:
+        preset: [ ci-size-coverage-embedded, ci-size-coverage-embedded-nano ]
+
     runs-on: ubuntu-22.04
 
     env:
@@ -229,7 +233,7 @@ jobs:
           curl -L $DOWNLOAD_LINK | tar xJ
 
       - name: Configure
-        run: cmake --preset=ci-size-coverage-embedded -DCMAKE_BUILD_TYPE=MinSizeRel
+        run: cmake --preset=$preset -DCMAKE_BUILD_TYPE=MinSizeRel
 
       - name: Build
         run: cmake --build build/test/size_test -j $(nproc)
