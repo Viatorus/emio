@@ -91,8 +91,19 @@
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/arm-none-eabi-toolchain.cmake",
         "CMAKE_CXX_FLAGS": "$env{CXX_FLAGS} -ffunction-sections -fdata-sections -mcpu=cortex-m7 -mthumb -g0 -fno-exceptions -fno-rtti",
-        "CMAKE_EXE_LINKER_FLAGS": "-mcpu=cortex-m7 -mthumb -specs=nano.specs -Wl,--gc-sections",
+        "CMAKE_EXE_LINKER_FLAGS": "-mcpu=cortex-m7 -mthumb -Wl,--gc-sections",
         "CMAKE_BUILD_TYPE": "MinSizeRel"
+      }
+    },
+    {
+      "name": "ci-arm-none-eabi-nano",
+      "generator": "Unix Makefiles",
+      "hidden": true,
+      "inherits": [
+        "ci-arm-none-eabi"
+      ],
+      "cacheVariables": {
+        "CMAKE_EXE_LINKER_FLAGS": "-mcpu=cortex-m7 -mthumb -specs=nano.specs -Wl,--gc-sections"
       }
     },
     {
@@ -191,6 +202,20 @@
       "inherits": [
         "ci-build",
         "ci-arm-none-eabi",
+        "dev-mode"
+      ],
+      "cacheVariables": {
+        "BUILD_SIZE_COVERAGE": "ON",
+        "ENABLE_SIZE_COVERAGE": "ON",
+        "SIZE_COVERAGE_HTML_COMMAND": "",
+        "SIZE_TOOL": "arm-none-eabi-size"
+      }
+    },
+    {
+      "name": "ci-size-coverage-embedded-nano",
+      "inherits": [
+        "ci-build",
+        "ci-arm-none-eabi-nano",
         "dev-mode"
       ],
       "cacheVariables": {
