@@ -34,7 +34,7 @@ class formatter {
    * @param rdr The format reader.
    * @return Success if the format spec is valid.
    */
-  static constexpr result<void> validate(reader<char>& rdr) noexcept {
+  static constexpr result<void> validate(reader& rdr) noexcept {
     return rdr.read_if_match_char('}');
   }
 
@@ -43,7 +43,7 @@ class formatter {
    * @param rdr The format reader.
    * @return Success if the format spec is valid and could be parsed.
    */
-  constexpr result<void> parse(reader<char>& rdr) noexcept {
+  constexpr result<void> parse(reader& rdr) noexcept {
     return rdr.read_if_match_char('}');
   }
 
@@ -53,7 +53,7 @@ class formatter {
    * @param arg The argument to format.
    * @return Success if the formatting could be done.
    */
-  constexpr result<void> format(writer<char>& wtr, const T& arg) const noexcept {
+  constexpr result<void> format(writer& wtr, const T& arg) const noexcept {
     return wtr.write_int(sizeof(arg));
   }
 };
@@ -72,7 +72,7 @@ template <typename T>
   requires(detail::format::is_core_type_v<T>)
 class formatter<T> {
  public:
-  static constexpr result<void> validate(reader<char>& rdr) noexcept {
+  static constexpr result<void> validate(reader& rdr) noexcept {
     detail::format::format_specs specs{};
     EMIO_TRYV(validate_format_specs(rdr, specs));
     if constexpr (std::is_same_v<T, bool>) {
@@ -96,11 +96,11 @@ class formatter<T> {
     return success;
   }
 
-  constexpr result<void> parse(reader<char>& rdr) noexcept {
+  constexpr result<void> parse(reader& rdr) noexcept {
     return detail::format::parse_format_specs(rdr, specs_);
   }
 
-  constexpr result<void> format(writer<char>& wtr, const T& arg) const noexcept {
+  constexpr result<void> format(writer& wtr, const T& arg) const noexcept {
     auto specs = specs_;  // Copy spec because format could be called multiple times (e.g. ranges).
     return write_arg(wtr, specs, arg);
   }
@@ -158,7 +158,7 @@ template <typename T>
   requires(std::is_enum_v<T> && std::is_convertible_v<T, std::underlying_type_t<T>>)
 class formatter<T> : public formatter<std::underlying_type_t<T>> {
  public:
-  constexpr result<void> format(writer<char>& wtr, const T& arg) const noexcept {
+  constexpr result<void> format(writer& wtr, const T& arg) const noexcept {
     return formatter<std::underlying_type_t<T>>::format(wtr, static_cast<std::underlying_type_t<T>>(arg));
   }
 };
@@ -171,7 +171,7 @@ template <typename T>
   requires(detail::format::has_format_as<T>)
 class formatter<T> : public formatter<detail::format::format_as_return_t<T>> {
  public:
-  constexpr result<void> format(writer<char>& wtr, const T& arg) const noexcept {
+  constexpr result<void> format(writer& wtr, const T& arg) const noexcept {
     return formatter<detail::format::format_as_return_t<T>>::format(wtr, format_as(arg));
   }
 };
@@ -234,15 +234,15 @@ template <typename T>
 template <typename T>
 class formatter<detail::format_spec_with_value<T>> {
  public:
-  static constexpr result<void> validate(reader<char>& rdr) noexcept {
+  static constexpr result<void> validate(reader& rdr) noexcept {
     return formatter<T>::validate(rdr);
   }
 
-  constexpr result<void> parse(reader<char>& rdr) noexcept {
+  constexpr result<void> parse(reader& rdr) noexcept {
     return underlying_.parse(rdr);
   }
 
-  constexpr result<void> format(writer<char>& wtr, const detail::format_spec_with_value<T>& arg) noexcept {
+  constexpr result<void> format(writer& wtr, const detail::format_spec_with_value<T>& arg) noexcept {
     overwrite_spec(arg.spec);
     return underlying_.format(wtr, arg.value);
   }

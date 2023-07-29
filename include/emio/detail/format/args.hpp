@@ -33,7 +33,7 @@ class format_validation_arg {
   // No destructor & delete call to concept_t because model_t holds only a reference.
   ~format_validation_arg() = default;
 
-  result<void> validate(reader<char>& format_is) const noexcept {
+  result<void> validate(reader& format_is) const noexcept {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): only way to get the object back
     return reinterpret_cast<const concept_t*>(&storage_)->validate(format_is);
   }
@@ -47,7 +47,7 @@ class format_validation_arg {
     concept_t& operator=(const concept_t&) = delete;
     concept_t& operator=(concept_t&&) = delete;
 
-    virtual result<void> validate(reader<char>& format_is) const noexcept = 0;
+    virtual result<void> validate(reader& format_is) const noexcept = 0;
 
    protected:
     ~concept_t() = default;
@@ -62,7 +62,7 @@ class format_validation_arg {
     model_t& operator=(const model_t&) = delete;
     model_t& operator=(model_t&&) = delete;
 
-    result<void> validate(reader<char>& format_is) const noexcept override {
+    result<void> validate(reader& format_is) const noexcept override {
       return validate_for<std::remove_cvref_t<T>>(format_is);
     }
 
@@ -76,7 +76,6 @@ class format_validation_arg {
 /**
  * Format arguments just for format string validation.
  */
-template <typename Char>
 class format_validation_args {
  public:
   format_validation_args(const format_validation_args&) = delete;
@@ -85,7 +84,7 @@ class format_validation_args {
   format_validation_args& operator=(format_validation_args&&) = delete;
   ~format_validation_args() = default;
 
-  [[nodiscard]] std::basic_string_view<Char> get_format_str() const noexcept {
+  [[nodiscard]] std::string_view get_format_str() const noexcept {
     return format_str_;
   }
 
@@ -94,60 +93,58 @@ class format_validation_args {
   }
 
  protected:
-  format_validation_args(std::basic_string_view<Char> format_str, std::span<const format_validation_arg> args)
+  format_validation_args(std::string_view format_str, std::span<const format_validation_arg> args)
       : format_str_{format_str}, args_{args} {}
 
  private:
-  std::basic_string_view<Char> format_str_;
+  std::string_view format_str_;
   std::span<const detail::format::format_validation_arg> args_;
 };
 
 /**
  * Format arguments storage just for format string validation.
  */
-template <typename Char, size_t NbrOfArgs>
-class basic_format_validation_args_storage : public format_validation_args<Char> {
+template <size_t NbrOfArgs>
+class format_validation_args_storage : public format_validation_args {
  public:
   template <typename... Args>
-  basic_format_validation_args_storage(std::basic_string_view<Char> str, const Args&... args)
-      : format_validation_args<Char>{str, args_storage_}, args_storage_{format_validation_arg{args}...} {}
+  format_validation_args_storage(std::string_view str, const Args&... args)
+      : format_validation_args{str, args_storage_}, args_storage_{format_validation_arg{args}...} {}
 
-  basic_format_validation_args_storage(const basic_format_validation_args_storage&) = delete;
-  basic_format_validation_args_storage(basic_format_validation_args_storage&&) = delete;
-  basic_format_validation_args_storage& operator=(const basic_format_validation_args_storage&) = delete;
-  basic_format_validation_args_storage& operator=(basic_format_validation_args_storage&&) = delete;
-  ~basic_format_validation_args_storage() = default;
+  format_validation_args_storage(const format_validation_args_storage&) = delete;
+  format_validation_args_storage(format_validation_args_storage&&) = delete;
+  format_validation_args_storage& operator=(const format_validation_args_storage&) = delete;
+  format_validation_args_storage& operator=(format_validation_args_storage&&) = delete;
+  ~format_validation_args_storage() = default;
 
  private:
   std::array<format_validation_arg, NbrOfArgs> args_storage_;
 };
 
-template <typename Char, typename... Args>
-basic_format_validation_args_storage<Char, sizeof...(Args)> make_format_validation_args(
-    std::basic_string_view<Char> format_str) {
+template <typename... Args>
+format_validation_args_storage<sizeof...(Args)> make_format_validation_args(std::string_view format_str) {
   return {format_str, std::type_identity<Args>{}...};
 }
 
 /**
  * Type erased format argument for formatting.
  */
-template <typename Char>
-class basic_format_arg {
+class format_arg {
  public:
   template <typename T>
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): will be initialized in constructor
-  explicit basic_format_arg(const T& value) noexcept {
+  explicit format_arg(const T& value) noexcept {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): only way to use the storage
     std::construct_at(reinterpret_cast<model_t<unified_type_t<T>>*>(&storage_), value);
   }
 
-  basic_format_arg(const basic_format_arg&) = delete;
-  basic_format_arg(basic_format_arg&&) = delete;
-  basic_format_arg& operator=(const basic_format_arg&) = delete;
-  basic_format_arg& operator=(basic_format_arg&&) = delete;
-  ~basic_format_arg() = default;  // No destructor & delete call to concept_t because model_t holds only a reference.
+  format_arg(const format_arg&) = delete;
+  format_arg(format_arg&&) = delete;
+  format_arg& operator=(const format_arg&) = delete;
+  format_arg& operator=(format_arg&&) = delete;
+  ~format_arg() = default;  // No destructor & delete call to concept_t because model_t holds only a reference.
 
-  result<void> format(writer<Char>& wtr, reader<Char>& format_is) const noexcept {
+  result<void> format(writer& wtr, reader& format_is) const noexcept {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): only way to get the object back
     return reinterpret_cast<const concept_t*>(&storage_)->format(wtr, format_is);
   }
@@ -161,7 +158,7 @@ class basic_format_arg {
     concept_t& operator=(const concept_t&) = delete;
     concept_t& operator=(concept_t&&) = delete;
 
-    virtual result<void> format(writer<Char>& wtr, reader<Char>& format_is) const noexcept = 0;
+    virtual result<void> format(writer& wtr, reader& format_is) const noexcept = 0;
 
    protected:
     ~concept_t() = default;
@@ -177,7 +174,7 @@ class basic_format_arg {
     model_t& operator=(const model_t&) = delete;
     model_t& operator=(model_t&&) = delete;
 
-    result<void> format(writer<Char>& wtr, reader<Char>& format_is) const noexcept override {
+    result<void> format(writer& wtr, reader& format_is) const noexcept override {
       formatter<std::remove_cvref_t<T>> formatter;
       EMIO_TRYV(invoke_formatter_parse<input_validation::disabled>(formatter, format_is));
       return formatter.format(wtr, value_);
@@ -196,50 +193,49 @@ class basic_format_arg {
 /**
  * Format arguments for formatting.
  */
-template <typename Char>
-class basic_format_args {
+class format_args {
  public:
-  basic_format_args(const basic_format_args&) = delete;
-  basic_format_args(basic_format_args&&) = delete;
-  basic_format_args& operator=(const basic_format_args&) = delete;
-  basic_format_args& operator=(basic_format_args&&) = delete;
-  ~basic_format_args() = default;
+  format_args(const format_args&) = delete;
+  format_args(format_args&&) = delete;
+  format_args& operator=(const format_args&) = delete;
+  format_args& operator=(format_args&&) = delete;
+  ~format_args() = default;
 
-  result<std::basic_string_view<Char>> get_format_str() const noexcept {
+  result<std::string_view> get_format_str() const noexcept {
     return format_str_;
   }
 
-  [[nodiscard]] std::span<const basic_format_arg<Char>> get_args() const noexcept {
+  [[nodiscard]] std::span<const format_arg> get_args() const noexcept {
     return args_;
   }
 
  protected:
-  basic_format_args(result<std::basic_string_view<Char>> format_str, std::span<const basic_format_arg<Char>> args)
+  format_args(result<std::string_view> format_str, std::span<const format_arg> args)
       : format_str_{format_str}, args_{args} {}
 
  private:
-  result<std::basic_string_view<Char>> format_str_;
-  std::span<const basic_format_arg<Char>> args_;
+  result<std::string_view> format_str_;
+  std::span<const format_arg> args_;
 };
 
 /**
  * Format arguments storage for formatting.
  */
-template <typename Char, size_t NbrOfArgs>
-class basic_format_args_storage : public basic_format_args<Char> {
+template <size_t NbrOfArgs>
+class format_args_storage : public format_args {
  public:
   template <typename... Args>
-  basic_format_args_storage(result<std::basic_string_view<Char>> str, const Args&... args)
-      : basic_format_args<Char>{str, args_storage_}, args_storage_{basic_format_arg<Char>{args}...} {}
+  format_args_storage(result<std::string_view> str, const Args&... args)
+      : format_args{str, args_storage_}, args_storage_{format_arg{args}...} {}
 
-  basic_format_args_storage(const basic_format_args_storage&) = delete;
-  basic_format_args_storage(basic_format_args_storage&&) = delete;
-  basic_format_args_storage& operator=(const basic_format_args_storage&) = delete;
-  basic_format_args_storage& operator=(basic_format_args_storage&&) = delete;
-  ~basic_format_args_storage() = default;
+  format_args_storage(const format_args_storage&) = delete;
+  format_args_storage(format_args_storage&&) = delete;
+  format_args_storage& operator=(const format_args_storage&) = delete;
+  format_args_storage& operator=(format_args_storage&&) = delete;
+  ~format_args_storage() = default;
 
  private:
-  std::array<basic_format_arg<Char>, NbrOfArgs> args_storage_;
+  std::array<format_arg, NbrOfArgs> args_storage_;
 };
 
 }  // namespace emio::detail::format

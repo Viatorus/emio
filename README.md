@@ -9,7 +9,7 @@ embedded systems with a very small binary footprint.
 ```cpp
 std::string str = emio::format("The answer is {}.", 42);  
 
-emio::result<std::string> res = emio::format(emio::runtime{"The answer is {}."}, 42);
+emio::result<std::string> res = emio::format(emio::runtime("The answer is {}."), 42);
 if (res.has_value()) {
     std::string res = res.value();  // The answer is 42.
 }

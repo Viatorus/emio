@@ -20,17 +20,13 @@ namespace emio {
  * This class operates on a char sequence and allows reading and parsing from it.
  * The reader interprets the char sequence as finite input stream. After every successful operation the read position
  * moves on until the last char of the sequence has been consumed.
- * @tparam Char The character type.
  */
-template <typename Char>
 class reader {
  public:
-  /// The view type.
-  using view_t = std::basic_string_view<Char>;
   /// The size type.
-  using size_type = typename std::basic_string_view<Char>::size_type;
+  using size_type = typename std::string_view::size_type;
   /// Special value to indicate the end of the view or an error by functions returning an index.
-  static constexpr size_type npos = std::basic_string_view<Char>::npos;
+  static constexpr size_type npos = std::string_view::npos;
 
   /**
    * Constructs an empty reader.
@@ -38,7 +34,7 @@ class reader {
   constexpr reader() = default;
 
   // Don't allow temporary strings or any nullptr.
-  constexpr reader(std::basic_string<Char>&&) = delete;
+  constexpr reader(std::string&&) = delete;
   constexpr reader(std::nullptr_t) = delete;
   constexpr reader(int) = delete;
 
@@ -47,9 +43,9 @@ class reader {
    * @param input The char sequence.
    */
   template <typename Arg>
-    requires(std::is_constructible_v<view_t, Arg>)
+    requires(std::is_constructible_v<std::string_view, Arg>)
   // NOLINTNEXTLINE(bugprone-forwarding-reference-overload): Is guarded by require clause.
-  constexpr explicit(!std::is_convertible_v<Arg, view_t>) reader(Arg&& input) noexcept
+  constexpr explicit(!std::is_convertible_v<Arg, std::string_view>) reader(Arg&& input) noexcept
       : input_{std::forward<Arg>(input)} {}
 
   /**
@@ -80,7 +76,7 @@ class reader {
    * Obtains a view of the not yet read chars of the stream.
    * @return The view over the remaining chars.
    */
-  [[nodiscard]] constexpr std::basic_string_view<Char> view_remaining() const noexcept {
+  [[nodiscard]] constexpr std::string_view view_remaining() const noexcept {
     const size_t x = input_.size() - pos_;
     if (x == 0) {
       return {};
@@ -92,8 +88,8 @@ class reader {
    * Reads all remaining chars from the stream.
    * @return The remaining chars. Could be empty.
    */
-  [[nodiscard]] constexpr view_t read_remaining() noexcept {
-    const view_t remaining_view = view_remaining();
+  [[nodiscard]] constexpr std::string_view read_remaining() noexcept {
+    const std::string_view remaining_view = view_remaining();
     pop(remaining_view.size());
     return remaining_view;
   }
@@ -125,8 +121,8 @@ class reader {
    * Returns the next char from the stream without consuming it.
    * @return EOF if the end of the stream has been reached.
    */
-  constexpr result<Char> peek() noexcept {
-    const view_t remaining = view_remaining();
+  constexpr result<char> peek() const noexcept {
+    const std::string_view remaining = view_remaining();
     if (!remaining.empty()) {
       return remaining[0];
     }
@@ -137,8 +133,8 @@ class reader {
    * Reads one char from the stream.
    * @return EOF if the end of the stream has been reached.
    */
-  constexpr result<Char> read_char() noexcept {
-    const view_t remaining = view_remaining();
+  constexpr result<char> read_char() noexcept {
+    const std::string_view remaining = view_remaining();
     if (!remaining.empty()) {
       pop();
       return remaining[0];
@@ -151,11 +147,11 @@ class reader {
    * @param n The number of chars to read.
    * @return EOF if the end of the stream has been reached before reading n chars.
    */
-  constexpr result<view_t> read_n_chars(const size_t n) noexcept {
-    const view_t remaining = view_remaining();
+  constexpr result<std::string_view> read_n_chars(const size_t n) noexcept {
+    const std::string_view remaining = view_remaining();
     if (remaining.size() >= n) {
       pop(n);
-      return view_t{remaining.data(), remaining.data() + n};
+      return std::string_view{remaining.data(), remaining.data() + n};
     }
     return err::eof;
   }
@@ -209,7 +205,8 @@ class reader {
    * @return invalid_data if the delimiter hasn't been found and ignore_eof is set to true or EOF if the stream is
    * empty.
    */
-  constexpr result<view_t> read_until_char(const Char delimiter, const read_until_options& options = {}) noexcept {
+  constexpr result<std::string_view> read_until_char(
+      const char delimiter, const read_until_options& options = default_read_until_options()) noexcept {
     return read_until_pos(view_remaining().find(delimiter), options);
   }
 
@@ -220,8 +217,8 @@ class reader {
    * @return invalid_data if the delimiter hasn't been found and ignore_eof is set to true or EOF if the stream is
    * empty.
    */
-  constexpr result<view_t> read_until_str(const std::basic_string_view<Char> delimiter,
-                                          const read_until_options& options = {}) {
+  constexpr result<std::string_view> read_until_str(const std::string_view delimiter,
+                                                    const read_until_options& options = default_read_until_options()) {
     return read_until_pos(view_remaining().find(delimiter), options, delimiter.size());
   }
 
@@ -231,8 +228,8 @@ class reader {
    * @param options The read until options.
    * @return invalid_data if no char has been found and ignore_eof is set to True or EOF if the stream is empty.
    */
-  constexpr result<view_t> read_until_any_of(const std::basic_string_view<Char> group,
-                                             const read_until_options& options = {}) noexcept {
+  constexpr result<std::string_view> read_until_any_of(
+      const std::string_view group, const read_until_options& options = default_read_until_options()) noexcept {
     return read_until_pos(view_remaining().find_first_of(group), options);
   }
 
@@ -243,8 +240,8 @@ class reader {
    * @return invalid_data if a char not in the group has been found and ignore_eof is set to True or EOF if the stream
    * is empty.
    */
-  constexpr result<view_t> read_until_none_of(const std::basic_string_view<Char> group,
-                                              const read_until_options& options = {}) noexcept {
+  constexpr result<std::string_view> read_until_none_of(
+      const std::string_view group, const read_until_options& options = default_read_until_options()) noexcept {
     return read_until_pos(view_remaining().find_first_not_of(group), options);
   }
 
@@ -256,14 +253,16 @@ class reader {
    * empty.
    */
   template <typename Predicate>
-    requires(std::is_invocable_r_v<bool, Predicate, Char>)
-  constexpr result<view_t> read_until(Predicate&& predicate, const read_until_options& options = {}) noexcept(
-      std::is_nothrow_invocable_r_v<bool, Predicate, Char>) {
-    const view_t sv = view_remaining();
-    const auto begin = sv.data();
-    const auto end = sv.data() + sv.size();
-    const auto it = std::find_if(begin, end, predicate);
-    const auto pos = (it != end) ? std::distance(begin, it) : 0;
+    requires(std::is_invocable_r_v<bool, Predicate, char>)
+  constexpr result<std::string_view> read_until(
+      Predicate&& predicate,
+      const read_until_options& options =
+          default_read_until_options()) noexcept(std::is_nothrow_invocable_r_v<bool, Predicate, char>) {
+    const std::string_view sv = view_remaining();
+    const char* begin = sv.data();
+    const char* end = sv.data() + sv.size();
+    const char* it = std::find_if(begin, end, predicate);
+    const intptr_t pos = (it != end) ? std::distance(begin, it) : 0;
     return read_until_pos(static_cast<size_t>(pos), options);
   }
 
@@ -273,7 +272,7 @@ class reader {
    * @return invalid_data if the chars don't match or EOF if the end of the stream has been reached.
    */
   constexpr result<char> read_if_match_char(const char c) noexcept {
-    EMIO_TRY(const Char p, peek());
+    EMIO_TRY(const char p, peek());
     if (p == c) {
       pop();
       return c;
@@ -286,8 +285,8 @@ class reader {
    * @param sv The expected char sequence.
    * @return invalid_data if the chars don't match or EOF if the end of the stream has been reached.
    */
-  constexpr result<view_t> read_if_match_str(const std::basic_string_view<Char> sv) noexcept {
-    const view_t remaining = view_remaining();
+  constexpr result<std::string_view> read_if_match_str(const std::string_view sv) noexcept {
+    const std::string_view remaining = view_remaining();
     if (remaining.size() < sv.size()) {
       return err::eof;
     }
@@ -299,6 +298,12 @@ class reader {
   }
 
  private:
+  // Helper function since GCC and Clang complain about "member initializer for '...' needed within definition of
+  // enclosing class". Which is a bug.
+  [[nodiscard]] static constexpr read_until_options default_read_until_options() noexcept {
+    return {};
+  }
+
   template <typename T>
     requires(std::is_integral_v<T>)
   constexpr result<T> parse_int_impl(const int base) {
@@ -310,7 +315,7 @@ class reader {
     T maybe_overflowed_value{};
     T signed_flag{1};
 
-    EMIO_TRY(Char c, peek());
+    EMIO_TRY(char c, peek());  // NOLINT(misc-const-correctness): false-positive
     if (c == '-') {
       if constexpr (std::is_unsigned_v<T>) {
         return err::invalid_data;
@@ -351,9 +356,9 @@ class reader {
     }
   }
 
-  constexpr result<view_t> read_until_pos(size_t pos, const read_until_options& options,
-                                          const size_type delimiter_size = 1) noexcept {
-    const view_t remaining = view_remaining();
+  constexpr result<std::string_view> read_until_pos(size_t pos, const read_until_options& options,
+                                                    const size_type delimiter_size = 1) noexcept {
+    const std::string_view remaining = view_remaining();
     if (remaining.empty()) {
       return err::eof;
     }
@@ -376,17 +381,7 @@ class reader {
   }
 
   size_t pos_{};
-  std::basic_string_view<Char> input_;
+  std::string_view input_;
 };
-
-// Deduction guides.
-template <typename Char>
-reader(std::basic_string_view<Char>) -> reader<Char>;
-
-template <typename Char, typename Traits, typename Alloc>
-reader(std::basic_string<Char, Traits, Alloc>) -> reader<Char>;
-
-template <typename Char>
-reader(const Char*) -> reader<Char>;
 
 }  // namespace emio

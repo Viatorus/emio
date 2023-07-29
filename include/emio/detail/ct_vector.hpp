@@ -86,7 +86,7 @@ class ct_vector {
     return data_ != storage_.data() && data_ != nullptr;
   }
 
-  std::array<char, StorageSize> storage_;
+  std::array<Char, StorageSize> storage_;
   Char* data_{storage_.data()};
   size_t size_{};
   size_t capacity_{StorageSize};

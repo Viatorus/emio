@@ -25,8 +25,7 @@ TEST_CASE("memory_buffer", "[buffer]") {
   const bool default_constructed = GENERATE(true, false);
   INFO("Default constructed: " << default_constructed);
 
-  emio::memory_buffer<char, 15> buf =
-      default_constructed ? emio::memory_buffer<char, 15>{} : emio::memory_buffer<char, 15>{18};
+  emio::memory_buffer<15> buf = default_constructed ? emio::memory_buffer<15>{} : emio::memory_buffer<15>{18};
   CHECK(buf.view().empty());
 
   emio::result<std::span<char>> area = buf.get_write_area_of(first_size);
@@ -105,7 +104,7 @@ TEST_CASE("memory_buffer at compile-time", "[buffer]") {
   constexpr bool success = [] {
     bool result = true;
 
-    emio::memory_buffer<char, 1> buf{};
+    emio::memory_buffer<1> buf{};
     result &= buf.view().empty();
 
     emio::result<std::span<char>> area = buf.get_write_area_of(first_size);
@@ -210,11 +209,11 @@ TEST_CASE("static_buffer", "[buffer]") {
   // * Check max size of the buffer.
   // Expected: The max size is correct.
 
-  emio::static_buffer<char, 542> buffer;
+  emio::static_buffer<542> buffer;
   CHECK(buffer.get_write_area_of_max(600)->size() == 542);
 }
 
-TEST_CASE("basic_counting_buffer", "[buffer]") {
+TEST_CASE("counting_buffer", "[buffer]") {
   // Test strategy:
   // * Construct a counting_buffer.
   // * Write into the buffer.
@@ -226,7 +225,7 @@ TEST_CASE("basic_counting_buffer", "[buffer]") {
 
   using emio::detail::internal_buffer_size;
 
-  emio::detail::basic_counting_buffer<char> buf;
+  emio::detail::counting_buffer buf;
   CHECK(buf.count() == 0);
 
   emio::result<std::span<char>> area = buf.get_write_area_of(first_size);

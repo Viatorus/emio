@@ -13,11 +13,10 @@
 
 namespace emio::detail::format {
 
-template <typename Char>
-class format_parser final : public parser_base<Char, input_validation::disabled> {
+class format_parser final : public parser_base<input_validation::disabled> {
  public:
-  constexpr explicit format_parser(writer<Char>& wtr, reader<Char>& format_rdr) noexcept
-      : parser_base<Char, input_validation::disabled>{format_rdr}, wtr_{wtr} {}
+  constexpr explicit format_parser(writer& wtr, reader& format_rdr) noexcept
+      : parser_base<input_validation::disabled>{format_rdr}, wtr_{wtr} {}
 
   format_parser(const format_parser&) = delete;
   format_parser(format_parser&&) = delete;
@@ -55,17 +54,15 @@ class format_parser final : public parser_base<Char, input_validation::disabled>
     }
   }
 
-  writer<Char>& wtr_;
+  writer& wtr_;
 };
 
 // Explicit out-of-class definition because of GCC bug: ~format_parser() used before its definition.
-template <typename Char>
-constexpr format_parser<Char>::~format_parser() noexcept = default;
+constexpr format_parser::~format_parser() noexcept = default;
 
-template <typename Char>
-class format_specs_checker final : public parser_base<Char, input_validation::enabled> {
+class format_specs_checker final : public parser_base<input_validation::enabled> {
  public:
-  using parser_base<Char, input_validation::enabled>::parser_base;
+  using parser_base<input_validation::enabled>::parser_base;
 
   format_specs_checker(const format_specs_checker& other) = delete;
   format_specs_checker(format_specs_checker&& other) = delete;
@@ -100,13 +97,11 @@ class format_specs_checker final : public parser_base<Char, input_validation::en
 };
 
 // Explicit out-of-class definition because of GCC bug: ~format_parser() used before its definition.
-template <typename Char>
-constexpr format_specs_checker<Char>::~format_specs_checker() noexcept = default;
+constexpr format_specs_checker::~format_specs_checker() noexcept = default;
 
-template <typename Char>
-[[nodiscard]] bool validate_format_string_fallback(const format_validation_args<Char>& args) noexcept {
-  reader<Char> format_rdr{args.get_format_str()};
-  format_specs_checker<Char> fh{format_rdr};
+[[nodiscard]] inline bool validate_format_string_fallback(const format_validation_args& args) noexcept {
+  reader format_rdr{args.get_format_str()};
+  format_specs_checker fh{format_rdr};
   bitset<128> matched{};
   const size_t arg_cnt = args.get_args().size();
   while (true) {
@@ -129,11 +124,11 @@ template <typename Char>
   return matched.all_first(arg_cnt);
 }
 
-template <typename... Args, typename Char>
-[[nodiscard]] constexpr bool validate_format_string(std::basic_string_view<Char> format_str) noexcept {
+template <typename... Args>
+[[nodiscard]] constexpr bool validate_format_string(std::string_view format_str) noexcept {
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
-    reader<Char> format_rdr{format_str};
-    format_specs_checker<Char> fh{format_rdr};
+    reader format_rdr{format_str};
+    format_specs_checker fh{format_rdr};
     bitset<sizeof...(Args)> matched{};
     while (true) {
       uint8_t arg_nbr{detail::no_more_args};
@@ -154,7 +149,7 @@ template <typename... Args, typename Char>
     }
     return matched.all();
   } else {
-    return validate_format_string_fallback(make_format_validation_args<Char, Args...>(format_str));
+    return validate_format_string_fallback(make_format_validation_args<Args...>(format_str));
   }
 }
 

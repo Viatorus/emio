@@ -15,12 +15,11 @@
 namespace emio::detail::format {
 
 // Non constexpr version.
-template <typename Char>
-result<void> vformat_to(buffer<Char>& buf, const basic_format_args<Char>& args) noexcept {
-  EMIO_TRY(const std::basic_string_view<Char> str, args.get_format_str());
-  reader<Char> format_rdr{str};
-  writer<char> wtr{buf};
-  format_parser<Char> fh{wtr, format_rdr};
+inline result<void> vformat_to(buffer& buf, const format_args& args) noexcept {
+  EMIO_TRY(const std::string_view str, args.get_format_str());
+  reader format_rdr{str};
+  writer wtr{buf};
+  format_parser fh{wtr, format_rdr};
   while (true) {
     uint8_t arg_nbr{detail::no_more_args};
     if (auto res = fh.parse(arg_nbr); !res) {
@@ -37,13 +36,12 @@ result<void> vformat_to(buffer<Char>& buf, const basic_format_args<Char>& args) 
 }
 
 // Constexpr version.
-template <typename Char, typename... Args>
-constexpr result<void> format_to(buffer<Char>& buf, basic_format_string<Char, Args...> format_str,
-                                 const Args&... args) noexcept {
-  EMIO_TRY(std::basic_string_view<Char> str, format_str.get());
-  reader<Char> format_rdr{str};
-  writer<Char> wtr{buf};
-  format_parser<Char> fh{wtr, format_rdr};
+template <typename... Args>
+constexpr result<void> format_to(buffer& buf, format_string<Args...> format_str, const Args&... args) noexcept {
+  EMIO_TRY(std::string_view str, format_str.get());
+  reader format_rdr{str};
+  writer wtr{buf};
+  format_parser fh{wtr, format_rdr};
   while (true) {
     uint8_t arg_nbr{detail::no_more_args};
     if (auto res = fh.parse(arg_nbr); !res) {

@@ -34,12 +34,12 @@ TEST_CASE("format_array", "[ranges]") {
 
 TEST_CASE("ranges invalid_format or validate tests", "[ranges]") {
   const int arr[] = {1, 2};
-  CHECK(emio::format(emio::runtime{"{}"}, arr) == "[1, 2]");
-  CHECK(emio::format(emio::runtime{"{:x"}, arr) == emio::err::invalid_format);
-  CHECK(emio::format(emio::runtime{"{:n"}, arr) == emio::err::invalid_format);
-  CHECK(emio::format(emio::runtime{"{::i}"}, arr) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{}"), arr) == "[1, 2]");
+  CHECK(emio::format(emio::runtime("{:x"), arr) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{:n"), arr) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{::i}"), arr) == emio::err::invalid_format);
 
-  emio::static_buffer<char, 1> buf{};
+  emio::static_buffer<1> buf{};
   CHECK(emio::format_to(buf, "{}", arr) == emio::err::eof);
   CHECK(emio::format_to(buf, "x{}", arr) == emio::err::eof);
 }
@@ -74,8 +74,8 @@ TEST_CASE("format_map", "[ranges]") {
   auto m = std::map<std::string, int>{{"one", 1}, {"two", 2}};
   CHECK(emio::format("{}", m) == "{\"one\": 1, \"two\": 2}");
   CHECK(emio::format("{:n}", m) == "\"one\": 1, \"two\": 2");
-  CHECK(emio::format(emio::runtime{"{:::}"}, m).value() == "{one: 1, two: 2}");
-  CHECK(emio::format(emio::runtime{"{:::^7}"}, m).value() == "{  one  :    1   ,   two  :    2   }");
+  CHECK(emio::format(emio::runtime("{:::}"), m).value() == "{one: 1, two: 2}");
+  CHECK(emio::format(emio::runtime("{:::^7}"), m).value() == "{  one  :    1   ,   two  :    2   }");
 }
 
 TEST_CASE("format_set", "[ranges]") {
@@ -110,13 +110,13 @@ TEST_CASE("format_pair", "[ranges]") {
 
 TEST_CASE("tuple_like invalid_format or validate tests", "[ranges]") {
   auto p = std::pair<int, float>(42, 1.5f);
-  CHECK(emio::format(emio::runtime{"{}"}, p) == "(42, 1.5)");
-  CHECK(emio::format(emio::runtime{"{:x"}, p) == emio::err::invalid_format);
-  CHECK(emio::format(emio::runtime{"{:n"}, p) == emio::err::invalid_format);
-  CHECK(emio::format(emio::runtime{"{::i}"}, p) == emio::err::invalid_format);
-  CHECK(emio::format(emio::runtime{"{::}"}, std::tuple<>()) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{}"), p) == "(42, 1.5)");
+  CHECK(emio::format(emio::runtime("{:x"), p) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{:n"), p) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{::i}"), p) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{::}"), std::tuple<>()) == emio::err::invalid_format);
 
-  emio::static_buffer<char, 1> buf{};
+  emio::static_buffer<1> buf{};
   CHECK(emio::format_to(buf, "{}", p) == emio::err::eof);
   CHECK(emio::format_to(buf, "x{}", p) == emio::err::eof);
 }

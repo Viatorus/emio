@@ -18,11 +18,10 @@ namespace emio {
  * @note This type should only be "constructed" via make_format_args(format_str, args...) and passed directly to an
  * formatting function.
  */
-template <typename Char>
-using basic_format_args = detail::format::basic_format_args<Char>;
+using format_args = detail::format::format_args;
 
 // Alias type.
-using format_args = detail::format::basic_format_args<char>;
+using format_args = detail::format::format_args;
 
 /**
  * Returns an object that stores a format string with an array of all arguments to format.
@@ -36,8 +35,8 @@ using format_args = detail::format::basic_format_args<char>;
  * @return Internal type. Implicit convertible to format_args.
  */
 template <typename... Args>
-[[nodiscard]] detail::format::basic_format_args_storage<char, sizeof...(Args)> make_format_args(
-    format_string<Args...> format_str, const Args&... args) noexcept {
+[[nodiscard]] detail::format::format_args_storage<sizeof...(Args)> make_format_args(format_string<Args...> format_str,
+                                                                                    const Args&... args) noexcept {
   return {format_str.get(), args...};
 }
 
@@ -48,7 +47,7 @@ template <typename... Args>
  * failed.
  */
 inline result<size_t> vformatted_size(format_args&& args) noexcept {
-  detail::basic_counting_buffer<char> buf{};
+  detail::counting_buffer buf{};
   EMIO_TRYV(detail::format::vformat_to(buf, args));
   return buf.count();
 }
@@ -62,7 +61,7 @@ inline result<size_t> vformatted_size(format_args&& args) noexcept {
 template <typename... Args>
 [[nodiscard]] constexpr size_t formatted_size(valid_format_string<Args...> format_str,
                                               const Args&... args) noexcept(detail::exceptions_disabled) {
-  detail::basic_counting_buffer<char> buf{};
+  detail::counting_buffer buf{};
   detail::format::format_to(buf, format_str, args...).value();
   return buf.count();
 }
@@ -75,10 +74,10 @@ template <typename... Args>
  * validation failed.
  */
 template <typename T, typename... Args>
-  requires(std::is_same_v<T, runtime<char>> || std::is_same_v<T, format_string<Args...>>)
+  requires(std::is_same_v<T, runtime_format_string> || std::is_same_v<T, format_string<Args...>>)
 constexpr result<size_t> formatted_size(T format_str, const Args&... args) noexcept {
-  detail::basic_counting_buffer<char> buf{};
-  basic_format_string<char, Args...> str{format_str};
+  detail::counting_buffer buf{};
+  format_string<Args...> str{format_str};
   EMIO_TRYV(detail::format::format_to(buf, str, args...));
   return buf.count();
 }
@@ -90,7 +89,7 @@ constexpr result<size_t> formatted_size(T format_str, const Args&... args) noexc
  * @return Success or EOF if the buffer is to small or invalid_format if the format string validation failed.
  */
 template <typename Buffer>
-  requires(std::is_base_of_v<buffer<char>, Buffer>)
+  requires(std::is_base_of_v<buffer, Buffer>)
 result<void> vformat_to(Buffer& buf, const format_args& args) noexcept {
   EMIO_TRYV(detail::format::vformat_to(buf, args));
   return success;
@@ -102,7 +101,7 @@ result<void> vformat_to(Buffer& buf, const format_args& args) noexcept {
  * @param args The format args with the format string.
  * @return Success or EOF if the buffer is to small or invalid_format if the format string validation failed.
  */
-inline result<void> vformat_to(writer<char>& wrt, const format_args& args) noexcept {
+inline result<void> vformat_to(writer& wrt, const format_args& args) noexcept {
   EMIO_TRYV(detail::format::vformat_to(wrt.get_buffer(), args));
   return success;
 }
@@ -130,7 +129,7 @@ constexpr result<OutputIt> vformat_to(OutputIt out, const format_args& args) noe
  * @return Success or EOF if the buffer is to small or invalid_format if the format string validation failed.
  */
 template <typename Buffer, typename... Args>
-  requires(std::is_base_of_v<buffer<char>, Buffer>)
+  requires(std::is_base_of_v<buffer, Buffer>)
 constexpr result<void> format_to(Buffer& buf, format_string<Args...> format_str, const Args&... args) noexcept {
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::format::format_to(buf, format_str, args...));
@@ -148,7 +147,7 @@ constexpr result<void> format_to(Buffer& buf, format_string<Args...> format_str,
  * @return Success or EOF if the buffer is to small or invalid_format if the format string validation failed.
  */
 template <typename... Args>
-constexpr result<void> format_to(writer<char>& wrt, format_string<Args...> format_str, const Args&... args) noexcept {
+constexpr result<void> format_to(writer& wrt, format_string<Args...> format_str, const Args&... args) noexcept {
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::format::format_to(wrt.get_buffer(), format_str, args...));
   } else {
@@ -183,7 +182,7 @@ constexpr result<OutputIt> format_to(OutputIt out, format_string<Args...> format
  * failed.
  */
 inline result<std::string> vformat(const format_args& args) noexcept {
-  memory_buffer<char> buf;
+  memory_buffer buf;
   if (auto res = detail::format::vformat_to(buf, args); !res) {
     return res.assume_error();
   }
@@ -210,7 +209,7 @@ template <typename... Args>
  * failed.
  */
 template <typename T, typename... Args>
-  requires(std::is_same_v<T, runtime<char>> || std::is_same_v<T, format_string<Args...>>)
+  requires(std::is_same_v<T, runtime_format_string> || std::is_same_v<T, format_string<Args...>>)
 result<std::string> format(T format_str, const Args&... args) noexcept {
   return vformat(make_format_args(format_str, args...));
 }
@@ -302,7 +301,7 @@ void print(valid_format_string<Args...> format_str, const Args&... args) {
  * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
  */
 template <typename T, typename... Args>
-  requires(std::is_same_v<T, runtime<char>> || std::is_same_v<T, format_string<Args...>>)
+  requires(std::is_same_v<T, runtime_format_string> || std::is_same_v<T, format_string<Args...>>)
 result<void> print(T format_str, const Args&... args) {
   return vprint(stdout, make_format_args(format_str, args...));
 }
@@ -357,7 +356,7 @@ void println(valid_format_string<Args...> format_str, const Args&... args) {
  * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
  */
 template <typename T, typename... Args>
-  requires(std::is_same_v<T, runtime<char>> || std::is_same_v<T, format_string<Args...>>)
+  requires(std::is_same_v<T, runtime_format_string> || std::is_same_v<T, format_string<Args...>>)
 result<void> println(T format_str, const Args&... args) {
   return vprintln(stdout, make_format_args(format_str, args...));
 }

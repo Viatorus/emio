@@ -20,7 +20,7 @@ TEST_CASE("simple integer format") {
     return emio::format(format_str, arg);
   };
   BENCHMARK("emio runtime") {
-    return emio::format(emio::runtime{format_str}, arg).value();
+    return emio::format(emio::runtime(format_str), arg).value();
   };
   BENCHMARK("fmt") {
     return fmt::format(format_str, arg);
@@ -45,7 +45,7 @@ TEST_CASE("complex integer format") {
     return emio::format(format_str, arg);
   };
   BENCHMARK("emio runtime") {
-    return emio::format(emio::runtime{format_str}, arg).value();
+    return emio::format(emio::runtime(format_str), arg).value();
   };
   BENCHMARK("fmt") {
     return fmt::format(format_str, arg);
@@ -70,7 +70,7 @@ TEST_CASE("zero as double format") {
     return emio::format(format_str, arg);
   };
   BENCHMARK("emio runtime") {
-    return emio::format(emio::runtime{format_str}, arg).value();
+    return emio::format(emio::runtime(format_str), arg).value();
   };
   BENCHMARK("fmt") {
     return fmt::format(format_str, arg);
@@ -95,7 +95,7 @@ TEST_CASE("shortest double general format") {
     return emio::format(format_str, arg);
   };
   BENCHMARK("emio runtime") {
-    return emio::format(emio::runtime{format_str}, arg).value();
+    return emio::format(emio::runtime(format_str), arg).value();
   };
   BENCHMARK("fmt") {
     return fmt::format(format_str, arg);
@@ -120,7 +120,7 @@ TEST_CASE("double exponent format") {
     return emio::format(format_str, arg);
   };
   BENCHMARK("emio runtime") {
-    return emio::format(emio::runtime{format_str}, arg).value();
+    return emio::format(emio::runtime(format_str), arg).value();
   };
   BENCHMARK("fmt") {
     return fmt::format(format_str, arg);
@@ -145,7 +145,7 @@ TEST_CASE("double fixed format") {
     return emio::format(format_str, arg);
   };
   BENCHMARK("emio runtime") {
-    return emio::format(emio::runtime{format_str}, arg).value();
+    return emio::format(emio::runtime(format_str), arg).value();
   };
   BENCHMARK("fmt") {
     return fmt::format(format_str, arg);
@@ -172,7 +172,7 @@ TEST_CASE("many arguments") {
     return emio::format(format_str, ARGS);
   };
   BENCHMARK("emio runtime") {
-    return emio::format(emio::runtime{format_str}, ARGS).value();
+    return emio::format(emio::runtime(format_str), ARGS).value();
   };
   BENCHMARK("fmt") {
     return fmt::format(format_str, ARGS);

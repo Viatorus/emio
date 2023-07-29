@@ -16,7 +16,7 @@ TEST_CASE("writer", "[writer]") {
   emio::writer writer{buf};
 
   SECTION("get_buffer") {
-    emio::buffer<char>& buffer = writer.get_buffer();
+    emio::buffer& buffer = writer.get_buffer();
     auto area = buffer.get_write_area_of(1);
     REQUIRE(area);
     (*area)[0] = '1';
