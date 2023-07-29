@@ -210,6 +210,20 @@
         "SIZE_COVERAGE_HTML_COMMAND": "",
         "SIZE_TOOL": "arm-none-eabi-size"
       }
+    },
+    {
+      "name": "ci-size-coverage-embedded-nano",
+      "inherits": [
+        "ci-build",
+        "ci-arm-none-eabi-nano",
+        "dev-mode"
+      ],
+      "cacheVariables": {
+        "BUILD_SIZE_COVERAGE": "ON",
+        "ENABLE_SIZE_COVERAGE": "ON",
+        "SIZE_COVERAGE_HTML_COMMAND": "",
+        "SIZE_TOOL": "arm-none-eabi-size"
+      }
     }
   ],
   "buildPresets": [
