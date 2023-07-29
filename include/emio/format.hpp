@@ -35,8 +35,8 @@ using format_args = detail::format::format_args;
  * @return Internal type. Implicit convertible to format_args.
  */
 template <typename... Args>
-[[nodiscard]] detail::format::format_args_storage<sizeof...(Args)> make_format_args(
-    format_string<Args...> format_str, const Args&... args) noexcept {
+[[nodiscard]] detail::format::format_args_storage<sizeof...(Args)> make_format_args(format_string<Args...> format_str,
+                                                                                    const Args&... args) noexcept {
   return {format_str.get(), args...};
 }
 
