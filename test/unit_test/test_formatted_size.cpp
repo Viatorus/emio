@@ -13,14 +13,14 @@ TEST_CASE("formatted_size", "[formatted_size]") {
 
   STATIC_CHECK(emio::formatted_size("{}", 1) == 1U);
   STATIC_CHECK(emio::formatted_size("{} {}", 1, 45) == 4U);
-  STATIC_CHECK(emio::formatted_size(emio::runtime{"{} {}"}, 1, 45) == 4U);
-  STATIC_CHECK(emio::formatted_size(emio::runtime{"{}"}, 1, 45) == emio::err::invalid_format);
+  STATIC_CHECK(emio::formatted_size(emio::runtime("{} {}"), 1, 45) == 4U);
+  STATIC_CHECK(emio::formatted_size(emio::runtime("{}"), 1, 45) == emio::err::invalid_format);
 
   const size_t res = emio::formatted_size("{}", 1);
   CHECK(res == 1U);
   CHECK(emio::formatted_size("{} {}", 1, 45) == 4U);
-  CHECK(emio::formatted_size(emio::runtime{"{} {}"}, 1, 45) == 4U);
-  CHECK(emio::formatted_size(emio::runtime{"{}"}, 1, 45) == emio::err::invalid_format);
+  CHECK(emio::formatted_size(emio::runtime("{} {}"), 1, 45) == 4U);
+  CHECK(emio::formatted_size(emio::runtime("{}"), 1, 45) == emio::err::invalid_format);
 }
 
 TEST_CASE("vformatted_size", "[formatted_size]") {
@@ -31,5 +31,5 @@ TEST_CASE("vformatted_size", "[formatted_size]") {
   emio::result<size_t> res = emio::vformatted_size(emio::make_format_args("{}", 1));
   CHECK(res == 1U);
   CHECK(emio::vformatted_size(emio::make_format_args("{} {}", 1, 45)) == 4U);
-  CHECK(emio::vformatted_size(emio::make_format_args(emio::runtime{"{}"}, 1, 45)) == emio::err::invalid_format);
+  CHECK(emio::vformatted_size(emio::make_format_args(emio::runtime("{}"), 1, 45)) == emio::err::invalid_format);
 }

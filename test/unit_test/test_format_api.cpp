@@ -16,7 +16,7 @@ TEST_CASE("emio::format", "[format]") {
     CHECK(res == "42");
   }
   SECTION("invalid_format") {
-    emio::result<std::string> res = emio::format(emio::runtime{"{"}, 42);
+    emio::result<std::string> res = emio::format(emio::runtime("{"), 42);
     CHECK(res == emio::err::invalid_format);
   }
 }
@@ -31,7 +31,7 @@ TEST_CASE("emio::vformat", "[format]") {
     CHECK(res == "42");
   }
   SECTION("invalid_format") {
-    emio::result<std::string> res = emio::vformat(emio::make_format_args(emio::runtime{"{"}, 42));
+    emio::result<std::string> res = emio::vformat(emio::make_format_args(emio::runtime("{"), 42));
     CHECK(res == emio::err::invalid_format);
   }
 }

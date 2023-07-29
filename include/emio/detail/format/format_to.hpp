@@ -15,7 +15,7 @@
 namespace emio::detail::format {
 
 // Non constexpr version.
-inline result<void> vformat_to(buffer& buf, const basic_format_args& args) noexcept {
+inline result<void> vformat_to(buffer& buf, const format_args& args) noexcept {
   EMIO_TRY(const std::string_view str, args.get_format_str());
   reader format_rdr{str};
   writer wtr{buf};
@@ -37,7 +37,7 @@ inline result<void> vformat_to(buffer& buf, const basic_format_args& args) noexc
 
 // Constexpr version.
 template <typename... Args>
-constexpr result<void> format_to(buffer& buf, basic_format_string<Args...> format_str, const Args&... args) noexcept {
+constexpr result<void> format_to(buffer& buf, format_string<Args...> format_str, const Args&... args) noexcept {
   EMIO_TRY(std::string_view str, format_str.get());
   reader format_rdr{str};
   writer wtr{buf};

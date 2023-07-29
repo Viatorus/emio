@@ -213,7 +213,7 @@ TEST_CASE("static_buffer", "[buffer]") {
   CHECK(buffer.get_write_area_of_max(600)->size() == 542);
 }
 
-TEST_CASE("basic_counting_buffer", "[buffer]") {
+TEST_CASE("counting_buffer", "[buffer]") {
   // Test strategy:
   // * Construct a counting_buffer.
   // * Write into the buffer.
@@ -225,7 +225,7 @@ TEST_CASE("basic_counting_buffer", "[buffer]") {
 
   using emio::detail::internal_buffer_size;
 
-  emio::detail::basic_counting_buffer buf;
+  emio::detail::counting_buffer buf;
   CHECK(buf.count() == 0);
 
   emio::result<std::span<char>> area = buf.get_write_area_of(first_size);

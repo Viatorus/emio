@@ -8,16 +8,16 @@ TEST_CASE("print/println") {
   std::FILE* no_file{};
 
   emio::print("hello {}", "world");
-  CHECK(emio::print(emio::runtime{"hello {}"}, "world"));
+  CHECK(emio::print(emio::runtime("hello {}"), "world"));
   CHECK(emio::print(stderr, "hello {}", "world"));
-  CHECK(emio::print(stderr, emio::runtime{"hello {}"}, "world"));
-  CHECK(emio::print(no_file, emio::runtime{"hello {}"}, "world") == emio::err::invalid_data);
+  CHECK(emio::print(stderr, emio::runtime("hello {}"), "world"));
+  CHECK(emio::print(no_file, emio::runtime("hello {}"), "world") == emio::err::invalid_data);
 
   emio::println("hello {}", "world");
-  CHECK(emio::println(emio::runtime{"hello {}"}, "world"));
+  CHECK(emio::println(emio::runtime("hello {}"), "world"));
   CHECK(emio::println(stderr, "hello {}", "world"));
-  CHECK(emio::println(stderr, emio::runtime{"hello {}"}, "world"));
-  CHECK(emio::println(no_file, emio::runtime{"hello {}"}, "world") == emio::err::invalid_data);
+  CHECK(emio::println(stderr, emio::runtime("hello {}"), "world"));
+  CHECK(emio::println(no_file, emio::runtime("hello {}"), "world") == emio::err::invalid_data);
 }
 
 TEST_CASE("print/println to temporary file") {

@@ -510,18 +510,18 @@ class file_buffer : public buffer {
 namespace detail {
 
 /**
- * A buffer that counts the number of code points written. Discards the output.
+ * A buffer that counts the number of characters written. Discards the output.
  */
 // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): cache_ can be left uninitialized.
-class basic_counting_buffer final : public buffer {
+class counting_buffer final : public buffer {
  public:
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): cache_ can be left uninitialized.
-  constexpr basic_counting_buffer() noexcept = default;
-  constexpr basic_counting_buffer(const basic_counting_buffer&) = delete;
-  constexpr basic_counting_buffer(basic_counting_buffer&&) noexcept = delete;
-  constexpr basic_counting_buffer& operator=(const basic_counting_buffer&) = delete;
-  constexpr basic_counting_buffer& operator=(basic_counting_buffer&&) noexcept = delete;
-  constexpr ~basic_counting_buffer() override;
+  constexpr counting_buffer() noexcept = default;
+  constexpr counting_buffer(const counting_buffer&) = delete;
+  constexpr counting_buffer(counting_buffer&&) noexcept = delete;
+  constexpr counting_buffer& operator=(const counting_buffer&) = delete;
+  constexpr counting_buffer& operator=(counting_buffer&&) noexcept = delete;
+  constexpr ~counting_buffer() override;
 
   /**
    * Calculates the number of Char's that were written.
@@ -547,7 +547,7 @@ class basic_counting_buffer final : public buffer {
   std::array<char, detail::internal_buffer_size> cache_;
 };
 
-constexpr basic_counting_buffer::~basic_counting_buffer() = default;
+constexpr counting_buffer::~counting_buffer() = default;
 
 }  // namespace detail
 

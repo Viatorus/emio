@@ -120,7 +120,7 @@ TEST_CASE("formatter with constexpr methods", "[formatter]") {
       constexpr bool success = [] {
         emio::static_buffer<10> buf{};
 
-        return emio::format_to(buf, emio::runtime{"{:+}"}, foo{42}) == emio::err::invalid_format;
+        return emio::format_to(buf, emio::runtime("{:+}"), foo{42}) == emio::err::invalid_format;
       }();
       STATIC_CHECK(success);
     }
@@ -128,7 +128,7 @@ TEST_CASE("formatter with constexpr methods", "[formatter]") {
 
   CHECK(emio::format("{}", foo{42}) == "foo: 42");
   CHECK(emio::format("{:-}", foo{42}) == "foo: -42");
-  CHECK(emio::format(emio::runtime{"{:+}"}, foo{42}) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{:+}"), foo{42}) == emio::err::invalid_format);
 }
 
 namespace {
@@ -179,9 +179,9 @@ TEST_CASE("formatter with non-constexpr methods", "[formatter]") {
   // * Format a custom type with an own formatter providing all necessary non-constexpr methods.
   // Expected: The formatting works.
 
-  CHECK(emio::format(emio::runtime{"{}"}, bar{}) == "bar");
-  CHECK(emio::format(emio::runtime{"{:-}"}, bar{}) == "BAR");
-  CHECK(emio::format(emio::runtime{"{:+}"}, bar{}) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{}"), bar{}) == "bar");
+  CHECK(emio::format(emio::runtime("{:-}"), bar{}) == "BAR");
+  CHECK(emio::format(emio::runtime("{:+}"), bar{}) == emio::err::invalid_format);
 }
 
 namespace {
@@ -243,7 +243,7 @@ TEST_CASE("formatter with constexpr methods but without validate function", "[fo
       constexpr bool success = [] {
         emio::static_buffer<10> buf{};
 
-        return emio::format_to(buf, emio::runtime{"{:+}"}, foobar{42}) == emio::err::invalid_format;
+        return emio::format_to(buf, emio::runtime("{:+}"), foobar{42}) == emio::err::invalid_format;
       }();
       STATIC_CHECK(success);
     }
@@ -251,7 +251,7 @@ TEST_CASE("formatter with constexpr methods but without validate function", "[fo
 
   CHECK(emio::format("{}", foobar{42}) == "foobar: 42");
   CHECK(emio::format("{:-}", foobar{42}) == "foobar: -42");
-  CHECK(emio::format(emio::runtime{"{:+}"}, foobar{42}) == emio::err::invalid_format);
+  CHECK(emio::format(emio::runtime("{:+}"), foobar{42}) == emio::err::invalid_format);
 }
 
 namespace {
