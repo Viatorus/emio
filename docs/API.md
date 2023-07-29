@@ -131,7 +131,7 @@ Some buffers have an internal cache to provide a contiguous memory if the actual
 
 - Returns one char.
 
-`read_n_char(n) -> result<reader>`
+`read_n_char(n) -> result<string_view>`
 
 - Returns *n* chars.
 
@@ -139,7 +139,7 @@ Some buffers have an internal cache to provide a contiguous memory if the actual
 
 - Parses an integer of type *T* with a specific *base*.
 
-`read_until/_char/str/any_of/none_of(predicate, options) -> result<reader>`
+`read_until/_char/str/any_of/none_of(predicate, options) -> result<string_view>`
 
 - Reads n chars until a given *predicate* (delimiter/group/function) applies.
 - Has *options* to configure what should happen with the predicate and what should happen if EOF is reached.
@@ -327,7 +327,7 @@ class emio::formatter<foo> {
    * @param arg The argument to format.
    * @return Success if the formatting could be done.
    */
-  constexpr result<void> format(writer& wtr, const foo& arg) noexcept {
+  constexpr result<void> format(writer& wtr, const foo& arg) const noexcept {
     return wtr.write_int(arg.x);
   }
 };
