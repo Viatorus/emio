@@ -233,7 +233,7 @@ jobs:
           curl -L $DOWNLOAD_LINK | tar xJ
 
       - name: Configure
-        run: cmake --preset=$preset -DCMAKE_BUILD_TYPE=MinSizeRel
+        run: cmake --preset=${{ matrix.preset }} -DCMAKE_BUILD_TYPE=MinSizeRel
 
       - name: Build
         run: cmake --build build/test/size_test -j $(nproc)
