@@ -35,12 +35,11 @@ inline constexpr size_t count_size_when_escaped(std::string_view sv) {
 }
 
 /*
- * Class which helps to escape a long string in small chunks.
+ * Class which helps to escape a long string in smaller chunks.
  */
 class write_escaped_helper {
  public:
-  constexpr write_escaped_helper(std::string_view sv) noexcept
-      : src_it_{sv.begin()}, src_end_{sv.end()}, remaining_esc_{count_size_when_escaped(sv)} {}
+  constexpr write_escaped_helper(std::string_view sv) noexcept : src_it_{sv.begin()}, src_end_{sv.end()} {}
 
   [[nodiscard]] constexpr size_t write_escaped(std::span<char> area) noexcept {
     char* dst_it = area.data();
@@ -78,7 +77,8 @@ class write_escaped_helper {
     return static_cast<size_t>(dst_it - area.data());
   }
 
-  static inline constexpr char* write_escaped(const char c, char* out) noexcept {
+ private:
+  [[nodiscard]] static inline constexpr char* write_escaped(const char c, char* out) noexcept {
     switch (c) {
     case '\n':
       *(out++) = 'n';
@@ -114,13 +114,11 @@ class write_escaped_helper {
     }
   }
 
- private:
   const char* src_it_;  // Input to encode.
   const char* const src_end_;
   std::array<char, 4> remainder_storage_;  // Remainder containing data for the next iteration.
   char* remainder_it_{};
   char* remainder_end_{};
-  size_t remaining_esc_;
 };
 
 }  // namespace emio::detail

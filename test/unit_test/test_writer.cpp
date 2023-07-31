@@ -39,8 +39,14 @@ TEST_CASE("writer", "[writer]") {
     CHECK(buf.view() == "s");
   }
   SECTION("write_str_escaped") {
-    CHECK(writer.write_str_escaped("'"));
-    CHECK(buf.view() == "\"\\'\"");
+    SECTION("normal") {
+      CHECK(writer.write_str_escaped("'"));
+      CHECK(buf.view() == "\"\\'\"");
+    }
+    SECTION("empty") {
+      CHECK(writer.write_str_escaped(""));
+      CHECK(buf.view() == "\"\"");
+    }
   }
   SECTION("write_int") {
     CHECK(writer.write_int(1));
@@ -76,17 +82,6 @@ TEST_CASE("writer with cached buffer", "[writer]") {
   std::string storage;
   storage.resize(5 * internal_buffer_size);
   emio::iterator_buffer buf{storage.begin()};
-
-  {
-//    std::array<char, 50> r{};
-//    auto it = r.begin();
-//    emio::detail::write_escaped(
-//        "\x01"
-//        "bc",
-//        it, it + 50);
-//    CHECK(it == "abc");
-//    return;
-  }
 
   emio::writer writer{buf};
   CHECK(writer.write_char_n('x', expected_str_part_1.size()));
