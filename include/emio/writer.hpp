@@ -103,6 +103,7 @@ class writer {
   constexpr result<void> write_str_escaped(const std::string_view sv) noexcept {
     EMIO_TRYV(write_char('"'));
 
+    // Perform escaping in multiple chunks, to support buffers with an internal cache.
     detail::write_escaped_helper helper{sv};
     size_t remaining_size = detail::count_size_when_escaped(sv);
     while (remaining_size != 0) {
