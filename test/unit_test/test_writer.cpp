@@ -77,17 +77,26 @@ TEST_CASE("writer with cached buffer", "[writer]") {
   storage.resize(5 * internal_buffer_size);
   emio::iterator_buffer buf{storage.begin()};
 
+  {
+//    std::array<char, 50> r{};
+//    auto it = r.begin();
+//    emio::detail::write_escaped(
+//        "\x01"
+//        "bc",
+//        it, it + 50);
+//    CHECK(it == "abc");
+//    return;
+  }
+
   emio::writer writer{buf};
   CHECK(writer.write_char_n('x', expected_str_part_1.size()));
   CHECK(writer.write_str(expected_str_part_2));
-  // TODO: Make it work.
-  //  CHECK(writer.write_str_escaped(expected_str_part_3));
+  CHECK(writer.write_str_escaped(expected_str_part_3));
 
   auto end = buf.out();
   std::string s{storage.begin(), end};
 
-  CHECK(s == expected_str_part_1 + expected_str_part_2);
-  //  CHECK(s == expected_str_part_1 + expected_str_part_2 + '"' + expected_str_part_3 + '"');
+  CHECK(s == expected_str_part_1 + expected_str_part_2 + '"' + expected_str_part_3 + '"');
 }
 
 TEST_CASE("writer over zero buffer", "[writer]") {

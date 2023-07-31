@@ -67,14 +67,15 @@ class writer {
    * @return EOF if the buffer is to small.
    */
   constexpr result<void> write_char_escaped(const char c) noexcept {
+    EMIO_TRYV(write_char('\''));
+
     const std::string_view sv(&c, 1);
-    const size_t required_size = detail::count_size_when_escaped(sv) + 2;
+    detail::write_escaped_helper helper{sv};
+    const size_t required_size = detail::count_size_when_escaped(sv);
     EMIO_TRY(const auto area, buf_.get_write_area_of(required_size));
-    char* it = area.data();
-    *(it++) = '\'';
-    it = detail::write_escaped(sv, it);
-    *it = '\'';
-    return success;
+    EMIO_Z_DEV_ASSERT(helper.write_escaped(area));
+
+    return write_char('\'');
   }
 
   /**
@@ -100,15 +101,16 @@ class writer {
    * @return EOF if the buffer is to small.
    */
   constexpr result<void> write_str_escaped(const std::string_view sv) noexcept {
-    const size_t required_size = detail::count_size_when_escaped(sv) + 2;
-    // TODO: Split writes into multiple chunks.
-    //  Not that easy because the remaining size of the sv is != the required output size.
-    EMIO_TRY(const auto area, buf_.get_write_area_of(required_size));
-    char* it = area.data();
-    *(it++) = '"';
-    it = detail::write_escaped(sv, it);
-    *(it) = '"';
-    return success;
+    EMIO_TRYV(write_char('"'));
+
+    detail::write_escaped_helper helper{sv};
+    size_t remaining_size = detail::count_size_when_escaped(sv);
+    while (remaining_size != 0) {
+      EMIO_TRY(const auto area, buf_.get_write_area_of_max(remaining_size));
+      remaining_size -= helper.write_escaped(area);
+    }
+
+    return write_char('"');
   }
 
   /**

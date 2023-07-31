@@ -17,6 +17,7 @@ add_executable(emio_test
         detail/test_ct_vector.cpp
         detail/test_decode.cpp
         detail/test_dragon.cpp
+        detail/test_utf.cpp
         test_buffer.cpp
         test_dynamic_format_spec.cpp
         test_format.cpp
