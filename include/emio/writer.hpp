@@ -73,7 +73,7 @@ class writer {
     detail::write_escaped_helper helper{sv};
     const size_t required_size = detail::count_size_when_escaped(sv);
     EMIO_TRY(const auto area, buf_.get_write_area_of(required_size));
-    EMIO_Z_DEV_ASSERT(helper.write_escaped(area));
+    EMIO_Z_DEV_ASSERT(helper.write_escaped(area) == required_size);
 
     return write_char('\'');
   }

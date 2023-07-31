@@ -115,7 +115,7 @@ class write_escaped_helper {
   }
 
   const char* src_it_;  // Input to encode.
-  const char* const src_end_;
+  const char* src_end_;
   std::array<char, 4> remainder_storage_;  // Remainder containing data for the next iteration.
   char* remainder_it_{};
   char* remainder_end_{};
