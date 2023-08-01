@@ -173,7 +173,7 @@ TEST_CASE("writer with cached buffer - write_char_escaped", "[writer]") {
     CHECK(buffer_calls_cnt == 2);
     REQUIRE(chunks.size() == 6);
   }
-  SECTION("provide three chars per chunk") {
+  SECTION("provide four chars per chunk") {
     buf.set_cache_cb([&]() -> std::span<char> {
       buffer_calls_cnt += 1;
       chunks.push_back('\0');
