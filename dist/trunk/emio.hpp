@@ -171,7 +171,7 @@ namespace emio::detail {
       }                          \
     } while (0)
 #else
-#  define EMIO_Z_DEV_ASSERT(...) void()
+#  define EMIO_Z_DEV_ASSERT(...) static_cast<void>(__VA_ARGS__)
 #endif
 
 }  // namespace emio::detail
@@ -1615,67 +1615,17 @@ constexpr counting_buffer::~counting_buffer() = default;
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <string_view>
 #include <type_traits>
 
 namespace emio::detail {
 
-constexpr bool needs_escape(uint32_t cp) {
+inline constexpr bool needs_escape(uint32_t cp) {
   return cp < 0x20 || cp >= 0x7f || cp == '\'' || cp == '"' || cp == '\\';
 }
 
-template <typename OutputIt>
-constexpr OutputIt write_escaped(std::string_view sv, OutputIt out) {
-  for (const char c : sv) {
-    if (!needs_escape(static_cast<uint32_t>(c))) {
-      *(out++) = c;
-    } else {
-      switch (c) {
-      case '\n':
-        *(out++) = '\\';
-        *(out++) = 'n';
-        break;
-      case '\r':
-        *(out++) = '\\';
-        *(out++) = 'r';
-        break;
-      case '\t':
-        *(out++) = '\\';
-        *(out++) = 't';
-        break;
-      case '\\':
-        *(out++) = '\\';
-        *(out++) = '\\';
-        break;
-      case '\'':
-        *(out++) = '\\';
-        *(out++) = '\'';
-        break;
-      case '"':
-        *(out++) = '\\';
-        *(out++) = '"';
-        break;
-      default: {
-        // Escape char zero filled like: \x05, \x0ABC, \x00ABCDEF
-        *(out++) = '\\';
-        *(out++) = 'x';
-        const auto abs = detail::to_absolute(detail::to_unsigned(c));
-        const size_t number_of_digits = count_digits<16>(abs);
-        // Fill up with zeros.
-        for (size_t i = 0; i < 2 * sizeof(char) - number_of_digits; i++) {
-          *(out++) = '0';
-        }
-        out += to_signed(number_of_digits);
-        write_number(abs, 16, false, out);
-        break;
-      }
-      }
-    }
-  }
-  return out;
-}
-
-constexpr size_t count_size_when_escaped(std::string_view sv) {
+inline constexpr size_t count_size_when_escaped(std::string_view sv) {
   size_t count = 0;
   for (const char c : sv) {
     if (!needs_escape(static_cast<uint32_t>(c))) {
@@ -1688,6 +1638,93 @@ constexpr size_t count_size_when_escaped(std::string_view sv) {
   }
   return count;
 }
+
+/*
+ * Class which helps to escape a long string in smaller chunks.
+ */
+class write_escaped_helper {
+ public:
+  constexpr write_escaped_helper(std::string_view sv) noexcept : src_it_{sv.begin()}, src_end_{sv.end()} {}
+
+  [[nodiscard]] constexpr size_t write_escaped(std::span<char> area) noexcept {
+    char* dst_it = area.data();
+    const char* const dst_end = area.data() + area.size();
+
+    // Write remainder from temporary buffer.
+    const auto write_remainder = [&, this] {
+      while (remainder_it_ != remainder_end_ && dst_it != dst_end) {
+        *(dst_it++) = *(remainder_it_++);
+      }
+    };
+    write_remainder();
+
+    while (src_it_ != src_end_) {
+      if (dst_it == dst_end) {
+        return static_cast<size_t>(dst_it - area.data());
+      }
+      const char c = *src_it_++;
+      if (!needs_escape(static_cast<uint32_t>(c))) {
+        *(dst_it++) = c;
+      } else {
+        *(dst_it++) = '\\';
+        const auto remaining_space = static_cast<size_t>(dst_end - dst_it);
+        if (remaining_space >= 3) {
+          dst_it = write_escaped(c, dst_it);
+        } else {
+          // Write escaped sequence to remainder.
+          remainder_it_ = remainder_storage_.begin();
+          remainder_end_ = write_escaped(c, remainder_it_);
+          // Write as much as possible into dst.
+          write_remainder();
+        }
+      }
+    }
+    return static_cast<size_t>(dst_it - area.data());
+  }
+
+ private:
+  [[nodiscard]] static inline constexpr char* write_escaped(const char c, char* out) noexcept {
+    switch (c) {
+    case '\n':
+      *(out++) = 'n';
+      return out;
+    case '\r':
+      *(out++) = 'r';
+      return out;
+    case '\t':
+      *(out++) = 't';
+      return out;
+    case '\\':
+      *(out++) = '\\';
+      return out;
+    case '\'':
+      *(out++) = '\'';
+      return out;
+    case '"':
+      *(out++) = '"';
+      return out;
+    default: {
+      // Escape char zero filled like: \x05
+      *(out++) = 'x';
+      const auto abs = detail::to_absolute(detail::to_unsigned(c));
+      const size_t number_of_digits = count_digits<16>(abs);
+      // Fill up with zeros.
+      for (size_t i = 0; i < 2 * sizeof(char) - number_of_digits; i++) {
+        *(out++) = '0';
+      }
+      out += to_signed(number_of_digits);
+      write_number(abs, 16, false, out);
+      return out;
+    }
+    }
+  }
+
+  const char* src_it_;  // Input to encode.
+  const char* src_end_;
+  std::array<char, 4> remainder_storage_{};  // Remainder containing data for the next iteration.
+  char* remainder_it_{};
+  char* remainder_end_{};
+};
 
 }  // namespace emio::detail
 
@@ -1747,13 +1784,7 @@ class writer {
    */
   constexpr result<void> write_char_escaped(const char c) noexcept {
     const std::string_view sv(&c, 1);
-    const size_t required_size = detail::count_size_when_escaped(sv) + 2;
-    EMIO_TRY(const auto area, buf_.get_write_area_of(required_size));
-    char* it = area.data();
-    *(it++) = '\'';
-    it = detail::write_escaped(sv, it);
-    *it = '\'';
-    return success;
+    return write_str_escaped('\'', sv);
   }
 
   /**
@@ -1779,15 +1810,7 @@ class writer {
    * @return EOF if the buffer is to small.
    */
   constexpr result<void> write_str_escaped(const std::string_view sv) noexcept {
-    const size_t required_size = detail::count_size_when_escaped(sv) + 2;
-    // TODO: Split writes into multiple chunks.
-    //  Not that easy because the remaining size of the sv is != the required output size.
-    EMIO_TRY(const auto area, buf_.get_write_area_of(required_size));
-    char* it = area.data();
-    *(it++) = '"';
-    it = detail::write_escaped(sv, it);
-    *(it) = '"';
-    return success;
+    return write_str_escaped('"', sv);
   }
 
   /**
@@ -1836,6 +1859,32 @@ class writer {
     }
     detail::write_number(abs_number, options.base, options.upper_case,
                          area.data() + detail::to_signed(number_of_digits));
+    return success;
+  }
+
+  constexpr result<void> write_str_escaped(const char quote, std::string_view sv) {
+    // Perform escaping in multiple chunks, to support buffers with an internal cache.
+    detail::write_escaped_helper helper{sv};
+    size_t remaining_size = detail::count_size_when_escaped(sv);
+    EMIO_TRY(auto area, buf_.get_write_area_of_max(remaining_size + 2 /*both quotes*/));
+    // Start quote.
+    area[0] = quote;
+    area = area.subspan(1);
+
+    while (true) {
+      const size_t written = helper.write_escaped(area);
+      remaining_size -= written;
+      if (remaining_size == 0) {
+        area = area.subspan(written);
+        break;
+      }
+      EMIO_TRY(area, buf_.get_write_area_of_max(remaining_size + 1 /*end quote*/));
+    }
+    if (area.empty()) {
+      EMIO_TRY(area, buf_.get_write_area_of_max(1 /*end quote*/));
+    }
+    // End quote.
+    area[0] = quote;
     return success;
   }
 
