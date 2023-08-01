@@ -13,6 +13,7 @@
 #include <type_traits>
 
 #include "conversion.hpp"
+#include "../buffer.hpp"
 
 namespace emio::detail {
 
@@ -120,5 +121,31 @@ class write_escaped_helper {
   char* remainder_it_{};
   char* remainder_end_{};
 };
+
+inline constexpr result<void> write_str_escaped(buffer& buf, std::string_view sv, size_t escaped_size,
+                                                const char quote) {
+  // Perform escaping in multiple chunks, to support buffers with an internal cache.
+  detail::write_escaped_helper helper{sv};
+  EMIO_TRY(auto area, buf.get_write_area_of_max(escaped_size + 2 /*both quotes*/));
+  // Start quote.
+  area[0] = quote;
+  area = area.subspan(1);
+
+  while (true) {
+    const size_t written = helper.write_escaped(area);
+    escaped_size -= written;
+    if (escaped_size == 0) {
+      area = area.subspan(written);
+      break;
+    }
+    EMIO_TRY(area, buf.get_write_area_of_max(escaped_size + 1 /*end quote*/));
+  }
+  if (area.empty()) {
+    EMIO_TRY(area, buf.get_write_area_of_max(1 /*end quote*/));
+  }
+  // End quote.
+  area[0] = quote;
+  return success;
+}
 
 }  // namespace emio::detail

@@ -463,8 +463,9 @@ inline constexpr result<void> write_arg(writer& wtr, format_specs& specs, const 
       return wtr.write_str(arg);
     });
   }
-  return write_padded<alignment::left>(wtr, specs, arg.size() + 2U, [&] {
-    return wtr.write_str_escaped(arg);
+  const size_t escaped_size = detail::count_size_when_escaped(arg);
+  return write_padded<alignment::left>(wtr, specs, escaped_size + 2U /* quotes */, [&] {
+    return detail::write_str_escaped(wtr.get_buffer(), arg, escaped_size, '"');
   });
 }
 
