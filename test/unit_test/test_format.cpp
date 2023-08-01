@@ -691,6 +691,8 @@ TEST_CASE("format_char") {
   //  check_unknown_types('a', types, "char");
   CHECK(emio::format("{0}", 'a') == "a");
   CHECK(emio::format("{0:c}", 'z') == "z");
+  CHECK(emio::format("{0:d}", '0') == "48");
+  CHECK(emio::format("{0:x}", '0') == "30");
   //  int n = 'x';
   //  for (const char* type = types + 1; *type; ++type) {
   //    std::string format_str = fmt::format("{{:{}}}", *type);
@@ -818,9 +820,14 @@ TEST_CASE("format at compile-time") {
 TEST_CASE("validate_format_string") {
   using emio::detail::format::validate_format_string;
 
+  CHECK(validate_format_string(""sv));
   CHECK(validate_format_string("abc"sv));
   CHECK(!validate_format_string("abc{"sv));
+  CHECK(!validate_format_string("abc{x"sv));
+  CHECK(validate_format_string("abc{{"sv));
   CHECK(!validate_format_string("abc}"sv));
+  CHECK(!validate_format_string("abc}x"sv));
+  CHECK(validate_format_string("abc}}"sv));
   CHECK(validate_format_string<int>("abc{}"sv));
   CHECK(validate_format_string<int>("abc{0}"sv));
   CHECK(!validate_format_string<int>("abc{1}"sv));
@@ -871,4 +878,15 @@ TEST_CASE("validate_format_string") {
   CHECK(validate_format_string<int>("{:0010}"sv));
   CHECK(validate_format_string<int>("{:0}"sv));
   CHECK(!validate_format_string<int>("{:--010}"sv));
+
+  CHECK(!validate_format_string<int>("{:{}}"sv));
+  CHECK(!validate_format_string<int>("{:s}"sv));
+  CHECK(validate_format_string<double>("{:.1100}"sv));
+  CHECK(!validate_format_string<double>("{:.1101}"sv));
+  CHECK(!validate_format_string<double>("{:.2147483648}"sv));
+  CHECK(!validate_format_string<double>("{:2147483648}"sv));
+
+  CHECK(validate_format_string<bool>("{:d}"sv));
+  CHECK(!validate_format_string<bool>("{:f}"sv));
+  CHECK(!validate_format_string<bool>("{:.5}"sv));
 }
