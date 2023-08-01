@@ -3,6 +3,7 @@
 
 // Other includes.
 #include <catch2/catch_test_macros.hpp>
+#include <functional>
 
 using namespace std::string_view_literals;
 
