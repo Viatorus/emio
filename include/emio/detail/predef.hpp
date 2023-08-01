@@ -51,7 +51,7 @@ namespace emio::detail {
       }                          \
     } while (0)
 #else
-#  define EMIO_Z_DEV_ASSERT(...) void()
+#  define EMIO_Z_DEV_ASSERT(...) static_cast<void>(__VA_ARGS__)
 #endif
 
 }  // namespace emio::detail
