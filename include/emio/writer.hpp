@@ -68,7 +68,7 @@ class writer {
    */
   constexpr result<void> write_char_escaped(const char c) noexcept {
     const std::string_view sv(&c, 1);
-    return write_str_escaped('\'', sv);
+    return detail::write_str_escaped(buf_, sv, detail::count_size_when_escaped(sv), '\'');
   }
 
   /**
@@ -94,7 +94,7 @@ class writer {
    * @return EOF if the buffer is to small.
    */
   constexpr result<void> write_str_escaped(const std::string_view sv) noexcept {
-    return write_str_escaped('"', sv);
+    return detail::write_str_escaped(buf_, sv, detail::count_size_when_escaped(sv), '"');
   }
 
   /**
@@ -143,32 +143,6 @@ class writer {
     }
     detail::write_number(abs_number, options.base, options.upper_case,
                          area.data() + detail::to_signed(number_of_digits));
-    return success;
-  }
-
-  constexpr result<void> write_str_escaped(const char quote, std::string_view sv) {
-    // Perform escaping in multiple chunks, to support buffers with an internal cache.
-    detail::write_escaped_helper helper{sv};
-    size_t remaining_size = detail::count_size_when_escaped(sv);
-    EMIO_TRY(auto area, buf_.get_write_area_of_max(remaining_size + 2 /*both quotes*/));
-    // Start quote.
-    area[0] = quote;
-    area = area.subspan(1);
-
-    while (true) {
-      const size_t written = helper.write_escaped(area);
-      remaining_size -= written;
-      if (remaining_size == 0) {
-        area = area.subspan(written);
-        break;
-      }
-      EMIO_TRY(area, buf_.get_write_area_of_max(remaining_size + 1 /*end quote*/));
-    }
-    if (area.empty()) {
-      EMIO_TRY(area, buf_.get_write_area_of_max(1 /*end quote*/));
-    }
-    // End quote.
-    area[0] = quote;
     return success;
   }
 

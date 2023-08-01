@@ -289,6 +289,7 @@ TEST_CASE("width") {
   CHECK(emio::format("{:6c}", static_cast<int>('x')) == "x     ");
   CHECK(emio::format("{:06.0f}", 0.00884311) == "000000");
   CHECK(emio::format("{:>06.0f}", 0.00884311) == "     0");
+  CHECK(emio::format("{:5?}", "\n") == "\"\\n\" ");
 }
 
 TEST_CASE("precision") {
