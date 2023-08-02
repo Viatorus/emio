@@ -92,11 +92,11 @@ class scanner {
 
 class scan_parser : public parser_base<input_validation::enabled> {
  public:
-  constexpr explicit scan_parser(reader& scan_rdr, std::string_view input) noexcept
-      : parser_base<input_validation::enabled>{scan_rdr}, input_rdr_{input} {}
+  constexpr explicit scan_parser(reader& input, reader& scan_rdr) noexcept
+      : parser_base<input_validation::enabled>{scan_rdr}, input_{input} {}
 
   constexpr result<void> process(char c) noexcept override {
-    return input_rdr_.read_if_match_char(c);
+    return input_.read_if_match_char(c);
   }
 
   // NOLINTNEXTLINE(readability-convert-member-functions-to-static): not possible because of template function
@@ -121,7 +121,7 @@ class scan_parser : public parser_base<input_validation::enabled> {
     if constexpr (has_scanner_v<Arg>) {
       scanner<Arg> scanner;
       EMIO_TRYV(scanner.parse(this->format_rdr_));
-      return scanner.scan(input_rdr_, arg);
+      return scanner.scan(input_, arg);
       return success;
     } else {
       static_assert(has_scanner_v<Arg>,
@@ -129,14 +129,14 @@ class scan_parser : public parser_base<input_validation::enabled> {
     }
   }
 
-  reader input_rdr_;
+  reader& input_;
 };
 
 template <typename... Args>
-constexpr result<void> scan(std::string_view input, scan_string<Args...> scan_string, Args&... args) noexcept {
+constexpr result<void> scan(reader& input, scan_string<Args...> scan_string, Args&... args) noexcept {
   EMIO_TRY(std::string_view str, scan_string.get());
   reader scan_rdr{str};
-  scan_parser fh{scan_rdr, input};
+  scan_parser fh{input, scan_rdr};
   while (true) {
     uint8_t arg_nbr{detail::no_more_args};
     if (auto res = fh.parse(arg_nbr); !res) {
@@ -165,7 +165,13 @@ using scan_string = detail::scan::scan_string<std::type_identity_t<Args>...>;
 
 template <typename... Args>
 result<void> scan(std::string_view input, scan_string<Args...> scan_string, Args&... args) {
-  return detail::scan::scan(input, scan_string, args...);
+  reader rdr{input};
+  return detail::scan::scan(rdr, scan_string, args...);
+}
+
+template <typename... Args>
+result<void> scan(reader& rdr, scan_string<Args...> scan_string, Args&... args) {
+  return detail::scan::scan(rdr, scan_string, args...);
 }
 
 }  // namespace emio
@@ -174,9 +180,17 @@ TEST_CASE("scan", "[scan]") {
   int a = 0;
   int b = 0;
   char c;
-  emio::result<void> r = emio::scan("1,2!", emio::runtime("{},{}{}"), a, b, c);
+  emio::result<void> r = emio::scan("1,-2!", emio::runtime("{},{}{}"), a, b, c);
   REQUIRE(r);
   CHECK(a == 1);
-  CHECK(b == 2);
+  CHECK(b == -2);
   CHECK(c == '!');
+
+  emio::reader rdr("1,-2!REST");
+  r = emio::scan(rdr, emio::runtime("{},{}{}"), a, b, c);
+  REQUIRE(r);
+  CHECK(a == 1);
+  CHECK(b == -2);
+  CHECK(c == '!');
+  CHECK(rdr.read_remaining() == "REST");
 }
