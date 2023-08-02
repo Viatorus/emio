@@ -886,7 +886,14 @@ TEST_CASE("validate_format_string") {
   CHECK(!validate_format_string<double>("{:.2147483648}"sv));
   CHECK(!validate_format_string<double>("{:2147483648}"sv));
 
+  CHECK(validate_format_string<bool>("{}"sv));
   CHECK(validate_format_string<bool>("{:d}"sv));
   CHECK(!validate_format_string<bool>("{:f}"sv));
   CHECK(!validate_format_string<bool>("{:.5}"sv));
+
+  CHECK(validate_format_string<char>("{}"sv));
+  CHECK(validate_format_string<char>("{:d}"sv));
+
+  CHECK(validate_format_string<int>("{}"sv));
+  CHECK(validate_format_string<unsigned>("{}"sv));
 }

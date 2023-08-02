@@ -177,6 +177,33 @@ TEST_CASE("span_buffer", "[buffer]") {
   CHECK(area->empty());
 }
 
+TEST_CASE("span_buffer check request_write_area", "[buffer]") {
+  // Test strategy:
+  // * To explicit test if the span_buffer cannot provide a greater write area, we have to extend the class to access
+  //   the protected function.
+  // Expected: request_write_area always returns EOF.
+
+  class dummy_span_buffer : public emio::span_buffer {
+   public:
+    using emio::span_buffer::span_buffer;
+
+    using emio::span_buffer::request_write_area;
+  };
+
+  SECTION("default constructed") {
+    dummy_span_buffer buf;
+    CHECK(buf.get_write_area_of_max(100) == emio::err::eof);
+    CHECK(buf.request_write_area(0, 0) == emio::err::eof);
+  }
+
+  SECTION("constructed with storage") {
+    std::array<char, 50> storage;
+    dummy_span_buffer buf{storage};
+    CHECK(buf.get_write_area_of_max(100).value().size() == 50);
+    CHECK(buf.request_write_area(0, 0) == emio::err::eof);
+  }
+}
+
 TEST_CASE("buffer regression bug 1", "[buffer]") {
   // Regression description:
   // buffer::get_write_area_of_max(...) tried to request more data from the concrete buffer implementation if the
