@@ -15,7 +15,7 @@ namespace emio::detail::format {
 
 class format_parser final : public parser_base<input_validation::disabled> {
  public:
-  constexpr explicit format_parser(writer& wtr, reader& format_rdr) noexcept
+  constexpr explicit format_parser(reader& format_rdr, writer& wtr) noexcept
       : parser_base<input_validation::disabled>{format_rdr}, wtr_{wtr} {}
 
   format_parser(const format_parser&) = delete;
