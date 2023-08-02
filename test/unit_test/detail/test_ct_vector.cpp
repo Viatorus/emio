@@ -27,6 +27,14 @@ TEST_CASE("ct_vector") {
       std::fill(str.data(), str.data() + str.size(), '\0');
       *(str.data() + 2) = 'x';
 
+      str.reserve(4);
+      result &= str.size() == 4;
+      result &= str.capacity() == 5;
+
+      str.reserve(5);
+      result &= str.size() == 5;
+      result &= str.capacity() == 5;
+
       str.reserve(10);
       result &= str.size() == 10;
       result &= str.capacity() == 10;
@@ -83,9 +91,17 @@ TEST_CASE("ct_vector") {
 
     str.reserve(5);
     CHECK(str.size() == 5);
-    CHECK(str.capacity() == get_capacity(0));
+    CHECK(str.capacity() == get_capacity(5));
     std::fill(str.data(), str.data() + str.size(), '\0');
     *(str.data() + 2) = 'x';
+
+    str.reserve(4);
+    CHECK(str.size() == 4);
+    CHECK(str.capacity() == get_capacity(4));
+
+    str.reserve(5);
+    CHECK(str.size() == 5);
+    CHECK(str.capacity() == get_capacity(5));
 
     str.reserve(10);
     CHECK(str.size() == 10);

@@ -73,4 +73,10 @@ TEST_CASE("dynamic format spec") {
     std::array<double, 3> values{2.099, 3.245, 4.5};
     CHECK(emio::format("{::f}", spec.with(values)) == "[2.10, 3.25, 4.50]");
   }
+
+  SECTION("with runtime format string") {
+    emio::format_spec spec{.precision = 1};
+
+    CHECK(emio::format(emio::runtime("{:f}"), spec.with(3.14)).value() == "3.1");
+  }
 }
