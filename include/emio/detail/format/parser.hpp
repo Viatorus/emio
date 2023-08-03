@@ -29,7 +29,7 @@ class format_parser final : public parser<format_parser, input_validation::disab
   }
 
   result<void> process_arg(const format_arg& arg) noexcept {
-    return arg.parse_and_format(output_, format_rdr_);
+    return arg.process_arg(output_, format_rdr_);
   }
 
   template <typename Arg>
@@ -71,7 +71,7 @@ class format_specs_checker final : public parser<format_specs_checker, input_val
 
   template <typename Arg>
   constexpr result<void> process_arg(std::type_identity<Arg> /*unused*/) noexcept {
-    return validate_for<std::remove_cvref_t<Arg>>(this->format_rdr_);
+    return format_arg_trait<std::remove_cvref_t<Arg>>::validate(this->format_rdr_);
   }
 };
 

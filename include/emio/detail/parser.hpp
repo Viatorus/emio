@@ -17,7 +17,7 @@
 namespace emio::detail {
 
 /**
- * Flag to enable/disable input validation if already done
+ * Flag to enable/disable input validation.
  */
 enum class input_validation { enabled, disabled };
 

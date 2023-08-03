@@ -28,7 +28,7 @@ class scan_parser final : public parser<scan_parser, input_validation::disabled>
   }
 
   result<void> process_arg(const scan_arg& arg) noexcept {
-    return arg.parse_and_scan(input_, format_rdr_);
+    return arg.process_arg(input_, format_rdr_);
   }
 
   template <typename Arg>
@@ -67,7 +67,7 @@ class scan_specs_checker final : public parser<scan_specs_checker, input_validat
 
   template <typename Arg>
   constexpr result<void> process_arg(std::type_identity<Arg> /*unused*/) noexcept {
-    return validate_for<std::remove_cvref_t<Arg>>(this->format_rdr_);
+    return scan_arg_trait<std::remove_cvref_t<Arg>>::validate(this->format_rdr_);
   }
 };
 

@@ -753,49 +753,20 @@ inline constexpr bool has_formatter_v = std::is_constructible_v<formatter<Arg>>;
 
 template <typename T>
 concept has_validate_function_v = requires {
-                                    { formatter<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
-                                  };
+  { formatter<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
+};
 
 template <typename T>
 concept has_any_validate_function_v =
     requires { &formatter<T>::validate; } || std::is_member_function_pointer_v<decltype(&formatter<T>::validate)> ||
     requires { std::declval<formatter<T>>().validate(std::declval<reader&>()); };
 
-template <typename Arg>
-constexpr result<void> validate_for(reader& format_is) noexcept {
-  // Check if a formatter exist and a correct validate method is implemented. If not, use the parse method.
-  if constexpr (has_formatter_v<Arg>) {
-    if constexpr (has_validate_function_v<Arg>) {
-      return formatter<Arg>::validate(format_is);
-    } else {
-      static_assert(!has_any_validate_function_v<Arg>,
-                    "Formatter seems to have a validate property which doesn't fit the desired signature.");
-      return formatter<Arg>{}.parse(format_is);
-    }
-  } else {
-    static_assert(has_formatter_v<Arg>,
-                  "Cannot format an argument. To make type T formattable provide a formatter<T> specialization.");
-    return err::invalid_format;
-  }
-}
+
 
 template <typename T>
 inline constexpr bool is_core_type_v =
     std::is_integral_v<T> || std::is_floating_point_v<T> || std::is_same_v<T, std::nullptr_t> ||
     std::is_same_v<T, void*> || std::is_same_v<T, std::string_view>;
-
-template <input_validation FormatStringValidation, typename T>
-concept formatter_parse_supports_format_string_validation =
-    requires(T formatter) { formatter.template parse<FormatStringValidation>(std::declval<reader>()); };
-
-template <input_validation FormatStringValidation, typename T>
-inline constexpr result<void> invoke_formatter_parse(T& formatter, reader& format_is) noexcept {
-  if constexpr (formatter_parse_supports_format_string_validation<FormatStringValidation, T>) {
-    return formatter.template parse<FormatStringValidation>(format_is);
-  } else {
-    return formatter.parse(format_is);
-  }
-}
 
 template <typename T>
 concept has_format_as = requires(T arg) { format_as(arg); };
