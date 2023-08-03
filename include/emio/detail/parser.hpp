@@ -190,6 +190,31 @@ class parser_base<input_validation::disabled> {
   uint8_t increment_arg_number_{};
 };
 
+template <typename Parser, typename... Args>
+constexpr bool validate(std::string_view str, const size_t arg_cnt, Args&&... args) {
+  reader format_rdr{str};
+  Parser parser{format_rdr};
+  bitset<128> matched{};
+  while (true) {
+    uint8_t arg_nbr{detail::no_more_args};
+    if (auto res = parser.parse(arg_nbr); !res) {
+      return false;
+    }
+    if (arg_nbr == detail::no_more_args) {
+      break;
+    }
+    if (arg_cnt <= arg_nbr) {
+      return false;
+    }
+    matched.set(arg_nbr);
+    auto res = parser.apply(arg_nbr, std::forward<Args>(args)...);
+    if (!res) {
+      return false;
+    }
+  }
+  return matched.all_first(arg_cnt);
+}
+
 template <typename Parser, typename T, typename... Args>
 constexpr result<void> parse(std::string_view str, T& input, Args&&... args) {
   reader format_rdr{str};
@@ -206,7 +231,6 @@ constexpr result<void> parse(std::string_view str, T& input, Args&&... args) {
       return res.assume_error();
     }
   }
-
   return success;
 }
 

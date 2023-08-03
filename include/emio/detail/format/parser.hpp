@@ -78,19 +78,23 @@ class format_specs_checker final : public parser_base<input_validation::enabled>
     return success;
   }
 
+  result<void> apply(uint8_t arg_nbr, const args_span<format_validation_arg>& args) noexcept {
+    return args.get_args()[arg_nbr].validate(this->format_rdr_);
+  }
+
   // NOLINTNEXTLINE(readability-convert-member-functions-to-static): not possible because of template function
   template <typename... Args>
     requires(sizeof...(Args) == 0)
-  constexpr result<void> find_and_validate_arg(uint8_t /*arg_pos*/) noexcept {
+  constexpr result<void> apply(uint8_t /*arg_pos*/) noexcept {
     return err::invalid_format;
   }
 
   template <typename Arg, typename... Args>
-  constexpr result<void> find_and_validate_arg(uint8_t arg_pos) noexcept {
+  constexpr result<void> apply(uint8_t arg_pos, std::type_identity<Arg> /*unused*/, Args... args) noexcept {
     if (arg_pos == 0) {
       return validate_arg<Arg>();
     }
-    return find_and_validate_arg<Args...>(arg_pos - 1);
+    return apply(arg_pos - 1, args...);
   }
 
  private:
@@ -103,57 +107,13 @@ class format_specs_checker final : public parser_base<input_validation::enabled>
 // Explicit out-of-class definition because of GCC bug: ~format_parser() used before its definition.
 constexpr format_specs_checker::~format_specs_checker() noexcept = default;
 
-[[nodiscard]] inline bool validate_format_string_fallback(const args_span<format_validation_arg>& args) noexcept {
-  reader format_rdr{args.get_str().value()};  // TODO: value() / assume?
-  format_specs_checker fh{format_rdr};
-  bitset<128> matched{};
-  const size_t arg_cnt = args.get_args().size();
-  while (true) {
-    uint8_t arg_nbr{detail::no_more_args};
-    if (auto res = fh.parse(arg_nbr); !res) {
-      return false;
-    }
-    if (arg_nbr == detail::no_more_args) {
-      break;
-    }
-    if (arg_cnt <= arg_nbr) {
-      return false;
-    }
-    matched.set(arg_nbr);
-    auto res = args.get_args()[arg_nbr].validate(format_rdr);
-    if (!res) {
-      return false;
-    }
-  }
-  return matched.all_first(arg_cnt);
-}
-
 template <typename... Args>
 [[nodiscard]] constexpr bool validate_format_string(std::string_view format_str) noexcept {
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
-    reader format_rdr{format_str};
-    format_specs_checker fh{format_rdr};
-    bitset<sizeof...(Args)> matched{};
-    while (true) {
-      uint8_t arg_nbr{detail::no_more_args};
-      if (auto res = fh.parse(arg_nbr); !res) {
-        return false;
-      }
-      if (arg_nbr == detail::no_more_args) {
-        break;
-      }
-      if (matched.size() <= arg_nbr) {
-        return false;
-      }
-      matched.set(arg_nbr);
-      auto res = fh.template find_and_validate_arg<Args...>(arg_nbr);
-      if (!res) {
-        return false;
-      }
-    }
-    return matched.all();
+    return validate<format_specs_checker>(format_str, sizeof...(Args), std::type_identity<Args>{}...);
   } else {
-    return validate_format_string_fallback(make_validation_args<format_validation_arg, Args...>(format_str));
+    return validate<format_specs_checker>(format_str, sizeof...(Args),
+                                          make_validation_args<format_validation_arg, Args...>(format_str));
   }
 }
 
