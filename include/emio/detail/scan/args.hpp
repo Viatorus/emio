@@ -10,33 +10,33 @@
 #include <span>
 #include <string_view>
 
-#include "../../formatter.hpp"
+#include "../../scanner.hpp"
 #include "../args.hpp"
 
-namespace emio::detail::format {
+namespace emio::detail::scan {
 
 /**
- * Type erased format argument just for format string validation.
+ * Type erased scan argument just for scan string validation.
  */
-class format_validation_arg {
+class scan_validation_arg {
  public:
   template <typename T>
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): will be initialized in constructor
-  explicit format_validation_arg(std::type_identity<T> /*unused*/) noexcept {
+  explicit scan_validation_arg(std::type_identity<T> /*unused*/) noexcept {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): only way to use the storage
-    std::construct_at(reinterpret_cast<model_t<unified_type_t<T>>*>(&storage_));
+    std::construct_at(reinterpret_cast<model_t<T>*>(&storage_));
   }
 
-  format_validation_arg(const format_validation_arg&) = delete;
-  format_validation_arg(format_validation_arg&&) = delete;
-  format_validation_arg& operator=(const format_validation_arg&) = delete;
-  format_validation_arg& operator=(format_validation_arg&&) = delete;
+  scan_validation_arg(const scan_validation_arg&) = delete;
+  scan_validation_arg(scan_validation_arg&&) = delete;
+  scan_validation_arg& operator=(const scan_validation_arg&) = delete;
+  scan_validation_arg& operator=(scan_validation_arg&&) = delete;
   // No destructor & delete call to concept_t because model_t holds only a reference.
-  ~format_validation_arg() = default;
+  ~scan_validation_arg() = default;
 
-  result<void> validate(reader& format_is) const noexcept {
+  result<void> validate(reader& scan_is) const noexcept {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): only way to get the object back
-    return reinterpret_cast<const concept_t*>(&storage_)->validate(format_is);
+    return reinterpret_cast<const concept_t*>(&storage_)->validate(scan_is);
   }
 
  private:
@@ -48,7 +48,7 @@ class format_validation_arg {
     concept_t& operator=(const concept_t&) = delete;
     concept_t& operator=(concept_t&&) = delete;
 
-    virtual result<void> validate(reader& format_is) const noexcept = 0;
+    virtual result<void> validate(reader& scan_is) const noexcept = 0;
 
    protected:
     ~concept_t() = default;
@@ -63,8 +63,8 @@ class format_validation_arg {
     model_t& operator=(const model_t&) = delete;
     model_t& operator=(model_t&&) = delete;
 
-    result<void> validate(reader& format_is) const noexcept override {
-      return validate_for<std::remove_cvref_t<T>>(format_is);
+    result<void> validate(reader& scan_is) const noexcept override {
+      return validate_for<std::remove_cvref_t<T>>(scan_is);
     }
 
    protected:
@@ -75,26 +75,26 @@ class format_validation_arg {
 };
 
 /**
- * Type erased format argument for formatting.
+ * Type erased scan argument for scanning.
  */
-class format_arg {
+class scan_arg {
  public:
   template <typename T>
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): will be initialized in constructor
-  explicit format_arg(const T& value) noexcept {
+  explicit scan_arg(T& value) noexcept {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): only way to use the storage
-    std::construct_at(reinterpret_cast<model_t<unified_type_t<T>>*>(&storage_), value);
+    std::construct_at(reinterpret_cast<model_t<T>*>(&storage_), value);
   }
 
-  format_arg(const format_arg&) = delete;
-  format_arg(format_arg&&) = delete;
-  format_arg& operator=(const format_arg&) = delete;
-  format_arg& operator=(format_arg&&) = delete;
-  ~format_arg() = default;  // No destructor & delete call to concept_t because model_t holds only a reference.
+  scan_arg(const scan_arg&) = delete;
+  scan_arg(scan_arg&&) = delete;
+  scan_arg& operator=(const scan_arg&) = delete;
+  scan_arg& operator=(scan_arg&&) = delete;
+  ~scan_arg() = default;  // No destructor & delete call to concept_t because model_t holds only a reference.
 
-  result<void> format(writer& wtr, reader& format_is) const noexcept {
+  result<void> scan(reader& input, reader& scan_is) const noexcept {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): only way to get the object back
-    return reinterpret_cast<const concept_t*>(&storage_)->format(wtr, format_is);
+    return reinterpret_cast<const concept_t*>(&storage_)->scan(input, scan_is);
   }
 
  private:
@@ -106,7 +106,7 @@ class format_arg {
     concept_t& operator=(const concept_t&) = delete;
     concept_t& operator=(concept_t&&) = delete;
 
-    virtual result<void> format(writer& wtr, reader& format_is) const noexcept = 0;
+    virtual result<void> scan(reader& input, reader& scan_is) const noexcept = 0;
 
    protected:
     ~concept_t() = default;
@@ -115,27 +115,27 @@ class format_arg {
   template <typename T>
   class model_t final : public concept_t {
    public:
-    explicit model_t(T value) noexcept : value_{value} {}
+    explicit model_t(T& value) noexcept : value_{value} {}
 
     model_t(const model_t&) = delete;
     model_t(model_t&&) = delete;
     model_t& operator=(const model_t&) = delete;
     model_t& operator=(model_t&&) = delete;
 
-    result<void> format(writer& wtr, reader& format_is) const noexcept override {
-      formatter<std::remove_cvref_t<T>> formatter;
-      EMIO_TRYV(invoke_formatter_parse<input_validation::disabled>(formatter, format_is));
-      return formatter.format(wtr, value_);
+    result<void> scan(reader& input, reader& scan_is) const noexcept override {
+      scanner<std::remove_cvref_t<T>> scanner;
+      EMIO_TRYV(invoke_scanner_parse<input_validation::disabled>(scanner, scan_is));
+      return scanner.scan(input, value_);
     }
 
    protected:
     ~model_t() = default;
 
    private:
-    T value_;
+    T& value_;
   };
 
   std::aligned_storage_t<sizeof(model_t<std::string_view>)> storage_;
 };
 
-}  // namespace emio::detail::format
+}  // namespace emio::detail::scan

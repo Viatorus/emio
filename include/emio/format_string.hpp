@@ -10,6 +10,7 @@
 #include <type_traits>
 
 #include "detail/format/format_string.hpp"
+#include "detail/scan/scan_string.hpp"
 
 namespace emio {
 
@@ -25,5 +26,8 @@ using valid_format_string = detail::format::valid_format_string<std::type_identi
 inline constexpr runtime_format_string runtime(const std::string_view& s) noexcept {
   return runtime_format_string{s};
 }
+
+template <typename... Args>
+using scan_string = detail::scan::scan_string<std::type_identity_t<Args>...>;
 
 }  // namespace emio

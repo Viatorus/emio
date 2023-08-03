@@ -190,4 +190,24 @@ class parser_base<input_validation::disabled> {
   uint8_t increment_arg_number_{};
 };
 
+template <typename Parser, typename T, typename... Args>
+constexpr result<void> parse(std::string_view str, T& input, Args&&... args) {
+  reader format_rdr{str};
+  Parser parser{input, format_rdr};
+  while (true) {
+    uint8_t arg_nbr{detail::no_more_args};
+    if (auto res = parser.parse(arg_nbr); !res) {
+      return res.assume_error();
+    }
+    if (arg_nbr == detail::no_more_args) {
+      break;
+    }
+    if (auto res = parser.apply(arg_nbr, std::forward<Args>(args)...); !res) {
+      return res.assume_error();
+    }
+  }
+
+  return success;
+}
+
 }  // namespace emio::detail

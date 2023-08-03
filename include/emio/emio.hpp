@@ -38,5 +38,6 @@
 
 #include "format.hpp"
 #include "ranges.hpp"
+#include "scan.hpp"
 
 #endif  // EMIO_Z_MAIN_H

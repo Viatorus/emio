@@ -9,27 +9,21 @@
 #include "../../writer.hpp"
 #include "../bitset.hpp"
 #include "args.hpp"
-#include "formatter.hpp"
+#include "scanner.hpp"
 
-namespace emio::detail::format {
+namespace emio::detail::scan {
 
-class format_parser final : public parser_base<input_validation::disabled> {
+class scan_parser : public parser_base<input_validation::enabled> {
  public:
-  constexpr explicit format_parser(writer& wtr, reader& format_rdr) noexcept
-      : parser_base<input_validation::disabled>{format_rdr}, wtr_{wtr} {}
-
-  format_parser(const format_parser&) = delete;
-  format_parser(format_parser&&) = delete;
-  format_parser& operator=(const format_parser&) = delete;
-  format_parser& operator=(format_parser&&) = delete;
-  constexpr ~format_parser() noexcept override;  // NOLINT(performance-trivially-destructible): See definition.
+  constexpr explicit scan_parser(reader& input, reader& scan_rdr) noexcept
+      : parser_base<input_validation::enabled>{scan_rdr}, input_{input} {}
 
   constexpr result<void> process(char c) noexcept override {
-    return wtr_.write_char(c);
+    return input_.read_if_match_char(c);
   }
 
-  result<void> apply(uint8_t arg_nbr, const args_span<format_arg>& args) noexcept {
-    return args.get_args()[arg_nbr].format(wtr_, format_rdr_);
+  result<void> apply(uint8_t arg_nbr, const args_span<scan_arg>& args) noexcept {
+    return args.get_args()[arg_nbr].scan(input_, format_rdr_);
   }
 
   // NOLINTNEXTLINE(readability-convert-member-functions-to-static): not possible because of template function
@@ -38,41 +32,39 @@ class format_parser final : public parser_base<input_validation::disabled> {
   }
 
   template <typename Arg, typename... Args>
-  constexpr result<void> apply(uint8_t arg_pos, const Arg& arg, const Args&... args) noexcept {
+  constexpr result<void> apply(uint8_t arg_pos, Arg& arg, Args&... args) noexcept {
     if (arg_pos == 0) {
-      return write_arg(arg);
+      return scan_arg(arg);
     }
     return apply(arg_pos - 1, args...);
   }
 
  private:
   template <typename Arg>
-  constexpr result<void> write_arg(const Arg& arg) noexcept {
-    if constexpr (has_formatter_v<Arg>) {
-      formatter<Arg> formatter;
-      EMIO_TRYV(formatter.parse(this->format_rdr_));
-      return formatter.format(wtr_, arg);
+  constexpr result<void> scan_arg(Arg& arg) noexcept {
+    if constexpr (has_scanner_v<Arg>) {
+      scanner<Arg> scanner;
+      EMIO_TRYV(scanner.parse(this->format_rdr_));
+      return scanner.scan(input_, arg);
+      return success;
     } else {
-      static_assert(has_formatter_v<Arg>,
-                    "Cannot format an argument. To make type T formattable provide a formatter<T> specialization.");
+      static_assert(has_scanner_v<Arg>,
+                    "Cannot scan an argument. To make type T scannable provide a scanner<T> specialization.");
     }
   }
 
-  writer& wtr_;
+  reader& input_;
 };
 
-// Explicit out-of-class definition because of GCC bug: ~format_parser() used before its definition.
-constexpr format_parser::~format_parser() noexcept = default;
-
-class format_specs_checker final : public parser_base<input_validation::enabled> {
+class scan_specs_checker final : public parser_base<input_validation::enabled> {
  public:
   using parser_base<input_validation::enabled>::parser_base;
 
-  format_specs_checker(const format_specs_checker& other) = delete;
-  format_specs_checker(format_specs_checker&& other) = delete;
-  format_specs_checker& operator=(const format_specs_checker& other) = delete;
-  format_specs_checker& operator=(format_specs_checker&& other) = delete;
-  constexpr ~format_specs_checker() noexcept override;  // NOLINT(performance-trivially-destructible): See definition.
+  scan_specs_checker(const scan_specs_checker& other) = delete;
+  scan_specs_checker(scan_specs_checker&& other) = delete;
+  scan_specs_checker& operator=(const scan_specs_checker& other) = delete;
+  scan_specs_checker& operator=(scan_specs_checker&& other) = delete;
+  constexpr ~scan_specs_checker() noexcept override;  // NOLINT(performance-trivially-destructible): See definition.
 
   constexpr result<void> process(char /*c*/) noexcept override {
     return success;
@@ -101,11 +93,11 @@ class format_specs_checker final : public parser_base<input_validation::enabled>
 };
 
 // Explicit out-of-class definition because of GCC bug: ~format_parser() used before its definition.
-constexpr format_specs_checker::~format_specs_checker() noexcept = default;
+constexpr scan_specs_checker::~scan_specs_checker() noexcept = default;
 
-[[nodiscard]] inline bool validate_format_string_fallback(const args_span<format_validation_arg>& args) noexcept {
-  reader format_rdr{args.get_str().value()};  // TODO: value() / assume?
-  format_specs_checker fh{format_rdr};
+[[nodiscard]] inline bool validate_scan_string_fallback(const args_span<scan_validation_arg>& args) noexcept {
+  reader scan_rdr{args.get_str().value()};  // TODO: value() assume?
+  scan_specs_checker fh{scan_rdr};
   bitset<128> matched{};
   const size_t arg_cnt = args.get_args().size();
   while (true) {
@@ -120,7 +112,7 @@ constexpr format_specs_checker::~format_specs_checker() noexcept = default;
       return false;
     }
     matched.set(arg_nbr);
-    auto res = args.get_args()[arg_nbr].validate(format_rdr);
+    auto res = args.get_args()[arg_nbr].validate(scan_rdr);
     if (!res) {
       return false;
     }
@@ -129,10 +121,10 @@ constexpr format_specs_checker::~format_specs_checker() noexcept = default;
 }
 
 template <typename... Args>
-[[nodiscard]] constexpr bool validate_format_string(std::string_view format_str) noexcept {
+[[nodiscard]] inline constexpr bool validate_scan_string(std::string_view scan_str) {
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
-    reader format_rdr{format_str};
-    format_specs_checker fh{format_rdr};
+    reader format_rdr{scan_str};
+    scan_specs_checker fh{format_rdr};
     bitset<sizeof...(Args)> matched{};
     while (true) {
       uint8_t arg_nbr{detail::no_more_args};
@@ -153,8 +145,8 @@ template <typename... Args>
     }
     return matched.all();
   } else {
-    return validate_format_string_fallback(make_validation_args<format_validation_arg, Args...>(format_str));
+    return validate_scan_string_fallback(make_validation_args<scan_validation_arg, Args...>(scan_str));
   }
 }
 
-}  // namespace emio::detail::format
+}  // namespace emio::detail::scan

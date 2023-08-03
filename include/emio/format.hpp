@@ -18,10 +18,7 @@ namespace emio {
  * @note This type should only be "constructed" via make_format_args(format_str, args...) and passed directly to an
  * formatting function.
  */
-using format_args = detail::format::format_args;
-
-// Alias type.
-using format_args = detail::format::format_args;
+using format_args = detail::args_span<detail::format::format_arg>;
 
 /**
  * Returns an object that stores a format string with an array of all arguments to format.
@@ -35,8 +32,8 @@ using format_args = detail::format::format_args;
  * @return Internal type. Implicit convertible to format_args.
  */
 template <typename... Args>
-[[nodiscard]] detail::format::format_args_storage<sizeof...(Args)> make_format_args(format_string<Args...> format_str,
-                                                                                    const Args&... args) noexcept {
+[[nodiscard]] detail::args_storage<detail::format::format_arg, sizeof...(Args)> make_format_args(
+    format_string<Args...> format_str, const Args&... args) noexcept {
   return {format_str.get(), args...};
 }
 

@@ -19,9 +19,9 @@ add_executable(emio_test
 #        detail/test_dragon.cpp
 #        detail/test_utf.cpp
 #        test_buffer.cpp
-#        test_dynamic_format_spec.cpp
-#        test_format.cpp
-#        test_format_api.cpp
+        test_dynamic_format_spec.cpp
+        test_format.cpp
+        test_format_api.cpp
 #        test_format_as.cpp
 #        test_format_emio_vs_fmt.cpp
 #        test_format_string.cpp
