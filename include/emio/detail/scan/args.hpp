@@ -92,7 +92,7 @@ class scan_arg {
   scan_arg& operator=(scan_arg&&) = delete;
   ~scan_arg() = default;  // No destructor & delete call to concept_t because model_t holds only a reference.
 
-  result<void> scan(reader& input, reader& scan_is) const noexcept {
+  result<void> parse_and_scan(reader& input, reader& scan_is) const noexcept {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): only way to get the object back
     return reinterpret_cast<const concept_t*>(&storage_)->scan(input, scan_is);
   }
@@ -106,7 +106,7 @@ class scan_arg {
     concept_t& operator=(const concept_t&) = delete;
     concept_t& operator=(concept_t&&) = delete;
 
-    virtual result<void> scan(reader& input, reader& scan_is) const noexcept = 0;
+    virtual result<void> parse_and_scan(reader& input, reader& scan_is) const noexcept = 0;
 
    protected:
     ~concept_t() = default;
@@ -122,7 +122,7 @@ class scan_arg {
     model_t& operator=(const model_t&) = delete;
     model_t& operator=(model_t&&) = delete;
 
-    result<void> scan(reader& input, reader& scan_is) const noexcept override {
+    result<void> parse_and_scan(reader& input, reader& scan_is) const noexcept override {
       scanner<std::remove_cvref_t<T>> scanner;
       EMIO_TRYV(invoke_scanner_parse<input_validation::disabled>(scanner, scan_is));
       return scanner.scan(input, value_);

@@ -6,8 +6,6 @@
 
 #pragma once
 
-#include "../../reader.hpp"
-#include "../../writer.hpp"
 #include "../parser.hpp"
 #include "specs.hpp"
 

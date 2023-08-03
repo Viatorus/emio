@@ -92,7 +92,7 @@ class format_arg {
   format_arg& operator=(format_arg&&) = delete;
   ~format_arg() = default;  // No destructor & delete call to concept_t because model_t holds only a reference.
 
-  result<void> format(writer& wtr, reader& format_is) const noexcept {
+  result<void> parse_and_format(writer& wtr, reader& format_is) const noexcept {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): only way to get the object back
     return reinterpret_cast<const concept_t*>(&storage_)->format(wtr, format_is);
   }
@@ -106,7 +106,7 @@ class format_arg {
     concept_t& operator=(const concept_t&) = delete;
     concept_t& operator=(concept_t&&) = delete;
 
-    virtual result<void> format(writer& wtr, reader& format_is) const noexcept = 0;
+    virtual result<void> parse_and_format(writer& wtr, reader& format_is) const noexcept = 0;
 
    protected:
     ~concept_t() = default;
@@ -122,7 +122,7 @@ class format_arg {
     model_t& operator=(const model_t&) = delete;
     model_t& operator=(model_t&&) = delete;
 
-    result<void> format(writer& wtr, reader& format_is) const noexcept override {
+    result<void> parse_and_format(writer& wtr, reader& format_is) const noexcept override {
       formatter<std::remove_cvref_t<T>> formatter;
       EMIO_TRYV(invoke_formatter_parse<input_validation::disabled>(formatter, format_is));
       return formatter.format(wtr, value_);

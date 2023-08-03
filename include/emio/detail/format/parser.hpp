@@ -28,12 +28,12 @@ class format_parser final : public parser<format_parser, input_validation::disab
     return output_.write_char(c);
   }
 
-  result<void> apply3(const format_arg& arg) noexcept {
-    return arg.format(output_, format_rdr_);
+  result<void> process_arg(const format_arg& arg) noexcept {
+    return arg.parse_and_format(output_, format_rdr_);
   }
 
   template <typename Arg>
-  constexpr result<void> apply2(const Arg& arg) noexcept {
+  constexpr result<void> process_arg(const Arg& arg) noexcept {
     if constexpr (has_formatter_v<Arg>) {
       formatter<Arg> formatter;
       EMIO_TRYV(formatter.parse(this->format_rdr_));
@@ -48,7 +48,7 @@ class format_parser final : public parser<format_parser, input_validation::disab
   writer& output_;
 };
 
-// Explicit out-of-class definition because of GCC bug: ~format_parser() used before its definition.
+// Explicit out-of-class definition because of GCC bug: <destructor> used before its definition.
 constexpr format_parser::~format_parser() noexcept = default;
 
 class format_specs_checker final : public parser<format_specs_checker, input_validation::enabled> {
@@ -65,17 +65,17 @@ class format_specs_checker final : public parser<format_specs_checker, input_val
     return success;
   }
 
-  result<void> apply3(const format_validation_arg& arg) noexcept {
+  result<void> process_arg(const format_validation_arg& arg) noexcept {
     return arg.validate(this->format_rdr_);
   }
 
   template <typename Arg>
-  constexpr result<void> apply2(std::type_identity<Arg> /*unused*/) noexcept {
+  constexpr result<void> process_arg(std::type_identity<Arg> /*unused*/) noexcept {
     return validate_for<std::remove_cvref_t<Arg>>(this->format_rdr_);
   }
 };
 
-// Explicit out-of-class definition because of GCC bug: ~format_parser() used before its definition.
+// Explicit out-of-class definition because of GCC bug: <destructor> used before its definition.
 constexpr format_specs_checker::~format_specs_checker() noexcept = default;
 
 template <typename... Args>

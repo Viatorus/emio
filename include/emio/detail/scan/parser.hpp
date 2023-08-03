@@ -27,12 +27,12 @@ class scan_parser final : public parser<scan_parser, input_validation::disabled>
     return input_.read_if_match_char(c);
   }
 
-  result<void> apply3(const scan_arg& arg) noexcept {
-    return arg.scan(input_, format_rdr_);
+  result<void> process_arg(const scan_arg& arg) noexcept {
+    return arg.parse_and_scan(input_, format_rdr_);
   }
 
   template <typename Arg>
-  constexpr result<void> apply2(Arg& arg) noexcept {
+  constexpr result<void> process_arg(Arg& arg) noexcept {
     if constexpr (has_scanner_v<Arg>) {
       scanner<Arg> scanner;
       EMIO_TRYV(scanner.parse(this->format_rdr_));
@@ -61,17 +61,17 @@ class scan_specs_checker final : public parser<scan_specs_checker, input_validat
     return success;
   }
 
-  result<void> apply3(const scan_validation_arg& arg) noexcept {
+  result<void> process_arg(const scan_validation_arg& arg) noexcept {
     return arg.validate(this->format_rdr_);
   }
 
   template <typename Arg>
-  constexpr result<void> apply2(std::type_identity<Arg> /*unused*/) noexcept {
+  constexpr result<void> process_arg(std::type_identity<Arg> /*unused*/) noexcept {
     return validate_for<std::remove_cvref_t<Arg>>(this->format_rdr_);
   }
 };
 
-// Explicit out-of-class definition because of GCC bug: ~scan_parser() used before its definition.
+// Explicit out-of-class definition because of GCC bug: <destructor> used before its definition.
 constexpr scan_specs_checker::~scan_specs_checker() noexcept = default;
 
 template <typename... Args>
