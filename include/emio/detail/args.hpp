@@ -6,9 +6,6 @@
 
 #pragma once
 
-#include "../formatter.hpp"
-#include "../scanner.hpp"
-
 namespace emio::detail {
 
 /**

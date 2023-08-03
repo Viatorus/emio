@@ -13,9 +13,15 @@ namespace emio {
 template <typename T>
 class scanner {
  public:
-  // STATIC
+  static constexpr result<void> validate(reader& rdr) noexcept {
+    EMIO_TRY(const char c, rdr.read_char());
+    if (c == '}') {  // Format end.
+      return success;
+    }
+    return err::invalid_format;
+  }
 
-  result<void> parse(reader& rdr) noexcept {
+  constexpr result<void> parse(reader& rdr) noexcept {
     char c = rdr.read_char().assume_value();
     if (c == '}') {  // Format end.
       return success;

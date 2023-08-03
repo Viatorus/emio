@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "../../reader.hpp"
 #include "../../writer.hpp"
 #include "../parser.hpp"
 #include "specs.hpp"
@@ -37,28 +38,28 @@ result<void> read_arg(reader& in, const scan_specs& /*unused*/, Arg& arg) {
 
 // Specifies if T has an enabled formatter specialization.
 template <typename Arg>
-inline constexpr bool has_scanner_v = std::is_constructible_v<formatter<Arg>>;
+inline constexpr bool has_scanner_v = std::is_constructible_v<scanner<Arg>>;
 
 template <typename T>
 concept has_validate_function_v = requires {
-  { formatter<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
+  { scanner<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
 };
 
 template <typename T>
 concept has_any_validate_function_v =
-    requires { &formatter<T>::validate; } || std::is_member_function_pointer_v<decltype(&formatter<T>::validate)> ||
-    requires { std::declval<formatter<T>>().validate(std::declval<reader&>()); };
+    requires { &scanner<T>::validate; } || std::is_member_function_pointer_v<decltype(&scanner<T>::validate)> ||
+    requires { std::declval<scanner<T>>().validate(std::declval<reader&>()); };
 
 template <typename Arg>
 constexpr result<void> validate_for(reader& format_is) noexcept {
   // Check if a scanner exist and a correct validate method is implemented. If not, use the parse method.
   if constexpr (has_scanner_v<Arg>) {
     if constexpr (has_validate_function_v<Arg>) {
-      return formatter<Arg>::validate(format_is);
+      return scanner<Arg>::validate(format_is);
     } else {
       static_assert(!has_any_validate_function_v<Arg>,
                     "Scanner seems to have a validate property which doesn't fit the desired signature.");
-      return formatter<Arg>{}.parse(format_is);
+      return scanner<Arg>{}.parse(format_is);
     }
   } else {
     static_assert(has_scanner_v<Arg>,
@@ -72,11 +73,11 @@ concept scanner_parse_supports_format_string_validation =
     requires(T scanner) { scanner.template parse<FormatStringValidation>(std::declval<reader>()); };
 
 template <input_validation FormatStringValidation, typename T>
-inline constexpr result<void> invoke_scanner_parse(T& formatter, reader& scan_is) noexcept {
+inline constexpr result<void> invoke_scanner_parse(T& scanner, reader& scan_is) noexcept {
   if constexpr (scanner_parse_supports_format_string_validation<FormatStringValidation, T>) {
-    return formatter.template parse<FormatStringValidation>(scan_is);
+    return scanner.template parse<FormatStringValidation>(scan_is);
   } else {
-    return formatter.parse(scan_is);
+    return scanner.parse(scan_is);
   }
 }
 

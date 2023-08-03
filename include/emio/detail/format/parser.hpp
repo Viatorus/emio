@@ -13,10 +13,10 @@
 
 namespace emio::detail::format {
 
-class format_parser final : public parser_base<input_validation::disabled> {
+class format_parser final : public parser<format_parser, input_validation::disabled> {
  public:
-  constexpr explicit format_parser(writer& wtr, reader& format_rdr) noexcept
-      : parser_base<input_validation::disabled>{format_rdr}, wtr_{wtr} {}
+  constexpr explicit format_parser(writer& output, reader& format_rdr) noexcept
+      : parser<format_parser, input_validation::disabled>{format_rdr}, output_{output} {}
 
   format_parser(const format_parser&) = delete;
   format_parser(format_parser&&) = delete;
@@ -25,48 +25,35 @@ class format_parser final : public parser_base<input_validation::disabled> {
   constexpr ~format_parser() noexcept override;  // NOLINT(performance-trivially-destructible): See definition.
 
   constexpr result<void> process(char c) noexcept override {
-    return wtr_.write_char(c);
+    return output_.write_char(c);
   }
 
-  result<void> apply(uint8_t arg_nbr, const args_span<format_arg>& args) noexcept {
-    return args.get_args()[arg_nbr].format(wtr_, format_rdr_);
+  result<void> apply3(const format_arg& arg) noexcept {
+    return arg.format(output_, format_rdr_);
   }
 
-  // NOLINTNEXTLINE(readability-convert-member-functions-to-static): not possible because of template function
-  constexpr result<void> apply(uint8_t /*arg_pos*/) noexcept {
-    return err::invalid_format;
-  }
-
-  template <typename Arg, typename... Args>
-  constexpr result<void> apply(uint8_t arg_pos, const Arg& arg, const Args&... args) noexcept {
-    if (arg_pos == 0) {
-      return write_arg(arg);
-    }
-    return apply(arg_pos - 1, args...);
-  }
-
- private:
   template <typename Arg>
-  constexpr result<void> write_arg(const Arg& arg) noexcept {
+  constexpr result<void> apply2(const Arg& arg) noexcept {
     if constexpr (has_formatter_v<Arg>) {
       formatter<Arg> formatter;
       EMIO_TRYV(formatter.parse(this->format_rdr_));
-      return formatter.format(wtr_, arg);
+      return formatter.format(output_, arg);
     } else {
       static_assert(has_formatter_v<Arg>,
                     "Cannot format an argument. To make type T formattable provide a formatter<T> specialization.");
     }
   }
 
-  writer& wtr_;
+ private:
+  writer& output_;
 };
 
 // Explicit out-of-class definition because of GCC bug: ~format_parser() used before its definition.
 constexpr format_parser::~format_parser() noexcept = default;
 
-class format_specs_checker final : public parser_base<input_validation::enabled> {
+class format_specs_checker final : public parser<format_specs_checker, input_validation::enabled> {
  public:
-  using parser_base<input_validation::enabled>::parser_base;
+  using parser<format_specs_checker, input_validation::enabled>::parser;
 
   format_specs_checker(const format_specs_checker& other) = delete;
   format_specs_checker(format_specs_checker&& other) = delete;
@@ -78,28 +65,12 @@ class format_specs_checker final : public parser_base<input_validation::enabled>
     return success;
   }
 
-  result<void> apply(uint8_t arg_nbr, const args_span<format_validation_arg>& args) noexcept {
-    return args.get_args()[arg_nbr].validate(this->format_rdr_);
+  result<void> apply3(const format_validation_arg& arg) noexcept {
+    return arg.validate(this->format_rdr_);
   }
 
-  // NOLINTNEXTLINE(readability-convert-member-functions-to-static): not possible because of template function
-  template <typename... Args>
-    requires(sizeof...(Args) == 0)
-  constexpr result<void> apply(uint8_t /*arg_pos*/) noexcept {
-    return err::invalid_format;
-  }
-
-  template <typename Arg, typename... Args>
-  constexpr result<void> apply(uint8_t arg_pos, std::type_identity<Arg> /*unused*/, Args... args) noexcept {
-    if (arg_pos == 0) {
-      return validate_arg<Arg>();
-    }
-    return apply(arg_pos - 1, args...);
-  }
-
- private:
   template <typename Arg>
-  constexpr result<void> validate_arg() noexcept {
+  constexpr result<void> apply2(std::type_identity<Arg> /*unused*/) noexcept {
     return validate_for<std::remove_cvref_t<Arg>>(this->format_rdr_);
   }
 };

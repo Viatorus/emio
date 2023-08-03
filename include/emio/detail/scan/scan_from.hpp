@@ -16,13 +16,13 @@ namespace emio::detail::scan {
 
 inline result<void> vscan_from(reader& input, const args_span<scan_arg>& args) noexcept {
   EMIO_TRY(const std::string_view str, args.get_str());
-  return parse<scan_parser2>(str, input, args);
+  return parse<scan_parser>(str, input, args);
 }
 
 template <typename... Args>
 constexpr result<void> scan_from(reader& input, scan_string<Args...> scan_string, Args&... args) noexcept {
   EMIO_TRY(const std::string_view str, scan_string.get());
-  return parse<scan_parser2>(str, input, args...);
+  return parse<scan_parser>(str, input, args...);
 }
 
 }  // namespace emio::detail::scan

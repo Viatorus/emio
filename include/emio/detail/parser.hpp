@@ -11,6 +11,7 @@
 #include <optional>
 #include <string_view>
 
+#include "args.hpp"
 #include "../reader.hpp"
 #include "../result.hpp"
 #include "format/specs.hpp"
@@ -190,8 +191,51 @@ class parser_base<input_validation::disabled> {
   uint8_t increment_arg_number_{};
 };
 
+template<typename T>
+int is_arg_span2(const args_span<T>& t);
+
+bool is_arg_span2(...);
+
+template<typename T>
+constexpr bool is_args_span = sizeof(is_arg_span2(std::declval<T>())) == sizeof(int);
+
+template <typename CRTP, input_validation Validation>
+class parser : public parser_base<Validation> {
+ public:
+  using parser_base<Validation>::parser_base;
+
+  parser(const parser&) = delete;
+  parser(parser&&) = delete;
+  parser& operator=(const parser&) = delete;
+  parser& operator=(parser&&) = delete;
+  constexpr ~parser() noexcept override;  // NOLINT(performance-trivially-destructible): See definition.
+
+  template<typename T>
+  result<void> apply(uint8_t arg_nbr, const args_span<T>& args) noexcept {
+    return static_cast<CRTP*>(this)->apply3(args.get_args()[arg_nbr]);
+  }
+
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static): not possible because of template function
+  constexpr result<void> apply(uint8_t /*arg_pos*/) noexcept {
+    return err::invalid_format;
+  }
+
+  template <typename Arg, typename... Args>
+  requires (!is_args_span<Arg>)
+  constexpr result<void> apply(uint8_t arg_pos, Arg& arg, Args&... args) noexcept {
+    if (arg_pos == 0) {
+      return static_cast<CRTP*>(this)->apply2(arg);
+    }
+    return apply(arg_pos - 1, args...);
+  }
+};
+
+// Explicit out-of-class definition because of GCC bug: ~format_parser() used before its definition.
+template<typename CRTP, input_validation Validation>
+constexpr parser<CRTP, Validation>::~parser() noexcept = default;
+
 template <typename Parser, typename... Args>
-constexpr bool validate(std::string_view str, const size_t arg_cnt, Args&&... args) {
+constexpr bool validate(std::string_view str, const size_t arg_cnt, const Args&... args) {
   reader format_rdr{str};
   Parser parser{format_rdr};
   bitset<128> matched{};
@@ -207,7 +251,7 @@ constexpr bool validate(std::string_view str, const size_t arg_cnt, Args&&... ar
       return false;
     }
     matched.set(arg_nbr);
-    auto res = parser.apply(arg_nbr, std::forward<Args>(args)...);
+    auto res = parser.apply(arg_nbr, args...);
     if (!res) {
       return false;
     }
