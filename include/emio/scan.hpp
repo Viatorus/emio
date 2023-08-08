@@ -10,8 +10,14 @@
 
 namespace emio {
 
+// Alias template types.
+using scan_args = detail::args_span<detail::scan::scan_arg>;  // TODO vscan
+
 template <typename... Args>
-using scan_string = detail::scan::scan_string<std::type_identity_t<Args>...>;
+using scan_string = detail::validated_string<detail::scan::scan_trait, std::type_identity_t<Args>...>;
+
+template <typename... Args>
+using valid_scan_string = detail::valid_string<detail::scan::scan_trait, std::type_identity_t<Args>...>;
 
 template <typename... Args>
 [[nodiscard]] detail::args_storage<detail::scan::scan_arg, sizeof...(Args)> make_scan_args(

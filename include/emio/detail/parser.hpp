@@ -13,6 +13,7 @@
 
 #include "../reader.hpp"
 #include "args.hpp"
+#include "bitset.hpp"
 
 namespace emio::detail {
 

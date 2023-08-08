@@ -6,9 +6,9 @@
 
 #pragma once
 
-#include "../../format_string.hpp"
 #include "../../reader.hpp"
 #include "../../writer.hpp"
+#include "../string_validation.hpp"
 #include "args.hpp"
 #include "parser.hpp"
 
@@ -20,7 +20,8 @@ inline result<void> vscan_from(reader& input, const args_span<scan_arg>& args) n
 }
 
 template <typename... Args>
-constexpr result<void> scan_from(reader& input, scan_string<Args...> scan_string, Args&... args) noexcept {
+constexpr result<void> scan_from(reader& input, validated_string<scan_trait, Args...> scan_string,
+                                 Args&... args) noexcept {
   EMIO_TRY(const std::string_view str, scan_string.get());
   return parse<scan_parser>(str, input, args...);
 }

@@ -225,9 +225,9 @@ type        ::=  "b" | "B" | "c" | "d" | "o" | "s" | "x" | "X" | "e" | "E" | "f"
 ```
 
 The format string syntax is validated at compile-time. If a runtime format string is required, the string must be
-wrapped inside a `runtime_format_string` object. There is a simple helper function for that: 
+wrapped inside a `runtime_string` object. There is a simple helper function for that: 
 
-`runtime(string_view) -> runtime_format_string`
+`runtime(string_view) -> runtime_string`
 
 Some functions (like `format` or `formatted_size`) are further optimized (simplified) in their return type if the format
 string is a valid-only format string that could be ensured at compile-time.

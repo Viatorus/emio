@@ -817,9 +817,16 @@ TEST_CASE("format at compile-time") {
   STATIC_CHECK(success);
 }
 
-TEST_CASE("validate_format_string") {
-  using emio::detail::format::validate_format_string;
+namespace {
 
+template <typename... Args>
+bool validate_format_string(std::string_view str) {
+  return emio::detail::format::format_trait::validate_string<Args...>(str);
+}
+
+}  // namespace
+
+TEST_CASE("validate_format_string") {
   CHECK(validate_format_string(""sv));
   CHECK(validate_format_string("abc"sv));
   CHECK(!validate_format_string("abc{"sv));

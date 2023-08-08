@@ -74,14 +74,16 @@ class scan_specs_checker final : public parser<scan_specs_checker, input_validat
 // Explicit out-of-class definition because of GCC bug: <destructor> used before its definition.
 constexpr scan_specs_checker::~scan_specs_checker() noexcept = default;
 
-template <typename... Args>
-[[nodiscard]] inline constexpr bool validate_scan_string(std::string_view scan_str) {
-  if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
-    return validate<scan_specs_checker>(scan_str, sizeof...(Args), std::type_identity<Args>{}...);
-  } else {
-    return validate<scan_specs_checker>(scan_str, sizeof...(Args),
-                                        make_validation_args<scan_validation_arg, Args...>(scan_str));
+struct scan_trait {
+  template <typename... Args>
+  [[nodiscard]] static constexpr bool validate_string(std::string_view scan_str) {
+    if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
+      return validate<scan_specs_checker>(scan_str, sizeof...(Args), std::type_identity<Args>{}...);
+    } else {
+      return validate<scan_specs_checker>(scan_str, sizeof...(Args),
+                                          make_validation_args<scan_validation_arg, Args...>(scan_str));
+    }
   }
-}
+};
 
 }  // namespace emio::detail::scan

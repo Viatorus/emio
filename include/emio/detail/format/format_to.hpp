@@ -6,9 +6,9 @@
 
 #pragma once
 
-#include "../../format_string.hpp"
 #include "../../reader.hpp"
 #include "../../writer.hpp"
+#include "../string_validation.hpp"
 #include "args.hpp"
 #include "parser.hpp"
 
@@ -23,7 +23,8 @@ inline result<void> vformat_to(buffer& buf, const args_span<format_arg>& args) n
 
 // Constexpr version.
 template <typename... Args>
-constexpr result<void> format_to(buffer& buf, format_string<Args...> format_str, const Args&... args) noexcept {
+constexpr result<void> format_to(buffer& buf, validated_string<format_trait, Args...> format_str,
+                                 const Args&... args) noexcept {
   EMIO_TRY(const std::string_view str, format_str.get());
   writer wtr{buf};
   return parse<format_parser>(str, wtr, args...);

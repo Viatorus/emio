@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2021 - present, Toni Neubert
+// Copyright (c) 2023 - present, Toni Neubert
 // All rights reserved.
 //
 // For the license information refer to emio.hpp
@@ -11,22 +11,24 @@
 
 #include "parser.hpp"
 
-namespace emio::detail::format {
+namespace emio {
+
+namespace detail {
 
 /**
- * This class represents a not yet validated format string, which has to be validated at runtime.
+ * This class represents a not yet validated string, which has to be validated at runtime.
  */
-class runtime_format_string {
+class runtime_string {
  public:
   /**
    * Constructs an empty runtime format string.
    */
-  constexpr runtime_format_string() = default;
+  constexpr runtime_string() = default;
 
   // Don't allow temporary strings or any nullptr.
-  constexpr runtime_format_string(std::string&&) = delete;
-  constexpr runtime_format_string(std::nullptr_t) = delete;
-  constexpr runtime_format_string(int) = delete;
+  constexpr runtime_string(std::string&&) = delete;
+  constexpr runtime_string(std::nullptr_t) = delete;
+  constexpr runtime_string(int) = delete;
 
   /**
    * Constructs the runtime format string from any suitable char sequence.
@@ -34,7 +36,7 @@ class runtime_format_string {
    */
   template <typename S>
     requires(std::is_constructible_v<std::string_view, S>)
-  constexpr explicit runtime_format_string(const S& str) : str_{str} {}
+  constexpr explicit runtime_string(const S& str) : str_{str} {}
 
   /**
    * Obtains a view over the runtime format string.
@@ -48,16 +50,16 @@ class runtime_format_string {
   std::string_view str_;
 };
 
-template <typename... Args>
-class valid_format_string;
+template <typename Trait, typename... Args>
+class valid_string;
 
 /**
  * This class represents a validated format string. The format string is either valid or not.
  * @note The validation happens at object construction.
  * @tparam Args The argument types to format.
  */
-template <typename... Args>
-class format_string {
+template <typename Trait, typename... Args>
+class validated_string {
  public:
   /**
    * Constructs and validates the format string from any suitable char sequence at compile-time.
@@ -66,9 +68,9 @@ class format_string {
    */
   template <typename S>
     requires(std::is_constructible_v<std::string_view, S>)
-  consteval format_string(const S& s) noexcept {
+  consteval validated_string(const S& s) noexcept {
     std::string_view str{s};
-    if (validate_format_string<Args...>(str)) {
+    if (Trait::template validate_string<Args...>(str)) {
       str_ = str;
     } else {
       // Invalid format string detected. Stop compilation.
@@ -80,9 +82,9 @@ class format_string {
    * Constructs and validates a runtime format string at runtime.
    * @param s The runtime format string.
    */
-  constexpr format_string(runtime_format_string s) noexcept {
+  constexpr validated_string(runtime_string s) noexcept {
     std::string_view str{s.view()};
-    if (validate_format_string<Args...>(str)) {
+    if (Trait::template validate_string<Args...>(str)) {
       str_ = str;
     }
   }
@@ -99,9 +101,9 @@ class format_string {
    * Returns format string as valid one.
    * @return The valid format string or invalid_format if the validation failed.
    */
-  constexpr result<valid_format_string<Args...>> as_valid() const noexcept {
+  constexpr result<valid_string<Trait, Args...>> as_valid() const noexcept {
     if (str_.has_value()) {
-      return valid_format_string<Args...>{valid, str_.assume_value()};
+      return valid_string<Trait, Args...>{valid, str_.assume_value()};
     }
     return err::invalid_format;
   }
@@ -110,18 +112,18 @@ class format_string {
   static constexpr struct valid_t {
   } valid{};
 
-  constexpr explicit format_string(valid_t /*unused*/, std::string_view s) noexcept : str_{s} {}
+  constexpr explicit validated_string(valid_t /*unused*/, std::string_view s) noexcept : str_{s} {}
 
  private:
-  result<std::string_view> str_{err::invalid_format};  ///< Validated format string.
+  result<std::string_view> str_{err::invalid_format};  ///< Validated string.
 };
 
 /**
  * This class represents a validated format string. The format string can only be valid.
  * @tparam Args The argument types to format.
  */
-template <typename... Args>
-class valid_format_string : public format_string<Args...> {
+template <typename Trait, typename... Args>
+class valid_string : public validated_string<Trait, Args...> {
  public:
   /**
    * Constructs and validates the format string from any suitable char sequence at compile-time.
@@ -130,7 +132,7 @@ class valid_format_string : public format_string<Args...> {
    */
   template <typename S>
     requires(std::is_constructible_v<std::string_view, S>)
-  consteval valid_format_string(const S& s) noexcept : format_string<Args...>{s} {}
+  consteval valid_string(const S& s) noexcept : validated_string<Trait, Args...>{s} {}
 
   /**
    * Constructs and validates a format string at runtime.
@@ -139,22 +141,31 @@ class valid_format_string : public format_string<Args...> {
    */
   template <typename S>
     requires(std::is_constructible_v<std::string_view, S>)
-  static constexpr result<valid_format_string<Args...>> from(const S& s) noexcept {
+  static constexpr result<valid_string<Trait, Args...>> from(const S& s) noexcept {
     std::string_view str{s};
-    if (!validate_format_string<Args...>(str)) {
+    if (!Trait::template validate_string<Args...>(str)) {
       return err::invalid_format;
     }
-    return valid_format_string{valid, str};
+    return valid_string{valid, str};
   }
 
  private:
-  friend class format_string<Args...>;
+  friend class validated_string<Trait, Args...>;
 
-  using valid_t = typename format_string<Args...>::valid_t;
-  using format_string<Args...>::valid;
+  using valid_t = typename validated_string<Trait, Args...>::valid_t;
+  using validated_string<Trait, Args...>::valid;
 
-  constexpr explicit valid_format_string(valid_t /*unused*/, std::string_view s) noexcept
-      : format_string<Args...>{valid, s} {}
+  constexpr explicit valid_string(valid_t /*unused*/, std::string_view s) noexcept
+      : validated_string<Trait, Args...>{valid, s} {}
 };
 
-}  // namespace emio::detail::format
+}  // namespace detail
+
+// Alias template types.
+using runtime_string = detail::runtime_string;
+
+inline constexpr runtime_string runtime(const std::string_view& s) noexcept {
+  return runtime_string{s};
+}
+
+}  // namespace emio
