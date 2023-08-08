@@ -34,6 +34,7 @@ create_size_test(emio/format_runtime.cpp)
 create_size_test(emio/format_to.cpp)
 create_size_test(emio/format_to_n.cpp)
 create_size_test(emio/format_int_twice.cpp)
+create_size_test(emio/scan_int.cpp)
 create_size_test(emio/write_int.cpp)
 
 create_size_test(fmt/doFormat_a.cpp)
