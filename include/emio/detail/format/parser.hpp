@@ -6,8 +6,6 @@
 
 #pragma once
 
-#include "../../writer.hpp"
-#include "../bitset.hpp"
 #include "args.hpp"
 #include "formatter.hpp"
 
@@ -77,17 +75,5 @@ class format_specs_checker final : public parser<format_specs_checker, input_val
 
 // Explicit out-of-class definition because of GCC bug: <destructor> used before its definition.
 constexpr format_specs_checker::~format_specs_checker() noexcept = default;
-
-struct format_trait {
-  template <typename... Args>
-  [[nodiscard]] static constexpr bool validate_string(std::string_view format_str) noexcept {
-    if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
-      return validate<format_specs_checker>(format_str, sizeof...(Args), std::type_identity<Args>{}...);
-    } else {
-      return validate<format_specs_checker>(format_str, sizeof...(Args),
-                                            make_validation_args<format_validation_arg, Args...>(format_str));
-    }
-  }
-};
 
 }  // namespace emio::detail::format

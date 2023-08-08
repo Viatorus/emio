@@ -16,7 +16,7 @@ namespace emio {
 namespace detail {
 
 /**
- * This class represents a not yet validated string, which has to be validated at runtime.
+ * This class represents a not yet validated format string, which has to be validated at runtime.
  */
 class runtime_string {
  public:

@@ -22,24 +22,6 @@ namespace emio::detail {
  */
 enum class input_validation { enabled, disabled };
 
-template <typename T>
-struct always_false : std::false_type {};
-
-template <typename T>
-inline constexpr bool always_false_v = always_false<T>::value;
-
-namespace alternate_form {
-
-inline constexpr std::string_view bin_lower{"0b"};
-inline constexpr std::string_view bin_upper{"0B"};
-inline constexpr std::string_view octal{"0"};
-inline constexpr std::string_view octal_lower{"0o"};
-inline constexpr std::string_view octal_upper{"0O"};
-inline constexpr std::string_view hex_lower{"0x"};
-inline constexpr std::string_view hex_upper{"0X"};
-
-}  // namespace alternate_form
-
 inline constexpr uint8_t no_more_args = std::numeric_limits<uint8_t>::max();
 
 template <input_validation>

@@ -14,7 +14,25 @@
 
 namespace emio::detail::scan {
 
-inline result<void> vscan_from(reader& input, const args_span<scan_arg>& args) noexcept {
+struct scan_trait {
+  template <typename... Args>
+  [[nodiscard]] static constexpr bool validate_string(std::string_view scan_str) {
+    if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
+      return validate<scan_specs_checker>(scan_str, sizeof...(Args), std::type_identity<Args>{}...);
+    } else {
+      return validate<scan_specs_checker>(scan_str, sizeof...(Args),
+                                          make_validation_args<scan_validation_arg, Args...>(scan_str));
+    }
+  }
+};
+
+template <typename... Args>
+using scan_string = validated_string<scan_trait, std::type_identity_t<Args>...>;
+
+template <typename... Args>
+using valid_scan_string = valid_string<scan_trait, std::type_identity_t<Args>...>;
+
+inline result<void> vscan_from(reader& input, const scan_args& args) noexcept {
   EMIO_TRY(const std::string_view str, args.get_str());
   return parse<scan_parser>(str, input, args);
 }

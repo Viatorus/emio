@@ -43,4 +43,6 @@ using format_validation_arg = validation_arg<format_arg_trait>;
 
 using format_arg = arg<writer, format_arg_trait>;
 
+using format_args = args_span<format_arg>;
+
 }  // namespace emio::detail::format

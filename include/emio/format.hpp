@@ -15,17 +15,17 @@ namespace emio {
 
 /**
  * Provides access to the format string and the arguments to format.
- * @note This type should only be "constructed" via make_format_args(format_str, args...) and passed directly to an
+ * @note This type should only be "constructed" via make_format_args(format_str, args...) and passed directly to a
  * formatting function.
  */
-using format_args = detail::args_span<detail::format::format_arg>;
+using format_args = detail::format::format_args;
 
 // Alias template types.
 template <typename... Args>
-using format_string = detail::validated_string<detail::format::format_trait, std::type_identity_t<Args>...>;
+using format_string = detail::format::format_string<Args...>;
 
 template <typename... Args>
-using valid_format_string = detail::valid_string<detail::format::format_trait, std::type_identity_t<Args>...>;
+using valid_format_string = detail::format::valid_format_string<Args...>;
 
 /**
  * Returns an object that stores a format string with an array of all arguments to format.

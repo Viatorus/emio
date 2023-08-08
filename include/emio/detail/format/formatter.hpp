@@ -6,8 +6,9 @@
 
 #pragma once
 
+#include "../../reader.hpp"
 #include "../../writer.hpp"
-#include "../parser.hpp"
+#include "../misc.hpp"
 #include "dragon.hpp"
 #include "specs.hpp"
 
@@ -17,6 +18,18 @@ template <typename>
 class formatter;
 
 namespace detail::format {
+
+namespace alternate_form {
+
+inline constexpr std::string_view bin_lower{"0b"};
+inline constexpr std::string_view bin_upper{"0B"};
+inline constexpr std::string_view octal{"0"};
+inline constexpr std::string_view octal_lower{"0o"};
+inline constexpr std::string_view octal_upper{"0O"};
+inline constexpr std::string_view hex_lower{"0x"};
+inline constexpr std::string_view hex_upper{"0X"};
+
+}  // namespace alternate_form
 
 //
 // Write args.
@@ -150,7 +163,7 @@ constexpr result<void> write_arg(writer& wtr, format_specs& specs, const Arg& ar
     total_width += 1;
   }
 
-  return write_padded<alignment::right>(wtr, specs, total_width, [&, &options = options]() -> result<void> {
+  return write_padded<alignment::right>(wtr, specs, total_width, [&, &opt = options]() -> result<void> {
     const size_t area_size =
         num_digits + static_cast<size_t>(sign_to_write != no_sign) + static_cast<size_t>(prefix_to_write.size());
     EMIO_TRY(auto area, wtr.get_buffer().get_write_area_of(area_size));
@@ -161,7 +174,7 @@ constexpr result<void> write_arg(writer& wtr, format_specs& specs, const Arg& ar
     if (!prefix_to_write.empty()) {
       it = copy_n(prefix_to_write.data(), prefix_to_write.size(), it);
     }
-    write_number(abs_number, options.base, options.upper_case, it + detail::to_signed(num_digits));
+    write_number(abs_number, opt.base, opt.upper_case, it + detail::to_signed(num_digits));
     return success;
   });
 }
@@ -760,8 +773,6 @@ template <typename T>
 concept has_any_validate_function_v =
     requires { &formatter<T>::validate; } || std::is_member_function_pointer_v<decltype(&formatter<T>::validate)> ||
     requires { std::declval<formatter<T>>().validate(std::declval<reader&>()); };
-
-
 
 template <typename T>
 inline constexpr bool is_core_type_v =

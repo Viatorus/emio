@@ -14,8 +14,26 @@
 
 namespace emio::detail::format {
 
+struct format_trait {
+  template <typename... Args>
+  [[nodiscard]] static constexpr bool validate_string(std::string_view format_str) noexcept {
+    if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
+      return validate<format_specs_checker>(format_str, sizeof...(Args), std::type_identity<Args>{}...);
+    } else {
+      return validate<format_specs_checker>(format_str, sizeof...(Args),
+                                            make_validation_args<format_validation_arg, Args...>(format_str));
+    }
+  }
+};
+
+template <typename... Args>
+using format_string = validated_string<format_trait, std::type_identity_t<Args>...>;
+
+template <typename... Args>
+using valid_format_string = valid_string<format_trait, std::type_identity_t<Args>...>;
+
 // Non constexpr version.
-inline result<void> vformat_to(buffer& buf, const args_span<format_arg>& args) noexcept {
+inline result<void> vformat_to(buffer& buf, const format_args& args) noexcept {
   EMIO_TRY(const std::string_view str, args.get_str());
   writer wtr{buf};
   return parse<format_parser>(str, wtr, args);
@@ -23,8 +41,7 @@ inline result<void> vformat_to(buffer& buf, const args_span<format_arg>& args) n
 
 // Constexpr version.
 template <typename... Args>
-constexpr result<void> format_to(buffer& buf, validated_string<format_trait, Args...> format_str,
-                                 const Args&... args) noexcept {
+constexpr result<void> format_to(buffer& buf, format_string<Args...> format_str, const Args&... args) noexcept {
   EMIO_TRY(const std::string_view str, format_str.get());
   writer wtr{buf};
   return parse<format_parser>(str, wtr, args...);

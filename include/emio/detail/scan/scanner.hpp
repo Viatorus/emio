@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "../parser.hpp"
+#include "../../reader.hpp"
 #include "specs.hpp"
 
 namespace emio {
@@ -48,7 +48,8 @@ concept has_any_validate_function_v =
     requires { &scanner<T>::validate; } || std::is_member_function_pointer_v<decltype(&scanner<T>::validate)> ||
     requires { std::declval<scanner<T>>().validate(std::declval<reader&>()); };
 
-
+template <typename T>
+inline constexpr bool is_core_type_v = std::is_integral_v<T>;
 
 }  // namespace detail::scan
 

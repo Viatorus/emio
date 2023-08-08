@@ -1,13 +1,11 @@
 //
-// Copyright (c) 2021 - present, Toni Neubert
+// Copyright (c) 2023 - present, Toni Neubert
 // All rights reserved.
 //
 // For the license information refer to emio.hpp
 
 #pragma once
 
-#include "../../writer.hpp"
-#include "../bitset.hpp"
 #include "args.hpp"
 #include "scanner.hpp"
 
@@ -22,6 +20,7 @@ class scan_parser final : public parser<scan_parser, input_validation::disabled>
   scan_parser(scan_parser&&) = delete;
   scan_parser& operator=(const scan_parser&) = delete;
   scan_parser& operator=(scan_parser&&) = delete;
+  constexpr ~scan_parser() noexcept override;  // NOLINT(performance-trivially-destructible): See definition.
 
   constexpr result<void> process(const char c) noexcept override {
     return input_.read_if_match_char(c);
@@ -46,6 +45,9 @@ class scan_parser final : public parser<scan_parser, input_validation::disabled>
  private:
   reader& input_;
 };
+
+// Explicit out-of-class definition because of GCC bug: <destructor> used before its definition.
+constexpr scan_parser::~scan_parser() noexcept = default;
 
 class scan_specs_checker final : public parser<scan_specs_checker, input_validation::enabled> {
  public:
@@ -73,17 +75,5 @@ class scan_specs_checker final : public parser<scan_specs_checker, input_validat
 
 // Explicit out-of-class definition because of GCC bug: <destructor> used before its definition.
 constexpr scan_specs_checker::~scan_specs_checker() noexcept = default;
-
-struct scan_trait {
-  template <typename... Args>
-  [[nodiscard]] static constexpr bool validate_string(std::string_view scan_str) {
-    if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
-      return validate<scan_specs_checker>(scan_str, sizeof...(Args), std::type_identity<Args>{}...);
-    } else {
-      return validate<scan_specs_checker>(scan_str, sizeof...(Args),
-                                          make_validation_args<scan_validation_arg, Args...>(scan_str));
-    }
-  }
-};
 
 }  // namespace emio::detail::scan
