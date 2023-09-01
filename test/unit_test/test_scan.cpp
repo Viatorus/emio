@@ -10,9 +10,9 @@
 // - unit tests scan, vscan, vscan_from
 // - benchmark test
 // - size test
-// - scan/format string
+// - scan/format string naming
 // - scan API docu
-// - scan API md docu
+// - scan API user docu
 
 TEST_CASE("scan", "[scan]") {
   int a = 0;
