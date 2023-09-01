@@ -10,6 +10,11 @@
 
 namespace emio::detail::scan {
 
-struct scan_specs {};
+inline constexpr char no_type = 0;
+
+struct scan_specs {
+  bool alternate_form{false};
+  char type{no_type};
+};
 
 }  // namespace emio::detail::scan

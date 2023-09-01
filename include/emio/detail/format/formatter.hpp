@@ -760,6 +760,10 @@ inline constexpr result<void> check_string_view_specs(const format_specs& specs)
   return success;
 }
 
+//
+// Type traits.
+//
+
 // Specifies if T has an enabled formatter specialization.
 template <typename Arg>
 inline constexpr bool has_formatter_v = std::is_constructible_v<formatter<Arg>>;

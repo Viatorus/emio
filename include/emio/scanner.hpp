@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "detail/misc.hpp"
 #include "detail/scan/scanner.hpp"
 
 namespace emio {
@@ -64,7 +65,7 @@ class scanner {
  * This includes:
  * - char
  * - integral
- * TBD:
+ * To be implemented:
  * - floating-point types
  * @tparam T The type.
  */
@@ -73,19 +74,20 @@ template <typename T>
 class scanner<T> {
  public:
   static constexpr result<void> validate(reader& rdr) noexcept {
-    EMIO_TRY(const char c, rdr.read_char());
-    if (c == '}') {  // Format end.
-      return success;
+    detail::scan::scan_specs specs{};
+    EMIO_TRYV(detail::scan::validate_scan_specs(rdr, specs));
+    if constexpr (std::is_same_v<T, char>) {
+      EMIO_TRYV(check_char_specs(specs));
+    } else if constexpr (std::is_integral_v<T>) {
+      EMIO_TRYV(check_integral_specs(specs));
+    } else {
+      static_assert(detail::always_false_v<T>, "Unknown core type!");
     }
-    return err::invalid_format;
+    return success;
   }
 
   constexpr result<void> parse(reader& rdr) noexcept {
-    char c = rdr.read_char().assume_value();
-    if (c == '}') {  // Format end.
-      return success;
-    }
-    return err::invalid_format;
+    return detail::scan::parse_scan_specs(rdr, specs_);
   }
 
   constexpr result<void> scan(reader& input, T& arg) const noexcept {
