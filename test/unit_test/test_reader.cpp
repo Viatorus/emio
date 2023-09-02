@@ -220,6 +220,13 @@ TEST_CASE("reader::parse_int", "[reader]") {
     }
   }
 
+  SECTION("min/max cases") {
+    SECTION("int32 min") {
+      auto str = "-2147483648"sv;
+      CHECK(emio::reader{str}.parse_int<int32_t>() == std::numeric_limits<int32_t>::min());
+    }
+  }
+
   // TODO: Min/Max edge cases.
 
   SECTION("just a -") {
