@@ -114,10 +114,10 @@ constexpr result<void> read_arg(reader& in, const scan_specs& specs, Arg& arg) n
     EMIO_TRY(base, determine_base(in));
     if (base != 10) {
       // Discard alternate form from input.
-      if (base == 2 || base == 16) {
-        in.pop(2);
-      } else {
+      if (base == 8) {
         in.pop(1);
+      } else {
+        in.pop(2);
       }
       EMIO_TRYV(disallow_sign(in));
     }
@@ -137,42 +137,6 @@ constexpr result<void> read_arg(reader& in, const scan_specs& specs, Arg& arg) n
       arg *= -1;
     }
   }
-
-  //
-  //  if (specs.type == no_type && specs.alternate_form) {
-  //    EMIO_TRY((const auto [base, is_negative]), determine_sign_and_base(in));
-  //
-  //    {  // Discard sign and alternate form.
-  //      auto discard = static_cast<size_t>(is_negative);
-  //      switch (base) {
-  //      case 8:
-  //        discard += 1;
-  //        break;
-  //      case 2:
-  //      case 16:
-  //        discard += 2;
-  //        break;
-  //      }
-  //      in.pop(discard);
-  //    }
-  //
-  //    EMIO_TRY(arg, in.parse_int<Arg>(base));
-  //
-  //    // If negative, make arg negative.
-  //    if (is_negative) {
-  //      if constexpr (std::is_unsigned_v<Arg>) {
-  //        return err::invalid_data;
-  //      } else {
-  //        arg *= -1;
-  //      }
-  //    }
-  //  } else {
-  //    const int base = get_base(specs.type);
-  //    if (specs.alternate_form) {
-  //      EMIO_TRYV(read_alternate_form(in, base));
-  //    }
-  //    EMIO_TRY(arg, in.parse_int<Arg>(base));
-  //  }
   return success;
 }
 

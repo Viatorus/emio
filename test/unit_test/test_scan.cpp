@@ -5,7 +5,6 @@
 #include <catch2/catch_test_macros.hpp>
 
 // TODO:
-// - support hex, octal, binary, + prefix
 // - support string
 // - unit tests scan, vscan, vscan_from
 // - benchmark test
@@ -184,6 +183,12 @@ TEST_CASE("scan_octal", "[scan]") {
 TEST_CASE("scan_decimal", "[scan]") {
   int val{};
   SECTION("no prefix") {
+    REQUIRE(emio::scan("49", "{}", val));
+    CHECK(val == 49);
+
+    REQUIRE(emio::scan("-87", "{}", val));
+    CHECK(val == -87);
+
     REQUIRE(emio::scan("59849", "{:d}", val));
     CHECK(val == 59849);
 
@@ -209,10 +214,37 @@ TEST_CASE("scan_decimal", "[scan]") {
     REQUIRE(emio::scan("-42", "{:#d}", val));
     CHECK(val == -42);
   }
-  SECTION("wrong prefix (not applicable)") {
-    CHECK(emio::scan("0x", "{:#d}", val));
+  SECTION("edge cases") {
+    REQUIRE(emio::scan("0x5", "{}", val));
     CHECK(val == 0);
-    CHECK(emio::scan("0", "{:#d}", val));
+
+    REQUIRE(emio::scan("0b3", "{:#d}", val));
+    CHECK(val == 0);
+
+    REQUIRE(emio::scan("0", "{:#d}", val));
+    CHECK(val == 0);
+  }
+  SECTION("overflows") {
+    SECTION("signed") {
+      int8_t val8{};
+      CHECK(emio::scan("127", "{}", val8));
+      CHECK(val8 == 127);
+
+      CHECK(emio::scan("128", "{}", val8) == emio::err::out_of_range);
+
+      // TODO: split reader parse function to take sign flog.
+      REQUIRE(emio::scan("-128", "{}", val8));
+      CHECK(val8 == -128);
+
+      CHECK(emio::scan("-129", "{}", val8) == emio::err::out_of_range);
+    }
+    SECTION("unsigned") {
+      uint8_t uval8{};
+      REQUIRE(emio::scan("255", "{}", uval8));
+      CHECK(uval8 == 255);
+
+      CHECK(emio::scan("256", "{}", uval8) == emio::err::out_of_range);
+    }
   }
 }
 
