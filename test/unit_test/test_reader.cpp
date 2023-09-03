@@ -91,153 +91,81 @@ TEST_CASE("reader::parse_int", "[reader]") {
   // * Call parse_int with different input, integer types and bases.
   // Expected: The method works as expected.
 
-  SECTION("<= int8_t cases") {
-    SECTION("positive") {
-      auto str = "124"sv;
-      int64_t expected = 124;
-      CHECK(emio::reader{str}.parse_int<int8_t>() == expected);
-      CHECK(emio::reader{str}.parse_int<uint8_t>() == expected);
-      CHECK(emio::reader{str}.parse_int<int16_t>() == expected);
-      CHECK(emio::reader{str}.parse_int<uint16_t>() == expected);
-      CHECK(emio::reader{str}.parse_int<int32_t>() == expected);
-      CHECK(emio::reader{str}.parse_int<uint32_t>() == static_cast<uint32_t>(expected));
-      CHECK(emio::reader{str}.parse_int<int64_t>() == expected);
-      CHECK(emio::reader{str}.parse_int<uint64_t>() == static_cast<uint64_t>(expected));
-    }
-    SECTION("negative") {
-      auto str = "-105"sv;
-      int64_t expected = -105;
-      CHECK(emio::reader{str}.parse_int<int8_t>() == expected);
-      CHECK(emio::reader{str}.parse_int<uint8_t>() == emio::err::invalid_data);
-      CHECK(emio::reader{str}.parse_int<int16_t>() == expected);
-      CHECK(emio::reader{str}.parse_int<uint16_t>() == emio::err::invalid_data);
-      CHECK(emio::reader{str}.parse_int<int32_t>() == expected);
-      CHECK(emio::reader{str}.parse_int<uint32_t>() == emio::err::invalid_data);
-      CHECK(emio::reader{str}.parse_int<int64_t>() == expected);
-      CHECK(emio::reader{str}.parse_int<uint64_t>() == emio::err::invalid_data);
-    }
-  }
-  SECTION("<= int16_t cases") {
-    SECTION("positive") {
-      auto str = "5871"sv;
-      int64_t expected = 5871;
-      CHECK(emio::reader{str}.parse_int<int8_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<uint8_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<int16_t>() == expected);
-      CHECK(emio::reader{str}.parse_int<uint16_t>() == expected);
-      CHECK(emio::reader{str}.parse_int<int32_t>() == expected);
-      CHECK(emio::reader{str}.parse_int<uint32_t>() == static_cast<uint32_t>(expected));
-      CHECK(emio::reader{str}.parse_int<int64_t>() == expected);
-      CHECK(emio::reader{str}.parse_int<uint64_t>() == static_cast<uint64_t>(expected));
-    }
-    SECTION("negative") {
-      auto str = "-25849"sv;
-      int64_t expected = -25849;
-      CHECK(emio::reader{str}.parse_int<int8_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<uint8_t>() == emio::err::invalid_data);
-      CHECK(emio::reader{str}.parse_int<int16_t>() == expected);
-      CHECK(emio::reader{str}.parse_int<uint16_t>() == emio::err::invalid_data);
-      CHECK(emio::reader{str}.parse_int<int32_t>() == expected);
-      CHECK(emio::reader{str}.parse_int<uint32_t>() == emio::err::invalid_data);
-      CHECK(emio::reader{str}.parse_int<int64_t>() == expected);
-      CHECK(emio::reader{str}.parse_int<uint64_t>() == emio::err::invalid_data);
-    }
-  }
-  SECTION("<= int32_t cases") {
-    SECTION("positive") {
-      auto str = "958761"sv;
-      int64_t expected = 958761;
-      CHECK(emio::reader{str}.parse_int<int8_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<uint8_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<int16_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<uint16_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<int32_t>() == expected);
-      CHECK(emio::reader{str}.parse_int<uint32_t>() == static_cast<uint32_t>(expected));
-      CHECK(emio::reader{str}.parse_int<int64_t>() == expected);
-      CHECK(emio::reader{str}.parse_int<uint64_t>() == static_cast<uint64_t>(expected));
-    }
-    SECTION("negative") {
-      auto str = "-9025849"sv;
-      int64_t expected = -9025849;
-      CHECK(emio::reader{str}.parse_int<int8_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<uint8_t>() == emio::err::invalid_data);
-      CHECK(emio::reader{str}.parse_int<int16_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<uint16_t>() == emio::err::invalid_data);
-      CHECK(emio::reader{str}.parse_int<int32_t>() == expected);
-      CHECK(emio::reader{str}.parse_int<uint32_t>() == emio::err::invalid_data);
-      CHECK(emio::reader{str}.parse_int<int64_t>() == expected);
-      CHECK(emio::reader{str}.parse_int<uint64_t>() == emio::err::invalid_data);
-    }
-  }
-  SECTION("<= int64_t cases") {
-    SECTION("positive") {
-      auto str = "34958424761"sv;
-      int64_t expected = 34958424761;
-      CHECK(emio::reader{str}.parse_int<int8_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<uint8_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<int16_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<uint16_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<int32_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<uint32_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<int64_t>() == expected);
-      CHECK(emio::reader{str}.parse_int<uint64_t>() == static_cast<uint64_t>(expected));
-    }
-    SECTION("negative") {
-      auto str = "-9025763849"sv;
-      int64_t expected = -9025763849;
-      CHECK(emio::reader{str}.parse_int<int8_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<uint8_t>() == emio::err::invalid_data);
-      CHECK(emio::reader{str}.parse_int<int16_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<uint16_t>() == emio::err::invalid_data);
-      CHECK(emio::reader{str}.parse_int<int32_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<uint32_t>() == emio::err::invalid_data);
-      CHECK(emio::reader{str}.parse_int<int64_t>() == expected);
-      CHECK(emio::reader{str}.parse_int<uint64_t>() == emio::err::invalid_data);
-    }
-  }
-  SECTION(">= int64_t cases") {
-    SECTION("positive") {
-      auto str = "3495428454140262476100"sv;
-      CHECK(emio::reader{str}.parse_int<int8_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<uint8_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<int16_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<uint16_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<int32_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<uint32_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<int64_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<uint64_t>() == emio::err::out_of_range);
-    }
-    SECTION("negative") {
-      auto str = "-902575960213940263849"sv;
-      CHECK(emio::reader{str}.parse_int<int8_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<uint8_t>() == emio::err::invalid_data);
-      CHECK(emio::reader{str}.parse_int<int16_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<uint16_t>() == emio::err::invalid_data);
-      CHECK(emio::reader{str}.parse_int<int32_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<uint32_t>() == emio::err::invalid_data);
-      CHECK(emio::reader{str}.parse_int<int64_t>() == emio::err::out_of_range);
-      CHECK(emio::reader{str}.parse_int<uint64_t>() == emio::err::invalid_data);
-    }
-  }
-
   SECTION("min/max cases") {
-    SECTION("int32 min") {
-      auto str = "-2147483648"sv;
-      CHECK(emio::reader{str}.parse_int<int32_t>() == std::numeric_limits<int32_t>::min());
-    }
-  }
+    constexpr std::tuple ranges{
+        std::tuple{
+            std::type_identity<bool>{},
+            std::to_array({"1", "0", "-1"}),
+            std::to_array({"0", "1", "2"}),
+        },
+        std::tuple{
+            std::type_identity<int8_t>{},
+            std::to_array({"-127", "-128", "-129"}),
+            std::to_array({"126", "127", "128"}),
+        },
+        std::tuple{
+            std::type_identity<uint8_t>{},
+            std::to_array({"1", "0", "-1"}),
+            std::to_array({"254", "255", "256"}),
+        },
+        std::tuple{
+            std::type_identity<int16_t>{},
+            std::to_array({"-32767", "-32768", "-32769"}),
+            std::to_array({"32766", "32767", "327678"}),
+        },
+        std::tuple{
+            std::type_identity<uint16_t>{},
+            std::to_array({"1", "0", "-1"}),
+            std::to_array({"65534", "65535", "65536"}),
+        },
+        std::tuple{
+            std::type_identity<int32_t>{},
+            std::to_array({"-2147483647", "-2147483648", "-2147483649"}),
+            std::to_array({"2147483646", "2147483647", "2147483648"}),
+        },
+        std::tuple{
+            std::type_identity<uint32_t>{},
+            std::to_array({"1", "0", "-1"}),
+            std::to_array({"4294967294", "4294967295", "4294967296"}),
+        },
+        std::tuple{
+            std::type_identity<int64_t>{},
+            std::to_array({"-9223372036854775807", "-9223372036854775808", "-9223372036854775809"}),
+            std::to_array({"9223372036854775806", "9223372036854775807", "9223372036854775808"}),
+        },
+        std::tuple{
+            std::type_identity<uint64_t>{},
+            std::to_array({"1", "0", "-1"}),
+            std::to_array({"18446744073709551614", "18446744073709551615", "18446744073709551616"}),
+        },
+    };
 
-  // TODO: Min/Max edge cases.
+    const auto range_check = []<typename T>(std::type_identity<T> /*type*/, const auto& lower_input,
+                                            const auto& upper_input) {
+      CHECK(emio::reader{lower_input.at(0)}.parse_int<T>() == std::numeric_limits<T>::min() + 1);
+      CHECK(emio::reader{lower_input.at(1)}.parse_int<T>() == std::numeric_limits<T>::min());
+      CHECK(emio::reader{lower_input.at(2)}.parse_int<T>() == emio::err::out_of_range);
+
+      CHECK(emio::reader{upper_input.at(0)}.parse_int<T>() == std::numeric_limits<T>::max() - 1);
+      CHECK(emio::reader{upper_input.at(1)}.parse_int<T>() == std::numeric_limits<T>::max());
+      CHECK(emio::reader{upper_input.at(2)}.parse_int<T>() == emio::err::out_of_range);
+    };
+    std::apply(
+        [&](auto... inputs) {
+          (std::apply(range_check, inputs), ...);
+        },
+        ranges);
+  }
 
   SECTION("just a -") {
     CHECK(emio::reader{"-"}.parse_int<int>() == emio::err::eof);
-    CHECK(emio::reader{"-"}.parse_int<unsigned>() == emio::err::invalid_data);
+    CHECK(emio::reader{"-"}.parse_int<unsigned>() == emio::err::out_of_range);
   }
 
   SECTION("a failed parse_int keeps previous read position") {
     emio::reader reader{"abc -348648"};
     CHECK(reader.read_n_chars(4) == "abc ");
-    CHECK(reader.parse_int<uint8_t>() == emio::err::invalid_data);
+    CHECK(reader.parse_int<uint8_t>() == emio::err::out_of_range);
     CHECK(reader.view_remaining() == "-348648");
     CHECK(reader.parse_int<int16_t>() == emio::err::out_of_range);
     CHECK(reader.view_remaining() == "-348648");

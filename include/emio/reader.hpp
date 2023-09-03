@@ -311,18 +311,15 @@ class reader {
       return err::invalid_argument;
     }
 
-    T value{};
-    T maybe_overflowed_value{};
-    bool is_negative = false;
-
-    EMIO_TRY(char c, peek());  // NOLINT(misc-const-correctness): false-positive
+    bool is_negative = false;  // NOLINT(misc-const-correctness): not for is_signed code-path
+    EMIO_TRY(char c, peek());  // NOLINT(misc-const-correctness): not for is_signed code-path
     if (c == '-') {
-      if constexpr (std::is_unsigned_v<T>) {
-        return err::invalid_data;
-      } else {
+      if constexpr (std::is_signed_v<T>) {
         is_negative = true;
         pop();
         EMIO_TRY(c, peek());
+      } else {
+        return err::out_of_range;
       }
     }
     std::optional<int> digit = detail::char_to_digit(c, base);
@@ -331,6 +328,8 @@ class reader {
     }
     pop();
 
+    T value{};
+    T maybe_overflowed_value{};
     const auto has_next_digit = [&]() noexcept {
       value = maybe_overflowed_value;
 
