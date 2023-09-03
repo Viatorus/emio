@@ -120,13 +120,13 @@ TEST_CASE("reader::parse_int", "[reader]") {
         },
         std::tuple{
             std::type_identity<int32_t>{},
-            std::tuple{"-2147483647", "-2147483649", "-2147483649"},
+            std::tuple{"-2147483647", "-2147483648", "-2147483649"},
             std::tuple{"2147483646", "2147483647", "2147483648"},
         },
         std::tuple{
             std::type_identity<uint32_t>{},
             std::tuple{"1", "0", "-1"},
-            std::tuple{"4294967294", "4294967296", "4294967296"},
+            std::tuple{"4294967294", "4294967295", "4294967296"},
         },
         std::tuple{
             std::type_identity<int64_t>{},
@@ -136,7 +136,7 @@ TEST_CASE("reader::parse_int", "[reader]") {
         std::tuple{
             std::type_identity<uint64_t>{},
             std::tuple{"1", "0", "-1"},
-            std::tuple{"18446744073709551614", "18446744073709551615", "18446744073709551615"},
+            std::tuple{"18446744073709551614", "18446744073709551615", "18446744073709551616"},
         },
     };
 
