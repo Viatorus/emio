@@ -95,60 +95,60 @@ TEST_CASE("reader::parse_int", "[reader]") {
     constexpr std::tuple ranges{
         std::tuple{
             std::type_identity<bool>{},
-            std::to_array({"1", "0", "-1"}),
-            std::to_array({"0", "1", "2"}),
+            std::tuple{"1", "0", "-1"},
+            std::tuple{"0", "1", "2"},
         },
         std::tuple{
             std::type_identity<int8_t>{},
-            std::to_array({"-127", "-128", "-129"}),
-            std::to_array({"126", "127", "128"}),
+            std::tuple{"-127", "-128", "-129"},
+            std::tuple{"126", "127", "128"},
         },
         std::tuple{
             std::type_identity<uint8_t>{},
-            std::to_array({"1", "0", "-1"}),
-            std::to_array({"254", "255", "256"}),
+            std::tuple{"1", "0", "-1"},
+            std::tuple{"254", "255", "256"},
         },
         std::tuple{
             std::type_identity<int16_t>{},
-            std::to_array({"-32767", "-32768", "-32769"}),
-            std::to_array({"32766", "32767", "327678"}),
+            std::tuple{"-32767", "-32768", "-32769"},
+            std::tuple{"32766", "32767", "327678"},
         },
         std::tuple{
             std::type_identity<uint16_t>{},
-            std::to_array({"1", "0", "-1"}),
-            std::to_array({"65534", "65535", "65536"}),
+            std::tuple{"1", "0", "-1"},
+            std::tuple{"65534", "65535", "65536"},
         },
         std::tuple{
             std::type_identity<int32_t>{},
-            std::to_array({"-2147483647", "-2147483648", "-2147483649"}),
-            std::to_array({"2147483646", "2147483647", "2147483648"}),
+            std::tuple{"-2147483647", "-2147483649", "-2147483649"},
+            std::tuple{"2147483646", "2147483647", "2147483648"},
         },
         std::tuple{
             std::type_identity<uint32_t>{},
-            std::to_array({"1", "0", "-1"}),
-            std::to_array({"4294967294", "4294967295", "4294967296"}),
+            std::tuple{"1", "0", "-1"},
+            std::tuple{"4294967294", "4294967296", "4294967296"},
         },
         std::tuple{
             std::type_identity<int64_t>{},
-            std::to_array({"-9223372036854775807", "-9223372036854775808", "-9223372036854775809"}),
-            std::to_array({"9223372036854775806", "9223372036854775807", "9223372036854775808"}),
+            std::tuple{"-9223372036854775807", "-9223372036854775808", "-9223372036854775809"},
+            std::tuple{"9223372036854775806", "9223372036854775807", "9223372036854775808"},
         },
         std::tuple{
             std::type_identity<uint64_t>{},
-            std::to_array({"1", "0", "-1"}),
-            std::to_array({"18446744073709551614", "18446744073709551615", "18446744073709551616"}),
+            std::tuple{"1", "0", "-1"},
+            std::tuple{"18446744073709551614", "18446744073709551615", "18446744073709551615"},
         },
     };
 
     const auto range_check = []<typename T>(std::type_identity<T> /*type*/, const auto& lower_input,
                                             const auto& upper_input) {
-      CHECK(emio::reader{lower_input.at(0)}.parse_int<T>() == std::numeric_limits<T>::min() + 1);
-      CHECK(emio::reader{lower_input.at(1)}.parse_int<T>() == std::numeric_limits<T>::min());
-      CHECK(emio::reader{lower_input.at(2)}.parse_int<T>() == emio::err::out_of_range);
+      CHECK(emio::reader{std::get<0>(lower_input)}.parse_int<T>() == std::numeric_limits<T>::min() + 1);
+      CHECK(emio::reader{std::get<1>(lower_input)}.parse_int<T>() == std::numeric_limits<T>::min());
+      CHECK(emio::reader{std::get<2>(lower_input)}.parse_int<T>() == emio::err::out_of_range);
 
-      CHECK(emio::reader{upper_input.at(0)}.parse_int<T>() == std::numeric_limits<T>::max() - 1);
-      CHECK(emio::reader{upper_input.at(1)}.parse_int<T>() == std::numeric_limits<T>::max());
-      CHECK(emio::reader{upper_input.at(2)}.parse_int<T>() == emio::err::out_of_range);
+      CHECK(emio::reader{std::get<0>(upper_input)}.parse_int<T>() == std::numeric_limits<T>::max() - 1);
+      CHECK(emio::reader{std::get<1>(upper_input)}.parse_int<T>() == std::numeric_limits<T>::max());
+      CHECK(emio::reader{std::get<2>(upper_input)}.parse_int<T>() == emio::err::out_of_range);
     };
     std::apply(
         [&](auto... inputs) {
