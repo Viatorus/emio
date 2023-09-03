@@ -359,7 +359,7 @@ class reader {
       }
     }
     while (true) {
-      maybe_overflowed_value = value  * static_cast<T>(base) + static_cast<T>(*digit);
+      maybe_overflowed_value = value * static_cast<T>(base) + static_cast<T>(*digit);
       if (maybe_overflowed_value < value) {
         return err::out_of_range;
       }
