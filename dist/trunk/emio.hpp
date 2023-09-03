@@ -2342,18 +2342,15 @@ class reader {
       return err::invalid_argument;
     }
 
-    T value{};
-    T maybe_overflowed_value{};
-    T signed_flag{1};
-
-    EMIO_TRY(char c, peek());  // NOLINT(misc-const-correctness): false-positive
+    bool is_negative = false;  // NOLINT(misc-const-correctness): not for is_signed code-path
+    EMIO_TRY(char c, peek());  // NOLINT(misc-const-correctness): not for is_signed code-path
     if (c == '-') {
-      if constexpr (std::is_unsigned_v<T>) {
-        return err::invalid_data;
-      } else {
-        signed_flag = -1;
+      if constexpr (std::is_signed_v<T>) {
+        is_negative = true;
         pop();
         EMIO_TRY(c, peek());
+      } else {
+        return err::out_of_range;
       }
     }
     std::optional<int> digit = detail::char_to_digit(c, base);
@@ -2362,28 +2359,45 @@ class reader {
     }
     pop();
 
-    while (true) {
-      maybe_overflowed_value = value + static_cast<T>(*digit);
-      if (maybe_overflowed_value < value) {
-        return err::out_of_range;
-      }
+    T value{};
+    T maybe_overflowed_value{};
+    const auto has_next_digit = [&]() noexcept {
       value = maybe_overflowed_value;
 
       const result<char> res = peek();
       if (!res) {
-        return signed_flag * value;
+        return false;
       }
       digit = detail::char_to_digit(res.value(), base);
       if (!digit) {
-        return signed_flag * value;
+        return false;
       }
       pop();
-
       maybe_overflowed_value = value * static_cast<T>(base);
+      return true;
+    };
+
+    if constexpr (std::is_signed_v<T>) {
+      if (is_negative) {
+        while (true) {
+          maybe_overflowed_value -= static_cast<T>(*digit);
+          if (maybe_overflowed_value > value) {
+            return err::out_of_range;
+          }
+          if (!has_next_digit()) {
+            return value;
+          }
+        }
+      }
+    }
+    while (true) {
+      maybe_overflowed_value += static_cast<T>(*digit);
       if (maybe_overflowed_value < value) {
         return err::out_of_range;
       }
-      value = maybe_overflowed_value;
+      if (!has_next_digit()) {
+        return value;
+      }
     }
   }
 
