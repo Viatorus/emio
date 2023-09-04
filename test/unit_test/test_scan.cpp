@@ -6,30 +6,166 @@
 
 // TODO:
 // - support string
-// - unit tests scan, vscan, vscan_from
 // - benchmark test
 // - size test
 // - scan/format string naming
 // - scan API docu
 // - scan API user docu
 
-TEST_CASE("scan", "[scan]") {
+namespace {
+
+template <typename... Args>
+bool validate_scan_string(std::string_view str) {
+  return emio::detail::scan::scan_trait::validate_string<Args...>(str);
+}
+
+}  // namespace
+
+TEST_CASE("scan API", "[scan]") {
+  SECTION("normal") {
+    unsigned int a = 0;
+    int b = 0;
+    char c;
+    REQUIRE(emio::scan("1,-2!", "{},{}{}", a, b, c));
+    CHECK(a == 1);
+    CHECK(b == -2);
+    CHECK(c == '!');
+  }
+  SECTION("runtime string") {
+    unsigned int a = 0;
+    int b = 0;
+    char c;
+
+    REQUIRE(emio::scan("1,-2!", emio::runtime("{},{}{}"), a, b, c));
+    CHECK(a == 1);
+    CHECK(b == -2);
+    CHECK(c == '!');
+  }
+  SECTION("compile-time") {
+    constexpr bool success = [] {
+      unsigned int a = 0;
+      int b = 0;
+      char c;
+
+      emio::result<void> res = emio::scan("1,-2!", emio::runtime("{},{}{}"), a, b, c);
+      return res && (a == 1) && (b == -2) && (c == '!');
+    }();
+    STATIC_CHECK(success);
+  }
+}
+
+TEST_CASE("vscan API", "[scan]") {
+  SECTION("normal") {
+    unsigned int a = 0;
+    int b = 0;
+    char c;
+
+    REQUIRE(emio::vscan("1,-2!", emio::make_scan_args("{},{}{}", a, b, c)));
+    CHECK(a == 1);
+    CHECK(b == -2);
+    CHECK(c == '!');
+  }
+  SECTION("runtime string") {
+    unsigned int a = 0;
+    int b = 0;
+    char c;
+
+    REQUIRE(emio::vscan("1,-2!", emio::make_scan_args(emio::runtime("{},{}{}"), a, b, c)));
+    CHECK(a == 1);
+    CHECK(b == -2);
+    CHECK(c == '!');
+  }
+}
+
+TEST_CASE("scan_from API", "[scan]") {
+  SECTION("normal") {
+    unsigned int a = 0;
+    int b = 0;
+    char c;
+
+    emio::reader rdr("1,-2!rest");
+    REQUIRE(emio::scan_from(rdr, "{},{}{}", a, b, c));
+    CHECK(a == 1);
+    CHECK(b == -2);
+    CHECK(c == '!');
+    CHECK(rdr.read_remaining() == "rest");
+  }
+  SECTION("runtime string") {
+    unsigned int a = 0;
+    int b = 0;
+    char c;
+
+    emio::reader rdr("1,-2!rest");
+    REQUIRE(emio::scan_from(rdr, emio::runtime("{},{}{}"), a, b, c));
+    CHECK(a == 1);
+    CHECK(b == -2);
+    CHECK(c == '!');
+    CHECK(rdr.read_remaining() == "rest");
+  }
+  SECTION("compile time") {
+    constexpr bool success = [] {
+      unsigned int a = 0;
+      int b = 0;
+      char c;
+
+      emio::reader rdr("1,-2!rest");
+      emio::result<void> res = emio::scan_from(rdr, emio::runtime("{},{}{}"), a, b, c);
+      return res && (a == 1) && (b == -2) && (c == '!') && (rdr.read_remaining() == "rest");
+    }();
+    STATIC_CHECK(success);
+  }
+}
+
+TEST_CASE("vscan_from API", "[scan]") {
+  SECTION("normal") {
+    unsigned int a = 0;
+    int b = 0;
+    char c;
+
+    emio::reader rdr("1,-2!rest");
+    REQUIRE(emio::vscan_from(rdr, emio::make_scan_args("{},{}{}", a, b, c)));
+    CHECK(a == 1);
+    CHECK(b == -2);
+    CHECK(c == '!');
+    CHECK(rdr.read_remaining() == "rest");
+  }
+  SECTION("runtime string") {
+    unsigned int a = 0;
+    int b = 0;
+    char c;
+
+    emio::reader rdr("1,-2!rest");
+    REQUIRE(emio::vscan_from(rdr, emio::make_scan_args(emio::runtime("{},{}{}"), a, b, c)));
+    CHECK(a == 1);
+    CHECK(b == -2);
+    CHECK(c == '!');
+    CHECK(rdr.read_remaining() == "rest");
+  }
+}
+
+TEST_CASE("incomplete scan", "[scan]") {
   int a = 0;
   int b = 0;
-  char c;
-  emio::result<void> r = emio::scan("1,-2!", "{},{}{}", a, b, c);
-  REQUIRE(r);
-  CHECK(a == 1);
-  CHECK(b == -2);
-  CHECK(c == '!');
 
-  emio::reader rdr("1,-2!REST");
-  r = emio::scan_from(rdr, emio::runtime("{},{}{}"), a, b, c);
-  REQUIRE(r);
-  CHECK(a == 1);
-  CHECK(b == -2);
-  CHECK(c == '!');
-  CHECK(rdr.read_remaining() == "REST");
+  SECTION("without reader") {
+    CHECK(!emio::scan("1,-2rest", "{},{}", a, b));
+  }
+  SECTION("with reader") {
+    emio::reader rdr("1,-2rest");
+    CHECK(emio::scan_from(rdr, "{},{}", a, b));
+    CHECK(rdr.read_remaining() == "rest");
+  }
+}
+
+TEST_CASE("scan char", "[scan]") {
+  char c;
+  REQUIRE(emio::scan("o", "{}", c));
+  CHECK(c == 'o');
+
+  REQUIRE(emio::scan("k", "{:c}", c));
+  CHECK(c == 'k');
+
+  CHECK(!validate_scan_string<char>("{:d}"));
 }
 
 TEST_CASE("detect base", "[scan]") {
@@ -103,6 +239,10 @@ TEST_CASE("detect base", "[scan]") {
     CHECK(emio::scan("-1", "{:#}", uval) == emio::err::out_of_range);
     CHECK(emio::scan("-0x5", "{:#}", uval) == emio::err::out_of_range);
   }
+
+  CHECK(!validate_scan_string<int>("{:d#}"));
+  CHECK(!validate_scan_string<int>("{:f}"));
+  CHECK(!validate_scan_string<int>("{:.5}"));
 }
 
 TEST_CASE("scan_binary", "[scan]") {
@@ -215,14 +355,25 @@ TEST_CASE("scan_decimal", "[scan]") {
     CHECK(val == -42);
   }
   SECTION("edge cases") {
-    REQUIRE(emio::scan("0x5", "{}", val));
-    CHECK(val == 0);
+    val = -1;
+    SECTION("test 1") {
+      emio::reader rdr{"0x5"};
+      REQUIRE(emio::scan_from(rdr, "{}", val));
+      CHECK(val == 0);
+      CHECK(rdr.read_remaining() == "x5");
+    }
 
-    REQUIRE(emio::scan("0b3", "{:#d}", val));
-    CHECK(val == 0);
+    SECTION("test 2") {
+      emio::reader rdr{"0b3"};
+      REQUIRE(emio::scan_from(rdr, "{:#d}", val));
+      CHECK(val == 0);
+      CHECK(rdr.read_remaining() == "b3");
+    }
 
-    REQUIRE(emio::scan("0", "{:#d}", val));
-    CHECK(val == 0);
+    SECTION("test 3") {
+      REQUIRE(emio::scan("0", "{:#d}", val));
+      CHECK(val == 0);
+    }
   }
   SECTION("overflows") {
     SECTION("signed") {

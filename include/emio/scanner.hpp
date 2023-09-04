@@ -94,6 +94,7 @@ class scanner<T> {
     return read_arg(input, specs_, arg);
   }
 
+ private:
   detail::scan::scan_specs specs_{};
 };
 

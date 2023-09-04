@@ -181,11 +181,9 @@ class reader {
     // Store current read position.
     const size_t backup_pos = pos_;
 
-    EMIO_TRY(bool is_negative, detail::parse_sign(*this));
-
     // Reduce code generation by upcasting the integer.
     using upcast_int_t = decltype(detail::integer_upcast(T{}));
-    const result<upcast_int_t> res = detail::parse_int<upcast_int_t>(*this, base, is_negative);
+    const result<upcast_int_t> res = parse_sign_and_int<upcast_int_t>(base);
     if (!res) {
       pos_ = backup_pos;
       return res.assume_error();
@@ -316,6 +314,12 @@ class reader {
   // enclosing class". Which is a bug.
   [[nodiscard]] static constexpr read_until_options default_read_until_options() noexcept {
     return {};
+  }
+
+  template <typename T>
+  constexpr result<T> parse_sign_and_int(const int base) noexcept {
+    EMIO_TRY(const bool is_negative, detail::parse_sign(*this));
+    return detail::parse_int<T>(*this, base, is_negative);
   }
 
   constexpr result<std::string_view> read_until_pos(size_t pos, const read_until_options& options,

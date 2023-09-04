@@ -47,7 +47,11 @@ inline result<void> vscan_from(reader& rdr, const scan_args& args) noexcept {
 
 inline result<void> vscan(std::string_view input, const scan_args& args) noexcept {
   reader rdr{input};
-  return detail::scan::vscan_from(rdr, args);
+  EMIO_TRYV(detail::scan::vscan_from(rdr, args));
+  if (rdr.eof()) {
+    return success;
+  }
+  return err::invalid_format;
 }
 
 template <typename... Args>
@@ -63,7 +67,11 @@ constexpr result<void> scan_from(reader& rdr, scan_string<Args...> scan_string, 
 template <typename... Args>
 constexpr result<void> scan(std::string_view input, scan_string<Args...> scan_string, Args&... args) {
   reader rdr{input};
-  return scan_from(rdr, scan_string, args...);
+  EMIO_TRYV(scan_from(rdr, scan_string, args...));
+  if (rdr.eof()) {
+    return success;
+  }
+  return err::invalid_format;
 }
 
 }  // namespace emio
