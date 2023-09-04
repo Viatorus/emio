@@ -20,23 +20,6 @@ namespace detail::scan {
 // Read args.
 //
 
-inline constexpr result<bool> read_sign(reader& in) noexcept {
-  bool is_negative = false;
-  EMIO_TRY(char c, in.peek());
-  if (c == '+') {
-    in.pop();
-    EMIO_TRY(c, in.peek());
-  } else if (c == '-') {
-    is_negative = true;
-    in.pop();
-    EMIO_TRY(c, in.peek());
-  }
-  if (c == '+' || c == '-') {  // Multiple signs are not allowed.
-    return err::invalid_data;
-  }
-  return is_negative;
-}
-
 inline constexpr result<void> disallow_sign(reader& in) noexcept {
   EMIO_TRY(const char c, in.peek());
   if (c == '+' || c == '-') {
@@ -82,7 +65,7 @@ inline constexpr int get_base(char type) noexcept {
   EMIO_Z_INTERNAL_UNREACHABLE;
 }
 
-inline constexpr result<void> read_alternate_form(reader& in, int base) noexcept {
+inline constexpr result<void> parse_alternate_form(reader& in, int base) noexcept {
   EMIO_TRYV(in.read_if_match_char('0'));
 
   if (base == 8) {
@@ -107,7 +90,7 @@ inline constexpr result<void> read_alternate_form(reader& in, int base) noexcept
 template <typename Arg>
   requires(std::is_integral_v<Arg> && !std::is_same_v<Arg, bool> && !std::is_same_v<Arg, char>)
 constexpr result<void> read_arg(reader& in, const scan_specs& specs, Arg& arg) noexcept {
-  EMIO_TRY(const bool is_negative, read_sign(in));
+  EMIO_TRY(const bool is_negative, parse_sign(in));
 
   int base = 0;
   if (specs.type == no_type && specs.alternate_form) {
@@ -124,19 +107,12 @@ constexpr result<void> read_arg(reader& in, const scan_specs& specs, Arg& arg) n
   } else {
     base = get_base(specs.type);
     if (specs.alternate_form && base != 10) {
-      EMIO_TRYV(read_alternate_form(in, base));
+      EMIO_TRYV(parse_alternate_form(in, base));
       EMIO_TRYV(disallow_sign(in));
     }
   }
 
-  EMIO_TRY(arg, in.parse_int<Arg>(base));
-  if (is_negative) {
-    if constexpr (std::is_unsigned_v<Arg>) {
-      return err::invalid_data;
-    } else {
-      arg *= -1;
-    }
-  }
+  EMIO_TRY(arg, parse_int<Arg>(in, base, is_negative));
   return success;
 }
 
@@ -220,8 +196,8 @@ inline constexpr bool has_scanner_v = std::is_constructible_v<scanner<Arg>>;
 
 template <typename T>
 concept has_validate_function_v = requires {
-  { scanner<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
-};
+                                    { scanner<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
+                                  };
 
 template <typename T>
 concept has_any_validate_function_v =

@@ -100,8 +100,8 @@ TEST_CASE("detect base", "[scan]") {
     CHECK(emio::scan("+5", "{:#}", uval));
     CHECK(uval == 5);
 
-    CHECK(emio::scan("-1", "{:#}", uval) == emio::err::invalid_data);
-    CHECK(emio::scan("-0x5", "{:#}", uval) == emio::err::invalid_data);
+    CHECK(emio::scan("-1", "{:#}", uval) == emio::err::out_of_range);
+    CHECK(emio::scan("-0x5", "{:#}", uval) == emio::err::out_of_range);
   }
 }
 
@@ -232,7 +232,6 @@ TEST_CASE("scan_decimal", "[scan]") {
 
       CHECK(emio::scan("128", "{}", val8) == emio::err::out_of_range);
 
-      // TODO: split reader parse function to take sign flog.
       REQUIRE(emio::scan("-128", "{}", val8));
       CHECK(val8 == -128);
 

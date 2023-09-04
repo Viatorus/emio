@@ -16,6 +16,18 @@
 
 namespace emio {
 
+// Forward declaration.
+class reader;
+
+namespace detail {
+
+inline constexpr result<bool> parse_sign(reader& in) noexcept;
+
+template <typename T>
+constexpr result<T> parse_int(reader& in, int base, bool is_negative) noexcept;
+
+}  // namespace detail
+
 /**
  * This class operates on a char sequence and allows reading and parsing from it.
  * The reader interprets the char sequence as finite input stream. After every successful operation the read position
@@ -169,9 +181,11 @@ class reader {
     // Store current read position.
     const size_t backup_pos = pos_;
 
+    EMIO_TRY(bool is_negative, detail::parse_sign(*this));
+
     // Reduce code generation by upcasting the integer.
     using upcast_int_t = decltype(detail::integer_upcast(T{}));
-    const result<upcast_int_t> res = parse_int_impl<upcast_int_t>(base);
+    const result<upcast_int_t> res = detail::parse_int<upcast_int_t>(*this, base, is_negative);
     if (!res) {
       pos_ = backup_pos;
       return res.assume_error();
@@ -304,72 +318,6 @@ class reader {
     return {};
   }
 
-  template <typename T>
-    requires(std::is_integral_v<T>)
-  constexpr result<T> parse_int_impl(const int base) {
-    if (!detail::is_valid_number_base(base)) {
-      return err::invalid_argument;
-    }
-
-    bool is_negative = false;  // NOLINT(misc-const-correctness): not for is_signed code-path
-    EMIO_TRY(char c, peek());  // NOLINT(misc-const-correctness): not for is_signed code-path
-    if (c == '-') {
-      if constexpr (std::is_signed_v<T>) {
-        is_negative = true;
-        pop();
-        EMIO_TRY(c, peek());
-      } else {
-        return err::out_of_range;
-      }
-    }
-    std::optional<int> digit = detail::char_to_digit(c, base);
-    if (!digit) {
-      return err::invalid_data;
-    }
-    pop();
-
-    T value{};
-    T maybe_overflowed_value{};
-    const auto has_next_digit = [&]() noexcept {
-      value = maybe_overflowed_value;
-
-      const result<char> res = peek();
-      if (!res) {
-        return false;
-      }
-      digit = detail::char_to_digit(res.value(), base);
-      if (!digit) {
-        return false;
-      }
-      pop();
-      maybe_overflowed_value = value * static_cast<T>(base);
-      return true;
-    };
-
-    if constexpr (std::is_signed_v<T>) {
-      if (is_negative) {
-        while (true) {
-          maybe_overflowed_value -= static_cast<T>(*digit);
-          if (maybe_overflowed_value > value) {
-            return err::out_of_range;
-          }
-          if (!has_next_digit()) {
-            return value;
-          }
-        }
-      }
-    }
-    while (true) {
-      maybe_overflowed_value += static_cast<T>(*digit);
-      if (maybe_overflowed_value < value) {
-        return err::out_of_range;
-      }
-      if (!has_next_digit()) {
-        return value;
-      }
-    }
-  }
-
   constexpr result<std::string_view> read_until_pos(size_t pos, const read_until_options& options,
                                                     const size_type delimiter_size = 1) noexcept {
     const std::string_view remaining = view_remaining();
@@ -397,5 +345,81 @@ class reader {
   size_t pos_{};
   std::string_view input_;
 };
+
+namespace detail {
+
+inline constexpr result<bool> parse_sign(reader& in) noexcept {
+  bool is_negative = false;
+  EMIO_TRY(const char c, in.peek());
+  if (c == '+') {
+    in.pop();
+  } else if (c == '-') {
+    is_negative = true;
+    in.pop();
+  }
+  return is_negative;
+}
+
+template <typename T>
+constexpr result<T> parse_int(reader& in, const int base, const bool is_negative) noexcept {
+  if (!is_valid_number_base(base)) {
+    return err::invalid_argument;
+  }
+
+  EMIO_TRY(const char c, in.read_char());
+  std::optional<int> digit = char_to_digit(c, base);
+  if (!digit) {
+    return err::invalid_data;
+  }
+
+  if constexpr (std::is_unsigned_v<T>) {
+    if (is_negative) {
+      return err::out_of_range;
+    }
+  }
+
+  T value{};
+  T maybe_overflowed_value{};
+  const auto has_next_digit = [&]() noexcept {
+    value = maybe_overflowed_value;
+
+    const result<char> res = in.peek();
+    if (!res) {
+      return false;
+    }
+    digit = detail::char_to_digit(res.value(), base);
+    if (!digit) {
+      return false;
+    }
+    in.pop();
+    maybe_overflowed_value = value * static_cast<T>(base);
+    return true;
+  };
+
+  if constexpr (std::is_signed_v<T>) {
+    if (is_negative) {
+      while (true) {
+        maybe_overflowed_value -= static_cast<T>(*digit);
+        if (maybe_overflowed_value > value) {
+          return err::out_of_range;
+        }
+        if (!has_next_digit()) {
+          return value;
+        }
+      }
+    }
+  }
+  while (true) {
+    maybe_overflowed_value += static_cast<T>(*digit);
+    if (maybe_overflowed_value < value) {
+      return err::out_of_range;
+    }
+    if (!has_next_digit()) {
+      return value;
+    }
+  }
+}
+
+}  // namespace detail
 
 }  // namespace emio
