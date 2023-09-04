@@ -165,6 +165,7 @@ TEST_CASE("scan char", "[scan]") {
   REQUIRE(emio::scan("k", "{:c}", c));
   CHECK(c == 'k');
 
+  CHECK(validate_scan_string<char>("{:c}"));
   CHECK(!validate_scan_string<char>("{:d}"));
 }
 
@@ -240,6 +241,7 @@ TEST_CASE("detect base", "[scan]") {
     CHECK(emio::scan("-0x5", "{:#}", uval) == emio::err::out_of_range);
   }
 
+  CHECK(validate_scan_string<int>("{:#x}"));
   CHECK(!validate_scan_string<int>("{:d#}"));
   CHECK(!validate_scan_string<int>("{:f}"));
   CHECK(!validate_scan_string<int>("{:.5}"));

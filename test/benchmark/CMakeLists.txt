@@ -11,7 +11,8 @@ if (PROJECT_IS_TOP_LEVEL)
 endif ()
 
 add_executable(emio_benchmark
-        benchmark.cpp
+        bench_format.cpp
+        bench_scan.cpp
         )
 
 target_link_libraries(emio_benchmark
