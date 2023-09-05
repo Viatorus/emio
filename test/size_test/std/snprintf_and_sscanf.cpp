@@ -19,6 +19,6 @@ int main(int c, char* args[]) {
   int64_t i64{};
   uint64_t u64{};
   n += sscanf(args[0], "%c%" SCNd8 "%" SCNu8 "%" SCNd16 "%" SCNu16 "%" SCNd32 "%" SCNu32 "%" SCNd64 "%" SCNu64, &ch,
-                 &i8, &u8, &i16, &u16, &i32, &u32, &i64, &u64);
+              &i8, &u8, &i16, &u16, &i32, &u32, &i64, &u64);
   return n;
 }
