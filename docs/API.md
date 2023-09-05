@@ -5,6 +5,23 @@ everything can be used at compile-time.
 
 The public namespace is `emio` only - no deeper nesting.
 
+* [err](#err)
+* [result](#result)
+* [Buffer](#buffer)
+  + [memory_buffer](#memory-buffer)
+  + [span_buffer](#span-buffer)
+  + [static_buffer](#static-buffer)
+  + [iterator_buffer](#iterator-buffer)
+  + [file_buffer](#file-buffer)
+* [Reader](#reader)
+* [Writer](#writer)
+* [Format](#format)
+  - [Dynamic format specification](#dynamic-format-specification)
+  + [Formatter](#formatter)
+* [Print](#print)
+* [Scan](#scan)
+  + [Scanner](#scanner)
+
 ## err
 
 A list of possible I/O errors as enum.
@@ -28,7 +45,7 @@ Every function describes the possible errors which can occur. See the source cod
 
 `invalid_format`
 
-- The format string is invalid (e.g. missing arguments).
+- The format/scan string is invalid (e.g. missing arguments, wrong syntax).
 
 `to_string(err) -> string_view`
 
