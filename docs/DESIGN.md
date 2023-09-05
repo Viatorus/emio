@@ -45,7 +45,7 @@ observer methods, the state and the value or the error can be visited.
 ```cpp
 emio::result<std::string> format(...) noexcept;
 
-emio::result<char> get_first_char_of_pi() noexcept {
+emio::result<char> get_first_digit_of_pi() noexcept {
     emio::result<std::string> pi_as_str = format("{}", M_PI);
     if (pi_as_str) {
         return pi_as_str->at(0);
@@ -60,7 +60,7 @@ The above function could be rewritten into:
 ```cpp
 emio::result<std::string> format(...) noexcept;
 
-emio::result<char> get_first_char_of_pi() noexcept {
+emio::result<char> get_first_digit_of_pi() noexcept {
     EMIO_TRY(std::string pi_as_str, format("{}", M_PI));
     return pi_as_str.at(0);
 }

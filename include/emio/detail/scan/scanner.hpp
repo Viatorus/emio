@@ -168,7 +168,7 @@ inline constexpr result<void> parse_scan_specs(reader& rdr, scan_specs& specs) n
 }
 
 inline constexpr result<void> check_char_specs(const scan_specs& specs) noexcept {
-  if (specs.type != no_type && specs.type != 'c') {
+  if ((specs.type != no_type && specs.type != 'c') || (specs.alternate_form != false)) {
     return err::invalid_format;
   }
   return success;
@@ -196,8 +196,8 @@ inline constexpr bool has_scanner_v = std::is_constructible_v<scanner<Arg>>;
 
 template <typename T>
 concept has_validate_function_v = requires {
-                                    { scanner<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
-                                  };
+  { scanner<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
+};
 
 template <typename T>
 concept has_any_validate_function_v =

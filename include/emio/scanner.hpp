@@ -33,7 +33,7 @@ class scanner {
    * Optional static function to validate the scan specs for this type.
    * @note If not present, the parse function is invoked for validation.
    * @param rdr The scan reader.
-   * @return Success if the format spec is valid.
+   * @return Success if the scan spec is valid.
    */
   static constexpr result<void> validate(reader& rdr) noexcept {
     return rdr.read_if_match_char('}');
@@ -42,7 +42,7 @@ class scanner {
   /**
    * Function to parse the scan specs for this type.
    * @param rdr The scan reader.
-   * @return Success if the format spec is valid and could be parsed.
+   * @return Success if the scan spec is valid and could be parsed.
    */
   constexpr result<void> parse(reader& rdr) noexcept {
     return rdr.read_if_match_char('}');

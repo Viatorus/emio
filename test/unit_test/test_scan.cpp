@@ -6,10 +6,7 @@
 
 // TODO:
 // - support string
-// - benchmark test
-// - size test
 // - scan/format string naming
-// - scan API docu
 // - scan API user docu
 
 namespace {
@@ -167,6 +164,7 @@ TEST_CASE("scan char", "[scan]") {
 
   CHECK(validate_scan_string<char>("{:c}"));
   CHECK(!validate_scan_string<char>("{:d}"));
+  CHECK(!validate_scan_string<char>("{:#}"));
 }
 
 TEST_CASE("detect base", "[scan]") {
