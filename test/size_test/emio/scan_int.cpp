@@ -1,6 +1,6 @@
 #include <emio/scan.hpp>
 
-int main() {
+int main(int /*c*/, char* args[]) {
   int i{};
-  static_cast<void>(emio::scan("1", "{}", i));
+  static_cast<void>(emio::scan(args[0], "{}", i));
 }
