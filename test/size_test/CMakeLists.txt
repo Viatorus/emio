@@ -53,6 +53,7 @@ create_size_test(fmt/format_int_twice.cpp)
 create_size_test(fmt/vformat.cpp)
 
 create_size_test(std/locale.cpp)
+create_size_test(std/snprintf_and_sscanf.cpp)
 create_size_test(std/snprintf.cpp)
 create_size_test(std/sscanf.cpp)
 create_size_test(std/string.cpp)
