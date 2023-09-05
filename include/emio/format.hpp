@@ -129,7 +129,7 @@ constexpr result<OutputIt> vformat_to(OutputIt out, const format_args& args) noe
  * Formats arguments according to the format string, and writes the result to the output buffer.
  * @param buf The output buffer.
  * @param format_str The format string.
- * @param args The format args with the format string.
+ * @param args The arguments to be formatted.
  * @return Success or EOF if the buffer is to small or invalid_format if the format string validation failed.
  */
 template <typename Buffer, typename... Args>
@@ -147,7 +147,7 @@ constexpr result<void> format_to(Buffer& buf, format_string<Args...> format_str,
  * Formats arguments according to the format string, and writes the result to the writer's buffer.
  * @param wrt The writer.
  * @param format_str The format string.
- * @param args The format args with the format string.
+ * @param args The arguments to be formatted.
  * @return Success or EOF if the buffer is to small or invalid_format if the format string validation failed.
  */
 template <typename... Args>
@@ -196,7 +196,7 @@ inline result<std::string> vformat(const format_args& args) noexcept {
 /**
  * Formats arguments according to the format string, and returns the result as string.
  * @param format_str The format string.
- * @param args The format args with the format string.
+ * @param args The arguments to be formatted.
  * @return The string.
  */
 template <typename... Args>
@@ -208,7 +208,7 @@ template <typename... Args>
 /**
  * Formats arguments according to the format string, and returns the result as string.
  * @param format_str The format string.
- * @param args The format args with the format string.
+ * @param args The arguments to be formatted.
  * @return The string on success or invalid_format if the format string validation
  * failed.
  */
@@ -253,7 +253,7 @@ result<format_to_n_result<OutputIt>> vformat_to_n(OutputIt out, std::iter_differ
  * @param out The output iterator.
  * @param n The maximum number of characters to be written to the buffer.
  * @param format_str The format string.
- * @param args The format args with the format string.
+ * @param args The arguments to be formatted.
  * @return The format_to_n_result on success or invalid_format if the format string validation failed.
  */
 template <typename OutputIt, typename... Args>

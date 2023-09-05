@@ -41,10 +41,22 @@ template <typename... Args>
   return {scan_str.get(), args...};
 }
 
+/**
+ * Scans the content of the reader for the given arguments according to the scan string.
+ * @param rdr The reader to scan.
+ * @param args The scan args with scan string.
+ * @return Success if the scanning was successfully for all arguments. The reader may not be empty.
+ */
 inline result<void> vscan_from(reader& rdr, const scan_args& args) noexcept {
   return detail::scan::vscan_from(rdr, args);
 }
 
+/**
+ * Scans the content of the input string for the given arguments according to the scan string.
+ * @param input The input string to scan.
+ * @param args The scan args with scan string.
+ * @return Success if the scanning was successfully for all arguments for the entire input string.
+ */
 inline result<void> vscan(std::string_view input, const scan_args& args) noexcept {
   reader rdr{input};
   EMIO_TRYV(detail::scan::vscan_from(rdr, args));
@@ -54,6 +66,13 @@ inline result<void> vscan(std::string_view input, const scan_args& args) noexcep
   return err::invalid_format;
 }
 
+/**
+ * Scans the content of the reader for the given arguments according to the scan string.
+ * @param rdr The reader.
+ * @param scan_string The scan string.
+ * @param args The arguments which are to be scanned.
+ * @return Success if the scanning was successfully for all arguments. The reader may not be empty.
+ */
 template <typename... Args>
 constexpr result<void> scan_from(reader& rdr, scan_string<Args...> scan_string, Args&... args) {
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
@@ -64,6 +83,13 @@ constexpr result<void> scan_from(reader& rdr, scan_string<Args...> scan_string, 
   return success;
 }
 
+/**
+ * Scans the input string for the given arguments according to the scan string.
+ * @param input The input string.
+ * @param scan_string The scan string.
+ * @param args The arguments which are to be scanned.
+ * @return Success if the scanning was successfully for all arguments for the entire input string.
+ */
 template <typename... Args>
 constexpr result<void> scan(std::string_view input, scan_string<Args...> scan_string, Args&... args) {
   reader rdr{input};
