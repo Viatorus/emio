@@ -194,7 +194,7 @@ Things that are missing:
 - chrono syntax (planned)
 - UTF-8 support (TBD)
 - using an identifier as arg_id: `fmt::format("{nbr}", fmt::arg("nbr", 42)` (TBD)
-- `'L'` options for locale (somehow possible but not with std::locale because of binary size)
+- `'L'` options for locale (somehow possible but not with std::locale because of the binary size)
 
 The grammar for the replacement field is as follows:
 
@@ -448,7 +448,7 @@ The API is structured as follows:
 - Scans the content of the reader for the given arguments according to the scan string.
 
 For each function there exists a function prefixed with v (e.g. `vscan`) which takes `scan_args` instead of a
-format string and arguments. The types are erased and can be used in non-template functions to reduce build-time, hide
+scan string and arguments. The types are erased and can be used in non-template functions to reduce build-time, hide
 implementations and reduce the binary size. **Note:** These type erased functions cannot be used at compile-time.
 
 `scan_args` can be created with:
@@ -511,8 +511,8 @@ class emio::scanner<foo> {
 };
 
 int main() {
-    int i{};
-    emio::format("42", "{}", i);  // i == 42
+    foo f{};
+    emio::scan("42", "{}", i);  // f.x == 42
 }
 ```
 
@@ -532,10 +532,10 @@ class emio::scanner<foo> : public emio::scanner<int> {
 };
 
 int main() {
-    int i{};
-    emio::format("0x2A", "{:x}", i);  // i == 42
+    foo f{};
+    emio::scan("0x2A", "{:x}", f);  // f.x == 42
 }
 ```
 
-If the `validate` (or if absent the `parse`) function is not constexpr, a runtime format strings must be used. The
+If the `validate` (or if absent the `parse`) function is not constexpr, a runtime scan strings must be used. The
 `scan` function don't need to be constexpr if the scanning shouldn't be done at compile-time.

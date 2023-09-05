@@ -12,7 +12,7 @@
 namespace emio {
 
 /**
- * Checks if a type is formattable.
+ * Checks if a type is scannable.
  * @tparam T The type to check.
  */
 template <typename T>
@@ -21,12 +21,12 @@ inline constexpr bool is_scannable_v = detail::scan::has_scanner_v<std::remove_c
 /**
  * Class template that defines scanning rules for a given type.
  * @note This class definition is just a mock-up. See other template specialization for a concrete scanning.
- * @tparam T The type to format.
+ * @tparam T The type to scan.
  */
 template <typename T>
 class scanner {
  public:
-  // Not constructable because this is just a minimal example how to write a custom formatter.
+  // Not constructable because this is just a minimal example how to write a custom scanner.
   scanner() = delete;
 
   /**
@@ -61,7 +61,7 @@ class scanner {
 };
 
 /**
- * Formatter for most common unambiguity types.
+ * Scanner for most common unambiguity types.
  * This includes:
  * - char
  * - integral

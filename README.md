@@ -7,27 +7,30 @@
 embedded systems with a very small binary footprint.
 
 ```cpp
-std::string str = emio::format("The answer is {}.", 42);  
+// High-level
+std::string str = emio::format("The answer is {}.", 42);  // Format argument.
 
-emio::result<std::string> res = emio::format(emio::runtime("The answer is {}."), 42);
-if (res.has_value()) {
-    std::string res = res.value();  // The answer is 42.
+int answer{};
+emio::result<void> scan_res = emio::scan(str, "The answer is {}.", answer);  // Scan input string.
+if (scan_res) {
+    emio::print("The answer is {}.", answer);  // Output to console.
 }
 
-std::array<char, 128> storage;
-emio::span_buffer buf{storage};
+// Without using heap.
+emio::static_buffer<128> buf{}; 
 emio::format_to(buf, "The answer is {:#x}.", 42).value();
-buf.view();  // The answer is 0x2a.
+buf.view();  // <- The answer is 0x2a.
 
+// Low-level
 emio::writer wrt{buf};
 wrt.write_str(" In decimal: ").value();
 wrt.write_int(42).value();
 wrt.write_char('.').value();
-buf.view();  // The answer is 0x2a. In decimal: 42.
+buf.view();  // <- The answer is 0x2a. In decimal: 42.
 
 emio::reader rdr{"17c"};
-EMIO_TRY(uint32_t number, rdr.parse_int<uint32_t>());  // 17
-EMIO_TRY(char suffix, rdr.read_char());                // c
+EMIO_TRY(uint32_t number, rdr.parse_int<uint32_t>());  // <- 17
+EMIO_TRY(char suffix, rdr.read_char());                // <- c
 ```
 
 [**This library is in beta status! Please help to make it fly!**](https://github.com/Viatorus/emio/milestone/1)
@@ -63,7 +66,7 @@ FetchContent_MakeAvailable(emio)
 ```
 
 - Download the [single header file](https://viatorus.github.io/emio/) generated with [Quom](https://github.com/Viatorus/quom)
-- From [Conan Center]#(todo)
+- From [Conan Center](https://conan.io/center/recipes/emio)
 
 A compiler supporting C++20 is required. Tested with GCC 11.3 and Clang 15.
 

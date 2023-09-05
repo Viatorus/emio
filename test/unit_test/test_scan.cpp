@@ -4,11 +4,6 @@
 // Other includes.
 #include <catch2/catch_test_macros.hpp>
 
-// TODO:
-// - support string
-// - scan/format string naming
-// - scan API user docu
-
 namespace {
 
 template <typename... Args>

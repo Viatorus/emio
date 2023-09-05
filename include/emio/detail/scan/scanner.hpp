@@ -130,7 +130,7 @@ constexpr result<void> read_arg(reader& in, const scan_specs& /*unused*/, Arg& a
 // specs is passed by reference instead as return type to reduce copying of big value (and code bloat)
 inline constexpr result<void> validate_scan_specs(reader& rdr, scan_specs& specs) noexcept {
   EMIO_TRY(char c, rdr.read_char());
-  if (c == '}') {  // Format end.
+  if (c == '}') {  // Scan end.
     return success;
   }
   if (c == '{') {  // No dynamic spec support.
@@ -144,7 +144,7 @@ inline constexpr result<void> validate_scan_specs(reader& rdr, scan_specs& specs
     specs.type = c;
     EMIO_TRY(c, rdr.read_char());
   }
-  if (c == '}') {  // Format end.
+  if (c == '}') {  // Scan end.
     return success;
   }
   return err::invalid_format;
@@ -152,7 +152,7 @@ inline constexpr result<void> validate_scan_specs(reader& rdr, scan_specs& specs
 
 inline constexpr result<void> parse_scan_specs(reader& rdr, scan_specs& specs) noexcept {
   char c = rdr.read_char().assume_value();
-  if (c == '}') {  // Format end.
+  if (c == '}') {  // Scan end.
     return success;
   }
 
@@ -168,7 +168,7 @@ inline constexpr result<void> parse_scan_specs(reader& rdr, scan_specs& specs) n
 }
 
 inline constexpr result<void> check_char_specs(const scan_specs& specs) noexcept {
-  if ((specs.type != no_type && specs.type != 'c') || (specs.alternate_form != false)) {
+  if ((specs.type != no_type && specs.type != 'c') || (specs.alternate_form)) {
     return err::invalid_format;
   }
   return success;
@@ -190,14 +190,14 @@ inline constexpr result<void> check_integral_specs(const scan_specs& specs) noex
 // Type traits.
 //
 
-// Specifies if T has an enabled formatter specialization.
+// Specifies if T has an enabled scanner specialization.
 template <typename Arg>
 inline constexpr bool has_scanner_v = std::is_constructible_v<scanner<Arg>>;
 
 template <typename T>
 concept has_validate_function_v = requires {
-  { scanner<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
-};
+                                    { scanner<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
+                                  };
 
 template <typename T>
 concept has_any_validate_function_v =
