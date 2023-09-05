@@ -34,20 +34,21 @@ add_executable(emio_test
         test_ranges.cpp
         test_reader.cpp
         test_result.cpp
+        test_scan.cpp
         test_writer.cpp
-        )
+)
 
 target_link_libraries(emio_test
         Catch2::Catch2WithMain
         emio::emio
         fmt::fmt
-        )
+)
 
 target_compile_features(emio_test PRIVATE cxx_std_20)
 
 target_compile_definitions(emio_test PRIVATE
         EMIO_ENABLE_DEV_ASSERT
-        )
+)
 
 add_test(NAME emio_test COMMAND emio_test)
 

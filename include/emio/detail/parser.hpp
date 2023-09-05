@@ -12,33 +12,15 @@
 #include <string_view>
 
 #include "../reader.hpp"
-#include "../result.hpp"
-#include "format/specs.hpp"
+#include "args.hpp"
+#include "bitset.hpp"
 
 namespace emio::detail {
 
 /**
- * Flag to enable/disable input validation if already done
+ * Flag to enable/disable input validation.
  */
 enum class input_validation { enabled, disabled };
-
-template <typename T>
-struct always_false : std::false_type {};
-
-template <typename T>
-inline constexpr bool always_false_v = always_false<T>::value;
-
-namespace alternate_form {
-
-inline constexpr std::string_view bin_lower{"0b"};
-inline constexpr std::string_view bin_upper{"0B"};
-inline constexpr std::string_view octal{"0"};
-inline constexpr std::string_view octal_lower{"0o"};
-inline constexpr std::string_view octal_upper{"0O"};
-inline constexpr std::string_view hex_lower{"0x"};
-inline constexpr std::string_view hex_upper{"0X"};
-
-}  // namespace alternate_form
 
 inline constexpr uint8_t no_more_args = std::numeric_limits<uint8_t>::max();
 
@@ -189,5 +171,92 @@ class parser_base<input_validation::disabled> {
   std::optional<bool> use_positional_args_{};
   uint8_t increment_arg_number_{};
 };
+
+template <typename T>
+int is_arg_span2(const args_span<T>& t);
+
+bool is_arg_span2(...);
+
+template <typename T>
+constexpr bool is_args_span = sizeof(is_arg_span2(std::declval<T>())) == sizeof(int);
+
+template <typename CRTP, input_validation Validation>
+class parser : public parser_base<Validation> {
+ public:
+  using parser_base<Validation>::parser_base;
+
+  parser(const parser&) = delete;
+  parser(parser&&) = delete;
+  parser& operator=(const parser&) = delete;
+  parser& operator=(parser&&) = delete;
+  constexpr ~parser() noexcept override;  // NOLINT(performance-trivially-destructible): See definition.
+
+  template <typename T>
+  result<void> apply(uint8_t arg_nbr, const args_span<T>& args) noexcept {
+    return static_cast<CRTP*>(this)->process_arg(args.get_args()[arg_nbr]);
+  }
+
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static): not possible because of template function
+  constexpr result<void> apply(uint8_t /*arg_pos*/) noexcept {
+    return err::invalid_format;
+  }
+
+  template <typename Arg, typename... Args>
+    requires(!is_args_span<Arg>)
+  constexpr result<void> apply(uint8_t arg_pos, Arg& arg, Args&... args) noexcept {
+    if (arg_pos == 0) {
+      return static_cast<CRTP*>(this)->process_arg(arg);
+    }
+    return apply(arg_pos - 1, args...);
+  }
+};
+
+// Explicit out-of-class definition because of GCC bug: <destructor> used before its definition.
+template <typename CRTP, input_validation Validation>
+constexpr parser<CRTP, Validation>::~parser() noexcept = default;
+
+template <typename Parser, typename... Args>
+constexpr bool validate(std::string_view str, const size_t arg_cnt, const Args&... args) {
+  reader format_rdr{str};
+  Parser parser{format_rdr};
+  bitset<128> matched{};
+  while (true) {
+    uint8_t arg_nbr{detail::no_more_args};
+    if (auto res = parser.parse(arg_nbr); !res) {
+      return false;
+    }
+    if (arg_nbr == detail::no_more_args) {
+      break;
+    }
+    if (arg_cnt <= arg_nbr) {
+      return false;
+    }
+    matched.set(arg_nbr);
+    auto res = parser.apply(arg_nbr, args...);
+    if (!res) {
+      return false;
+    }
+  }
+  return matched.all_first(arg_cnt);
+}
+
+template <typename Parser, typename T, typename... Args>
+constexpr result<void> parse(std::string_view str, T& input, Args&&... args) {
+  reader format_rdr{str};
+  Parser parser{input, format_rdr};
+  while (true) {
+    uint8_t arg_nbr{detail::no_more_args};
+    if (auto res = parser.parse(arg_nbr); !res) {
+      return res.assume_error();
+    }
+    if (arg_nbr == detail::no_more_args) {
+      break;
+    }
+    if (auto res = parser.apply(arg_nbr, std::forward<Args>(args)...); !res) {
+      return res.assume_error();
+    }
+  }
+  return success;
+}
 
 }  // namespace emio::detail

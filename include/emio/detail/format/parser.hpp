@@ -6,17 +6,15 @@
 
 #pragma once
 
-#include "../../writer.hpp"
-#include "../bitset.hpp"
 #include "args.hpp"
 #include "formatter.hpp"
 
 namespace emio::detail::format {
 
-class format_parser final : public parser_base<input_validation::disabled> {
+class format_parser final : public parser<format_parser, input_validation::disabled> {
  public:
-  constexpr explicit format_parser(writer& wtr, reader& format_rdr) noexcept
-      : parser_base<input_validation::disabled>{format_rdr}, wtr_{wtr} {}
+  constexpr explicit format_parser(writer& output, reader& format_rdr) noexcept
+      : parser<format_parser, input_validation::disabled>{format_rdr}, output_{output} {}
 
   format_parser(const format_parser&) = delete;
   format_parser(format_parser&&) = delete;
@@ -25,44 +23,35 @@ class format_parser final : public parser_base<input_validation::disabled> {
   constexpr ~format_parser() noexcept override;  // NOLINT(performance-trivially-destructible): See definition.
 
   constexpr result<void> process(char c) noexcept override {
-    return wtr_.write_char(c);
+    return output_.write_char(c);
   }
 
-  // NOLINTNEXTLINE(readability-convert-member-functions-to-static): not possible because of template function
-  constexpr result<void> find_and_write_arg(uint8_t /*arg_pos*/) noexcept {
-    return err::invalid_format;
+  result<void> process_arg(const format_arg& arg) noexcept {
+    return arg.process_arg(output_, format_rdr_);
   }
 
-  template <typename Arg, typename... Args>
-  constexpr result<void> find_and_write_arg(uint8_t arg_pos, const Arg& arg, const Args&... args) noexcept {
-    if (arg_pos == 0) {
-      return write_arg(arg);
-    }
-    return find_and_write_arg(arg_pos - 1, args...);
-  }
-
- private:
   template <typename Arg>
-  constexpr result<void> write_arg(const Arg& arg) noexcept {
+  constexpr result<void> process_arg(const Arg& arg) noexcept {
     if constexpr (has_formatter_v<Arg>) {
       formatter<Arg> formatter;
       EMIO_TRYV(formatter.parse(this->format_rdr_));
-      return formatter.format(wtr_, arg);
+      return formatter.format(output_, arg);
     } else {
       static_assert(has_formatter_v<Arg>,
                     "Cannot format an argument. To make type T formattable provide a formatter<T> specialization.");
     }
   }
 
-  writer& wtr_;
+ private:
+  writer& output_;
 };
 
-// Explicit out-of-class definition because of GCC bug: ~format_parser() used before its definition.
+// Explicit out-of-class definition because of GCC bug: <destructor> used before its definition.
 constexpr format_parser::~format_parser() noexcept = default;
 
-class format_specs_checker final : public parser_base<input_validation::enabled> {
+class format_specs_checker final : public parser<format_specs_checker, input_validation::enabled> {
  public:
-  using parser_base<input_validation::enabled>::parser_base;
+  using parser<format_specs_checker, input_validation::enabled>::parser;
 
   format_specs_checker(const format_specs_checker& other) = delete;
   format_specs_checker(format_specs_checker&& other) = delete;
@@ -74,83 +63,17 @@ class format_specs_checker final : public parser_base<input_validation::enabled>
     return success;
   }
 
-  // NOLINTNEXTLINE(readability-convert-member-functions-to-static): not possible because of template function
-  template <typename... Args>
-    requires(sizeof...(Args) == 0)
-  constexpr result<void> find_and_validate_arg(uint8_t /*arg_pos*/) noexcept {
-    return err::invalid_format;
+  result<void> process_arg(const format_validation_arg& arg) noexcept {
+    return arg.validate(this->format_rdr_);
   }
 
-  template <typename Arg, typename... Args>
-  constexpr result<void> find_and_validate_arg(uint8_t arg_pos) noexcept {
-    if (arg_pos == 0) {
-      return validate_arg<Arg>();
-    }
-    return find_and_validate_arg<Args...>(arg_pos - 1);
-  }
-
- private:
   template <typename Arg>
-  constexpr result<void> validate_arg() noexcept {
-    return validate_for<std::remove_cvref_t<Arg>>(this->format_rdr_);
+  constexpr result<void> process_arg(std::type_identity<Arg> /*unused*/) noexcept {
+    return format_arg_trait<std::remove_cvref_t<Arg>>::validate(this->format_rdr_);
   }
 };
 
-// Explicit out-of-class definition because of GCC bug: ~format_parser() used before its definition.
+// Explicit out-of-class definition because of GCC bug: <destructor> used before its definition.
 constexpr format_specs_checker::~format_specs_checker() noexcept = default;
-
-[[nodiscard]] inline bool validate_format_string_fallback(const format_validation_args& args) noexcept {
-  reader format_rdr{args.get_format_str()};
-  format_specs_checker fh{format_rdr};
-  bitset<128> matched{};
-  const size_t arg_cnt = args.get_args().size();
-  while (true) {
-    uint8_t arg_nbr{detail::no_more_args};
-    if (auto res = fh.parse(arg_nbr); !res) {
-      return false;
-    }
-    if (arg_nbr == detail::no_more_args) {
-      break;
-    }
-    if (arg_cnt <= arg_nbr) {
-      return false;
-    }
-    matched.set(arg_nbr);
-    auto res = args.get_args()[arg_nbr].validate(format_rdr);
-    if (!res) {
-      return false;
-    }
-  }
-  return matched.all_first(arg_cnt);
-}
-
-template <typename... Args>
-[[nodiscard]] constexpr bool validate_format_string(std::string_view format_str) noexcept {
-  if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
-    reader format_rdr{format_str};
-    format_specs_checker fh{format_rdr};
-    bitset<sizeof...(Args)> matched{};
-    while (true) {
-      uint8_t arg_nbr{detail::no_more_args};
-      if (auto res = fh.parse(arg_nbr); !res) {
-        return false;
-      }
-      if (arg_nbr == detail::no_more_args) {
-        break;
-      }
-      if (matched.size() <= arg_nbr) {
-        return false;
-      }
-      matched.set(arg_nbr);
-      auto res = fh.template find_and_validate_arg<Args...>(arg_nbr);
-      if (!res) {
-        return false;
-      }
-    }
-    return matched.all();
-  } else {
-    return validate_format_string_fallback(make_format_validation_args<Args...>(format_str));
-  }
-}
 
 }  // namespace emio::detail::format

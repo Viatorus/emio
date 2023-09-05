@@ -159,9 +159,31 @@ TEST_CASE("reader::parse_int", "[reader]") {
         ranges);
   }
 
-  SECTION("just a -") {
-    CHECK(emio::reader{"-"}.parse_int<int>() == emio::err::eof);
-    CHECK(emio::reader{"-"}.parse_int<unsigned>() == emio::err::out_of_range);
+  SECTION("sign is correctly parsed") {
+    SECTION("minus") {
+      CHECK(emio::reader{"-"}.parse_int<int>() == emio::err::eof);
+      CHECK(emio::reader{"-"}.parse_int<unsigned>() == emio::err::eof);
+      CHECK(emio::reader{"- "}.parse_int<int>() == emio::err::invalid_data);
+      CHECK(emio::reader{"- "}.parse_int<unsigned>() == emio::err::invalid_data);
+      CHECK(emio::reader{"-8"}.parse_int<int>(8) == emio::err::invalid_data);
+      CHECK(emio::reader{"-8"}.parse_int<unsigned>(8) == emio::err::invalid_data);
+      CHECK(emio::reader{"-7"}.parse_int<int>(8) == -7);
+      CHECK(emio::reader{"-7"}.parse_int<unsigned>(8) == emio::err::out_of_range);
+    }
+    SECTION("plus") {
+      CHECK(emio::reader{"+"}.parse_int<int>() == emio::err::eof);
+      CHECK(emio::reader{"+"}.parse_int<unsigned>() == emio::err::eof);
+      CHECK(emio::reader{"+ "}.parse_int<int>() == emio::err::invalid_data);
+      CHECK(emio::reader{"+ "}.parse_int<unsigned>() == emio::err::invalid_data);
+      CHECK(emio::reader{"+8"}.parse_int<int>(8) == emio::err::invalid_data);
+      CHECK(emio::reader{"+8"}.parse_int<unsigned>(8) == emio::err::invalid_data);
+      CHECK(emio::reader{"+7"}.parse_int<int>(8) == 7);
+      CHECK(emio::reader{"+7"}.parse_int<unsigned>(8) == 7U);
+    }
+    SECTION("both") {
+      CHECK(emio::reader{"+-1"}.parse_int<int>() == emio::err::invalid_data);
+      CHECK(emio::reader{"-+1"}.parse_int<unsigned>() == emio::err::invalid_data);
+    }
   }
 
   SECTION("a failed parse_int keeps previous read position") {

@@ -6,8 +6,9 @@
 
 #pragma once
 
+#include "../../reader.hpp"
 #include "../../writer.hpp"
-#include "../parser.hpp"
+#include "../misc.hpp"
 #include "dragon.hpp"
 #include "specs.hpp"
 
@@ -17,6 +18,18 @@ template <typename>
 class formatter;
 
 namespace detail::format {
+
+namespace alternate_form {
+
+inline constexpr std::string_view bin_lower{"0b"};
+inline constexpr std::string_view bin_upper{"0B"};
+inline constexpr std::string_view octal{"0"};
+inline constexpr std::string_view octal_lower{"0o"};
+inline constexpr std::string_view octal_upper{"0O"};
+inline constexpr std::string_view hex_lower{"0x"};
+inline constexpr std::string_view hex_upper{"0X"};
+
+}  // namespace alternate_form
 
 //
 // Write args.
@@ -150,7 +163,7 @@ constexpr result<void> write_arg(writer& wtr, format_specs& specs, const Arg& ar
     total_width += 1;
   }
 
-  return write_padded<alignment::right>(wtr, specs, total_width, [&, &options = options]() -> result<void> {
+  return write_padded<alignment::right>(wtr, specs, total_width, [&, &opt = options]() -> result<void> {
     const size_t area_size =
         num_digits + static_cast<size_t>(sign_to_write != no_sign) + static_cast<size_t>(prefix_to_write.size());
     EMIO_TRY(auto area, wtr.get_buffer().get_write_area_of(area_size));
@@ -161,7 +174,7 @@ constexpr result<void> write_arg(writer& wtr, format_specs& specs, const Arg& ar
     if (!prefix_to_write.empty()) {
       it = copy_n(prefix_to_write.data(), prefix_to_write.size(), it);
     }
-    write_number(abs_number, options.base, options.upper_case, it + detail::to_signed(num_digits));
+    write_number(abs_number, opt.base, opt.upper_case, it + detail::to_signed(num_digits));
     return success;
   });
 }
@@ -747,6 +760,10 @@ inline constexpr result<void> check_string_view_specs(const format_specs& specs)
   return success;
 }
 
+//
+// Type traits.
+//
+
 // Specifies if T has an enabled formatter specialization.
 template <typename Arg>
 inline constexpr bool has_formatter_v = std::is_constructible_v<formatter<Arg>>;
@@ -761,41 +778,10 @@ concept has_any_validate_function_v =
     requires { &formatter<T>::validate; } || std::is_member_function_pointer_v<decltype(&formatter<T>::validate)> ||
     requires { std::declval<formatter<T>>().validate(std::declval<reader&>()); };
 
-template <typename Arg>
-constexpr result<void> validate_for(reader& format_is) noexcept {
-  // Check if a formatter exist and a correct validate method is implemented. If not, use the parse method.
-  if constexpr (has_formatter_v<Arg>) {
-    if constexpr (has_validate_function_v<Arg>) {
-      return formatter<Arg>::validate(format_is);
-    } else {
-      static_assert(!has_any_validate_function_v<Arg>,
-                    "Formatter seems to have a validate property which doesn't fit the desired signature.");
-      return formatter<Arg>{}.parse(format_is);
-    }
-  } else {
-    static_assert(has_formatter_v<Arg>,
-                  "Cannot format an argument. To make type T formattable provide a formatter<T> specialization.");
-    return err::invalid_format;
-  }
-}
-
 template <typename T>
 inline constexpr bool is_core_type_v =
     std::is_integral_v<T> || std::is_floating_point_v<T> || std::is_same_v<T, std::nullptr_t> ||
     std::is_same_v<T, void*> || std::is_same_v<T, std::string_view>;
-
-template <input_validation FormatStringValidation, typename T>
-concept formatter_parse_supports_format_string_validation =
-    requires(T formatter) { formatter.template parse<FormatStringValidation>(std::declval<reader>()); };
-
-template <input_validation FormatStringValidation, typename T>
-inline constexpr result<void> invoke_formatter_parse(T& formatter, reader& format_is) noexcept {
-  if constexpr (formatter_parse_supports_format_string_validation<FormatStringValidation, T>) {
-    return formatter.template parse<FormatStringValidation>(format_is);
-  } else {
-    return formatter.parse(format_is);
-  }
-}
 
 template <typename T>
 concept has_format_as = requires(T arg) { format_as(arg); };

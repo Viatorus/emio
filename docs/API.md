@@ -5,6 +5,23 @@ everything can be used at compile-time.
 
 The public namespace is `emio` only - no deeper nesting.
 
+* [err](#err)
+* [result](#result)
+* [Buffer](#buffer)
+  + [memory_buffer](#memory-buffer)
+  + [span_buffer](#span-buffer)
+  + [static_buffer](#static-buffer)
+  + [iterator_buffer](#iterator-buffer)
+  + [file_buffer](#file-buffer)
+* [Reader](#reader)
+* [Writer](#writer)
+* [Format](#format)
+  - [Dynamic format specification](#dynamic-format-specification)
+  + [Formatter](#formatter)
+* [Print](#print)
+* [Scan](#scan)
+  + [Scanner](#scanner)
+
 ## err
 
 A list of possible I/O errors as enum.
@@ -28,7 +45,7 @@ Every function describes the possible errors which can occur. See the source cod
 
 `invalid_format`
 
-- The format string is invalid (e.g. missing arguments).
+- The format/scan string is invalid (e.g. missing arguments, wrong syntax).
 
 `to_string(err) -> string_view`
 
@@ -191,10 +208,10 @@ The following functions use a format string syntax which is nearly identical to 
 
 Things that are missing:
 
-- UTF-8 support (planned)
-- range and chrono syntax (planned)
+- chrono syntax (planned)
+- UTF-8 support (TBD)
 - using an identifier as arg_id: `fmt::format("{nbr}", fmt::arg("nbr", 42)` (TBD)
-- `'L'` options for locale (somehow possible but not with std::locale)
+- `'L'` options for locale (somehow possible but not with std::locale because of the binary size)
 
 The grammar for the replacement field is as follows:
 
@@ -225,9 +242,9 @@ type        ::=  "b" | "B" | "c" | "d" | "o" | "s" | "x" | "X" | "e" | "E" | "f"
 ```
 
 The format string syntax is validated at compile-time. If a runtime format string is required, the string must be
-wrapped inside a `runtime_format_string` object. There is a simple helper function for that: 
+wrapped inside a `runtime_string` object. There is a simple helper function for that:
 
-`runtime(string_view) -> runtime_format_string`
+`runtime(string_view) -> runtime_string`
 
 Some functions (like `format` or `formatted_size`) are further optimized (simplified) in their return type if the format
 string is a valid-only format string that could be ensured at compile-time.
@@ -285,7 +302,7 @@ emio::format('{}', spec.with(3.14));  // 3.1
 ### Formatter
 
 There exists formatter for builtin types like bool, char, string, integers, floats, void* and non-scoped enums, ranges
-and tuple like types.  Support for other standard types (e.g. chrono duration, optional) is planned.
+and tuple like types. Support for other standard types (e.g. chrono duration, optional) is planned.
 
 Use `is_formattable_v<Type>` to check if a type is formattable.
 
@@ -348,7 +365,7 @@ template <>
 class emio::formatter<foo> : public emio::format<int> {
  public:
   constexpr result<void> format(writer& wtr, const foo& arg) noexcept {
-    return emio::format<int>(wtr, arg.x);
+    return emio::format<int>::format(wtr, arg.x);
   }
 };
 
@@ -358,7 +375,7 @@ int main() {
 }
 ```
 
-If the `validate` (or if absent the `parse`) function is not constexpr a runtime format strings must be used. The
+If the `validate` (or if absent the `parse`) function is not constexpr, a runtime format strings must be used. The
 `format` function don't need to be constexpr if the formatting shouldn't be done at compile-time.
 
 For simple type formatting, like formatting an enum class to its underlying integer or to a string, the function
@@ -404,3 +421,138 @@ It is possible to directly print to the standard output or other file streams.
 
 For each function there exists a function prefixed with v (e.g. `vprint`) which allow the same functionality as
 e.g. `vformat(...)` does for `format(...)`.
+
+## Scan
+
+The following functions use a scan string syntax which is similar to the format syntax.
+
+The grammar for the replacement field is the same. The grammar for the scan specification is as follows:
+
+```sass
+format_spec ::=  ["#"][type]
+
+type        ::=  "b" | "B" | "c" | "d" | "o" | "x" | "X"
+```
+
+`type`
+- for integral types: the base to assume
+  - b/B: base 2 (binary)
+  - d: base 10 (decimal)
+  - o: base 8 (octal)
+  - x/X: base 16 (hexadecimal)
+
+`#`
+- for integral types: the alternate form
+  - b/B: `0b` (e.g. 0b10110)
+  - d: nothing (e.g. 9825)
+  - o: leading `0` (e.g. 057)
+  - x/X: `0x` (e.g 0x2fA3)
+- if `#` is present but not the `type`, the base is deduced from the scanned alternate form.
+
+The scan string syntax is validated at compile-time. If a runtime scan string is required, the string must be
+wrapped inside a `runtime_string` object. There is a simple helper function for that:
+
+`runtime(string_view) -> runtime_string`
+
+The API is structured as follows:
+
+`scan(input, scan_str, ...args) -> result<void>`
+
+- Scans the input string for the given arguments according to the scan string.
+
+`scan_from(reader, scan_str, ...args) -> result<void>`
+
+- Scans the content of the reader for the given arguments according to the scan string.
+
+For each function there exists a function prefixed with v (e.g. `vscan`) which takes `scan_args` instead of a
+scan string and arguments. The types are erased and can be used in non-template functions to reduce build-time, hide
+implementations and reduce the binary size. **Note:** These type erased functions cannot be used at compile-time.
+
+`scan_args` can be created with:
+
+`make_scan_args(scan_str, ...args) -> internal scan_args_storage`
+
+- Returns an object that stores a scan string with an array of all arguments to scan.
+- Keep in mind that the storage uses reference semantics and does not extend the lifetime of args. It is the
+  programmer's responsibility to ensure that args outlive the return value.
+
+### Scanner
+
+There exists a scanner for builtin types like char and integers. Support for other types (e.g. string, float) is
+planned.
+
+Use `is_scanner_v<Type>` to check if a type is scannable.
+
+A scanner exists of one optional function `validate` and two mandatory functions `parse` and `scan`. If `validate`
+is not present, `parse` must validate the scan string.
+
+A custom scanner for the class `foo` could be implemented like this:
+
+```cpp
+struct foo {
+    int x;
+};
+
+template <>
+class emio::scanner<foo> {
+ public:
+  /**
+   * Optional static function to validate the scan specs for this type.
+   * @note If not present, the parse function is invoked for validation.
+   * @param rdr The scan reader.
+   * @return Success if the scan spec is valid.
+   */
+  static constexpr result<void> validate(reader& rdr) noexcept {
+    return rdr.read_if_match_char('}');
+  }
+
+  /**
+   * Function to parse the scan specs for this type.
+   * @param rdr The scan reader.
+   * @return Success if the scan spec is valid and could be parsed.
+   */
+  constexpr result<void> parse(reader& rdr) noexcept {
+    return rdr.read_if_match_char('}');
+  }
+
+  /**
+   * Function to scan the object of this type according to the parsed scan specs.
+   * @param input The input reader.
+   * @param arg The argument to scan.
+   * @return Success if the scanning could be done.
+   */
+  constexpr result<void> scan(reader& input, foo& arg) const noexcept {
+    EMIO_TRYV(input.read_int(arg.x));
+    return success;
+  }
+};
+
+int main() {
+    foo f{};
+    emio::scan("42", "{}", i);  // f.x == 42
+}
+```
+
+It is also possible to reuse existing scanner via inheritance or composition.
+
+```cpp
+struct foo {
+    int x;
+};
+
+template <>
+class emio::scanner<foo> : public emio::scanner<int> {
+ public:
+  constexpr result<void> scan(reader& input, foo& arg) const noexcept {
+    return emio::scanner<int>::scan(input, arg.x);
+  }
+};
+
+int main() {
+    foo f{};
+    emio::scan("0x2A", "{:x}", f);  // f.x == 42
+}
+```
+
+If the `validate` (or if absent the `parse`) function is not constexpr, a runtime scan strings must be used. The
+`scan` function don't need to be constexpr if the scanning shouldn't be done at compile-time.

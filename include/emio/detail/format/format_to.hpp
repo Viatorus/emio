@@ -6,55 +6,45 @@
 
 #pragma once
 
-#include "../../format_string.hpp"
 #include "../../reader.hpp"
 #include "../../writer.hpp"
+#include "../string_validation.hpp"
 #include "args.hpp"
 #include "parser.hpp"
 
 namespace emio::detail::format {
 
-// Non constexpr version.
-inline result<void> vformat_to(buffer& buf, const format_args& args) noexcept {
-  EMIO_TRY(const std::string_view str, args.get_format_str());
-  reader format_rdr{str};
-  writer wtr{buf};
-  format_parser fh{wtr, format_rdr};
-  while (true) {
-    uint8_t arg_nbr{detail::no_more_args};
-    if (auto res = fh.parse(arg_nbr); !res) {
-      return res.assume_error();
-    }
-    if (arg_nbr == detail::no_more_args) {
-      break;
-    }
-    if (auto res = args.get_args()[arg_nbr].format(wtr, format_rdr); !res) {
-      return res.assume_error();
+struct format_trait {
+  template <typename... Args>
+  [[nodiscard]] static constexpr bool validate_string(std::string_view format_str) noexcept {
+    if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
+      return validate<format_specs_checker>(format_str, sizeof...(Args), std::type_identity<Args>{}...);
+    } else {
+      return validate<format_specs_checker>(format_str, sizeof...(Args),
+                                            make_validation_args<format_validation_arg, Args...>(format_str));
     }
   }
-  return success;
+};
+
+template <typename... Args>
+using format_string = validated_string<format_trait, std::type_identity_t<Args>...>;
+
+template <typename... Args>
+using valid_format_string = valid_string<format_trait, std::type_identity_t<Args>...>;
+
+// Non constexpr version.
+inline result<void> vformat_to(buffer& buf, const format_args& args) noexcept {
+  EMIO_TRY(const std::string_view str, args.get_str());
+  writer wtr{buf};
+  return parse<format_parser>(str, wtr, args);
 }
 
 // Constexpr version.
 template <typename... Args>
 constexpr result<void> format_to(buffer& buf, format_string<Args...> format_str, const Args&... args) noexcept {
-  EMIO_TRY(std::string_view str, format_str.get());
-  reader format_rdr{str};
+  EMIO_TRY(const std::string_view str, format_str.get());
   writer wtr{buf};
-  format_parser fh{wtr, format_rdr};
-  while (true) {
-    uint8_t arg_nbr{detail::no_more_args};
-    if (auto res = fh.parse(arg_nbr); !res) {
-      return res.assume_error();
-    }
-    if (arg_nbr == detail::no_more_args) {
-      break;
-    }
-    if (auto res = fh.find_and_write_arg(arg_nbr, args...); !res) {
-      return res.assume_error();
-    }
-  }
-  return success;
+  return parse<format_parser>(str, wtr, args...);
 }
 
 }  // namespace emio::detail::format

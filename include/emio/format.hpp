@@ -15,13 +15,17 @@ namespace emio {
 
 /**
  * Provides access to the format string and the arguments to format.
- * @note This type should only be "constructed" via make_format_args(format_str, args...) and passed directly to an
+ * @note This type should only be "constructed" via make_format_args(format_str, args...) and passed directly to a
  * formatting function.
  */
 using format_args = detail::format::format_args;
 
-// Alias type.
-using format_args = detail::format::format_args;
+// Alias template types.
+template <typename... Args>
+using format_string = detail::format::format_string<Args...>;
+
+template <typename... Args>
+using valid_format_string = detail::format::valid_format_string<Args...>;
 
 /**
  * Returns an object that stores a format string with an array of all arguments to format.
@@ -35,8 +39,8 @@ using format_args = detail::format::format_args;
  * @return Internal type. Implicit convertible to format_args.
  */
 template <typename... Args>
-[[nodiscard]] detail::format::format_args_storage<sizeof...(Args)> make_format_args(format_string<Args...> format_str,
-                                                                                    const Args&... args) noexcept {
+[[nodiscard]] detail::args_storage<detail::format::format_arg, sizeof...(Args)> make_format_args(
+    format_string<Args...> format_str, const Args&... args) noexcept {
   return {format_str.get(), args...};
 }
 
@@ -74,7 +78,7 @@ template <typename... Args>
  * validation failed.
  */
 template <typename T, typename... Args>
-  requires(std::is_same_v<T, runtime_format_string> || std::is_same_v<T, format_string<Args...>>)
+  requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, format_string<Args...>>)
 constexpr result<size_t> formatted_size(T format_str, const Args&... args) noexcept {
   detail::counting_buffer buf{};
   format_string<Args...> str{format_str};
@@ -125,7 +129,7 @@ constexpr result<OutputIt> vformat_to(OutputIt out, const format_args& args) noe
  * Formats arguments according to the format string, and writes the result to the output buffer.
  * @param buf The output buffer.
  * @param format_str The format string.
- * @param args The format args with the format string.
+ * @param args The arguments to be formatted.
  * @return Success or EOF if the buffer is to small or invalid_format if the format string validation failed.
  */
 template <typename Buffer, typename... Args>
@@ -143,7 +147,7 @@ constexpr result<void> format_to(Buffer& buf, format_string<Args...> format_str,
  * Formats arguments according to the format string, and writes the result to the writer's buffer.
  * @param wrt The writer.
  * @param format_str The format string.
- * @param args The format args with the format string.
+ * @param args The arguments to be formatted.
  * @return Success or EOF if the buffer is to small or invalid_format if the format string validation failed.
  */
 template <typename... Args>
@@ -192,7 +196,7 @@ inline result<std::string> vformat(const format_args& args) noexcept {
 /**
  * Formats arguments according to the format string, and returns the result as string.
  * @param format_str The format string.
- * @param args The format args with the format string.
+ * @param args The arguments to be formatted.
  * @return The string.
  */
 template <typename... Args>
@@ -204,12 +208,12 @@ template <typename... Args>
 /**
  * Formats arguments according to the format string, and returns the result as string.
  * @param format_str The format string.
- * @param args The format args with the format string.
+ * @param args The arguments to be formatted.
  * @return The string on success or invalid_format if the format string validation
  * failed.
  */
 template <typename T, typename... Args>
-  requires(std::is_same_v<T, runtime_format_string> || std::is_same_v<T, format_string<Args...>>)
+  requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, format_string<Args...>>)
 result<std::string> format(T format_str, const Args&... args) noexcept {
   return vformat(make_format_args(format_str, args...));
 }
@@ -249,7 +253,7 @@ result<format_to_n_result<OutputIt>> vformat_to_n(OutputIt out, std::iter_differ
  * @param out The output iterator.
  * @param n The maximum number of characters to be written to the buffer.
  * @param format_str The format string.
- * @param args The format args with the format string.
+ * @param args The arguments to be formatted.
  * @return The format_to_n_result on success or invalid_format if the format string validation failed.
  */
 template <typename OutputIt, typename... Args>
@@ -301,7 +305,7 @@ void print(valid_format_string<Args...> format_str, const Args&... args) {
  * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
  */
 template <typename T, typename... Args>
-  requires(std::is_same_v<T, runtime_format_string> || std::is_same_v<T, format_string<Args...>>)
+  requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, format_string<Args...>>)
 result<void> print(T format_str, const Args&... args) {
   return vprint(stdout, make_format_args(format_str, args...));
 }
@@ -356,7 +360,7 @@ void println(valid_format_string<Args...> format_str, const Args&... args) {
  * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
  */
 template <typename T, typename... Args>
-  requires(std::is_same_v<T, runtime_format_string> || std::is_same_v<T, format_string<Args...>>)
+  requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, format_string<Args...>>)
 result<void> println(T format_str, const Args&... args) {
   return vprintln(stdout, make_format_args(format_str, args...));
 }

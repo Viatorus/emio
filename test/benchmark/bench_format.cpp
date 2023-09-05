@@ -9,7 +9,7 @@
 #include <cinttypes>
 #include <cmath>
 
-TEST_CASE("simple integer format") {
+TEST_CASE("format simple integer") {
   static constexpr std::string_view format_str(" {}");
   static constexpr int arg = 1;
 
@@ -34,7 +34,7 @@ TEST_CASE("simple integer format") {
   };
 }
 
-TEST_CASE("complex integer format") {
+TEST_CASE("format complex integer") {
   static constexpr std::string_view format_str("{0:x^+#10X}");
   static constexpr int64_t arg = -8978612134175239201;
 
@@ -59,7 +59,7 @@ TEST_CASE("complex integer format") {
   };
 }
 
-TEST_CASE("zero as double format") {
+TEST_CASE("format zero as double") {
   static constexpr std::string_view format_str("{}");
   static constexpr double arg = 0;
 
@@ -84,7 +84,7 @@ TEST_CASE("zero as double format") {
   };
 }
 
-TEST_CASE("shortest double general format") {
+TEST_CASE("format shortest double general") {
   static constexpr std::string_view format_str("{}");
   static constexpr double arg = M_PI;
 
@@ -109,7 +109,7 @@ TEST_CASE("shortest double general format") {
   };
 }
 
-TEST_CASE("double exponent format") {
+TEST_CASE("format double exponent") {
   static constexpr std::string_view format_str("{:e}");
   static constexpr double arg = M_PI;
 
@@ -134,7 +134,7 @@ TEST_CASE("double exponent format") {
   };
 }
 
-TEST_CASE("double fixed format") {
+TEST_CASE("format double fixed") {
   static constexpr std::string_view format_str("{:f}");
   static constexpr double arg = M_PI;
 
@@ -159,7 +159,7 @@ TEST_CASE("double fixed format") {
   };
 }
 
-TEST_CASE("many arguments") {
+TEST_CASE("format many arguments") {
   static constexpr std::string_view format_str("{} {} {} {} {} {} {} {} {} {} {}");
 #define ARGS                                                                                                \
   true, static_cast<int8_t>(1), static_cast<uint8_t>(2), static_cast<int16_t>(3), static_cast<uint16_t>(4), \
