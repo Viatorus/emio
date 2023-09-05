@@ -56,55 +56,10 @@
 //
 // For the license information refer to emio.hpp
 
-#include <string_view>
-#include <type_traits>
-
-//
-// Copyright (c) 2021 - present, Toni Neubert
-// All rights reserved.
-//
-// For the license information refer to emio.hpp
-
-#include <string_view>
-#include <type_traits>
-
-//
-// Copyright (c) 2021 - present, Toni Neubert
-// All rights reserved.
-//
-// For the license information refer to emio.hpp
-
-//
-// Copyright (c) 2021 - present, Toni Neubert
-// All rights reserved.
-//
-// For the license information refer to emio.hpp
-
 #include <algorithm>
-
-//
-// Copyright (c) 2021 - present, Toni Neubert
-// All rights reserved.
-//
-// For the license information refer to emio.hpp
-
-#include <iterator>
-#include <limits>
-#include <span>
 #include <string>
 #include <string_view>
 #include <type_traits>
-
-//
-// Copyright (c) 2021 - present, Toni Neubert
-// All rights reserved.
-//
-// For the license information refer to emio.hpp
-
-#include <algorithm>
-#include <array>
-#include <cstddef>
-#include <string>
 
 //
 // Copyright (c) 2021 - present, Toni Neubert
@@ -442,86 +397,6 @@ constexpr char* copy_n(const char* in, Size count, char* out) {
 
 }  // namespace emio::detail
 
-namespace emio::detail {
-
-/**
- * A constexpr vector with the bare minimum implementation and inlined storage.
- * @tparam Char The character type.
- * @tparam StorageSize The size of the inlined storage.
- */
-template <typename Char, size_t StorageSize = 32>
-class ct_vector {
- public:
-  constexpr ct_vector() {
-    if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
-      fill_n(storage_.data(), storage_.size(), 0);
-    }
-  }
-
-  ct_vector(const ct_vector&) = delete;
-  ct_vector(ct_vector&&) = delete;
-  ct_vector& operator=(const ct_vector&) = delete;
-  ct_vector& operator=(ct_vector&&) = delete;
-
-  constexpr ~ct_vector() noexcept {
-    if (hold_external()) {
-      delete[] data_;  // NOLINT(cppcoreguidelines-owning-memory)
-    }
-  }
-
-  constexpr void reserve(size_t new_size) noexcept {
-    if (new_size < StorageSize && !hold_external()) {
-      size_ = new_size;
-      return;
-    }
-
-    // Heavy pointer arithmetic because high level containers are not yet ready to use at constant evaluation.
-    if (capacity_ < new_size) {
-      // NOLINTNEXTLINE(bugprone-unhandled-exception-at-new): char types cannot throw
-      Char* new_data = new Char[new_size];  // NOLINT(cppcoreguidelines-owning-memory)
-      copy_n(data_, size_, new_data);
-      if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
-        // Required at compile-time because another reserve could happen without previous write to the data.
-        fill_n(new_data + size_, new_size - size_, 0);
-      }
-      std::swap(new_data, data_);
-      capacity_ = new_size;
-      if (new_data != storage_.data()) {
-        delete[] new_data;  // NOLINT(cppcoreguidelines-owning-memory)
-      }
-    }
-    size_ = new_size;
-  }
-
-  [[nodiscard]] constexpr size_t capacity() const noexcept {
-    return capacity_;
-  }
-
-  [[nodiscard]] constexpr size_t size() const noexcept {
-    return size_;
-  }
-
-  [[nodiscard]] constexpr Char* data() noexcept {
-    return data_;
-  }
-
-  [[nodiscard]] constexpr const Char* data() const noexcept {
-    return data_;
-  }
-
- private:
-  [[nodiscard]] constexpr bool hold_external() const noexcept {
-    return data_ != storage_.data() && data_ != nullptr;
-  }
-
-  std::array<Char, StorageSize> storage_;
-  Char* data_{storage_.data()};
-  size_t size_{};
-  size_t capacity_{StorageSize};
-};
-
-}  // namespace emio::detail
-
 //
 // Copyright (c) 2021 - present, Toni Neubert
 // All rights reserved.
@@ -560,7 +435,7 @@ enum class err {
   invalid_argument,  ///< A parameter is incorrect (e.g. the output base is invalid).
   invalid_data,      ///< The data is malformed (e.g. no digit where a digit was expected).
   out_of_range,      ///< The parsed value is not in the range representable by the type (e.g. parsing 578 as uint8_t).
-  invalid_format,    ///< The format string is invalid.
+  invalid_format,    ///< The format/scan string is invalid.
 };
 
 /**
@@ -1069,6 +944,532 @@ constexpr bool operator==(const result<T>& left, const err right) {
 }
 
 }  // namespace emio
+
+namespace emio {
+
+// Forward declaration.
+class reader;
+
+namespace detail {
+
+inline constexpr result<bool> parse_sign(reader& in) noexcept;
+
+template <typename T>
+constexpr result<T> parse_int(reader& in, int base, bool is_negative) noexcept;
+
+}  // namespace detail
+
+/**
+ * This class operates on a char sequence and allows reading and parsing from it.
+ * The reader interprets the char sequence as finite input stream. After every successful operation the read position
+ * moves on until the last char of the sequence has been consumed.
+ */
+class reader {
+ public:
+  /// The size type.
+  using size_type = typename std::string_view::size_type;
+  /// Special value to indicate the end of the view or an error by functions returning an index.
+  static constexpr size_type npos = std::string_view::npos;
+
+  /**
+   * Constructs an empty reader.
+   */
+  constexpr reader() = default;
+
+  // Don't allow temporary strings or any nullptr.
+  constexpr reader(std::string&&) = delete;
+  constexpr reader(std::nullptr_t) = delete;
+  constexpr reader(int) = delete;
+
+  /**
+   * Constructs the reader from any suitable char sequence.
+   * @param input The char sequence.
+   */
+  template <typename Arg>
+    requires(std::is_constructible_v<std::string_view, Arg>)
+  // NOLINTNEXTLINE(bugprone-forwarding-reference-overload): Is guarded by require clause.
+  constexpr explicit(!std::is_convertible_v<Arg, std::string_view>) reader(Arg&& input) noexcept
+      : input_{std::forward<Arg>(input)} {}
+
+  /**
+   * Returns the current read position.
+   * @return The read position.
+   */
+  [[nodiscard]] constexpr size_t pos() const noexcept {
+    return pos_;
+  }
+
+  /**
+   * Checks if the end of the stream has been reached.
+   * @return True if reached and all chars are read, otherwise false.
+   */
+  [[nodiscard]] constexpr bool eof() const noexcept {
+    return input_.size() - pos_ == 0;
+  }
+
+  /**
+   * Returns the number of the not yet read chars of the stream.
+   * @return The number of remaining chars.
+   */
+  [[nodiscard]] constexpr size_t cnt_remaining() const noexcept {
+    return input_.size() - pos_;
+  }
+
+  /**
+   * Obtains a view of the not yet read chars of the stream.
+   * @return The view over the remaining chars.
+   */
+  [[nodiscard]] constexpr std::string_view view_remaining() const noexcept {
+    const size_t x = input_.size() - pos_;
+    if (x == 0) {
+      return {};
+    }
+    return detail::unchecked_substr(input_, pos_);
+  }
+
+  /**
+   * Reads all remaining chars from the stream.
+   * @return The remaining chars. Could be empty.
+   */
+  [[nodiscard]] constexpr std::string_view read_remaining() noexcept {
+    const std::string_view remaining_view = view_remaining();
+    pop(remaining_view.size());
+    return remaining_view;
+  }
+
+  /**
+   * Pops one (default) or n chars from the reader.
+   * @note Does never overflow.
+   * @param cnt The number of chars to pop.
+   */
+  constexpr void pop(const size_t cnt = 1) noexcept {
+    if (pos_ != input_.size()) {
+      pos_ = std::min(pos_ + cnt, input_.size());
+    }
+  }
+
+  /**
+   * Makes the most recently extracted char available again.
+   * @note Does never underflow.
+   */
+  constexpr void unpop(const size_t cnt = 1) noexcept {
+    if (pos_ - cnt <= pos_) {
+      pos_ = pos_ - cnt;
+    } else {
+      pos_ = 0;
+    }
+  }
+
+  /**
+   * Returns the next char from the stream without consuming it.
+   * @return EOF if the end of the stream has been reached.
+   */
+  constexpr result<char> peek() const noexcept {
+    const std::string_view remaining = view_remaining();
+    if (!remaining.empty()) {
+      return remaining[0];
+    }
+    return err::eof;
+  }
+
+  /**
+   * Reads one char from the stream.
+   * @return EOF if the end of the stream has been reached.
+   */
+  constexpr result<char> read_char() noexcept {
+    const std::string_view remaining = view_remaining();
+    if (!remaining.empty()) {
+      pop();
+      return remaining[0];
+    }
+    return err::eof;
+  }
+
+  /**
+   * Reads n chars from the stream.
+   * @param n The number of chars to read.
+   * @return EOF if the end of the stream has been reached before reading n chars.
+   */
+  constexpr result<std::string_view> read_n_chars(const size_t n) noexcept {
+    const std::string_view remaining = view_remaining();
+    if (remaining.size() >= n) {
+      pop(n);
+      return std::string_view{remaining.data(), remaining.data() + n};
+    }
+    return err::eof;
+  }
+
+  /**
+   * Parses an integer from the stream.
+   * @tparam T The type of the integer.
+   * @param base The input base of the integer. Must be greater equal 2 and less equal 36.
+   * @return invalid_argument if the requested input base is not supported, EOF if the end of the stream has been
+   * reached or invalid_data if the char sequence cannot be parsed as integer.
+   */
+  template <typename T>
+    requires(std::is_integral_v<T>)
+  constexpr result<T> parse_int(const int base = 10) noexcept {
+    // Store current read position.
+    const size_t backup_pos = pos_;
+
+    // Reduce code generation by upcasting the integer.
+    using upcast_int_t = decltype(detail::integer_upcast(T{}));
+    const result<upcast_int_t> res = parse_sign_and_int<upcast_int_t>(base);
+    if (!res) {
+      pos_ = backup_pos;
+      return res.assume_error();
+    }
+    if constexpr (std::is_same_v<upcast_int_t, T>) {
+      return res;
+    } else {
+      // Check if upcast int is within the integer type range.
+      const upcast_int_t val = res.assume_value();
+      if (val < std::numeric_limits<T>::min() || val > std::numeric_limits<T>::max()) {
+        pos_ = backup_pos;
+        return err::out_of_range;
+      }
+      return static_cast<T>(val);
+    }
+  }
+
+  /**
+   * Parse options for read_until operations.
+   */
+  struct read_until_options {
+    bool include_delimiter{false};  ///< If true, the delimiter is part of the output char sequence, otherwise not.
+    bool keep_delimiter{false};     ///< If true, the delimiter will be kept inside the stream, otherwise consumed.
+    bool ignore_eof{false};  ///< If true, reaching EOF does result in a failed read, otherwise in a successfully read.
+  };
+
+  /**
+   * Reads multiple chars from the stream until a given char as delimiter is reached or EOF (configurable).
+   * @param delimiter The char delimiter.
+   * @param options The read until options.
+   * @return invalid_data if the delimiter hasn't been found and ignore_eof is set to true or EOF if the stream is
+   * empty.
+   */
+  constexpr result<std::string_view> read_until_char(
+      const char delimiter, const read_until_options& options = default_read_until_options()) noexcept {
+    return read_until_pos(view_remaining().find(delimiter), options);
+  }
+
+  /**
+   * Reads multiple chars from the stream until a given char sequence as delimiter is reached or EOF (configurable).
+   * @param delimiter The char sequence.
+   * @param options The read until options.
+   * @return invalid_data if the delimiter hasn't been found and ignore_eof is set to true or EOF if the stream is
+   * empty.
+   */
+  constexpr result<std::string_view> read_until_str(const std::string_view delimiter,
+                                                    const read_until_options& options = default_read_until_options()) {
+    return read_until_pos(view_remaining().find(delimiter), options, delimiter.size());
+  }
+
+  /**
+   * Reads multiple chars from the stream until a char of a given group is reached or EOF (configurable).
+   * @param group The char group.
+   * @param options The read until options.
+   * @return invalid_data if no char has been found and ignore_eof is set to True or EOF if the stream is empty.
+   */
+  constexpr result<std::string_view> read_until_any_of(
+      const std::string_view group, const read_until_options& options = default_read_until_options()) noexcept {
+    return read_until_pos(view_remaining().find_first_of(group), options);
+  }
+
+  /**
+   * Reads multiple chars from the stream until no char of a given group is reached or EOF (configurable).
+   * @param group The char group.
+   * @param options The read until options.
+   * @return invalid_data if a char not in the group has been found and ignore_eof is set to True or EOF if the stream
+   * is empty.
+   */
+  constexpr result<std::string_view> read_until_none_of(
+      const std::string_view group, const read_until_options& options = default_read_until_options()) noexcept {
+    return read_until_pos(view_remaining().find_first_not_of(group), options);
+  }
+
+  /**
+   * Reads multiple chars from the stream until a given predicate returns true or EOF is reached (configurable).
+   * @param predicate The predicate taking a char and returning a bool.
+   * @param options The read until options.
+   * @return invalid_data if the predicate never returns true and ignore_eof is set to True or EOF if the stream is
+   * empty.
+   */
+  template <typename Predicate>
+    requires(std::is_invocable_r_v<bool, Predicate, char>)
+  constexpr result<std::string_view> read_until(
+      Predicate&& predicate,
+      const read_until_options& options =
+          default_read_until_options()) noexcept(std::is_nothrow_invocable_r_v<bool, Predicate, char>) {
+    const std::string_view sv = view_remaining();
+    const char* begin = sv.data();
+    const char* end = sv.data() + sv.size();
+    const char* it = std::find_if(begin, end, predicate);
+    const intptr_t pos = (it != end) ? std::distance(begin, it) : 0;
+    return read_until_pos(static_cast<size_t>(pos), options);
+  }
+
+  /**
+   * Reads one char from the stream if the char matches the expected one.
+   * @param c The expected char.
+   * @return invalid_data if the chars don't match or EOF if the end of the stream has been reached.
+   */
+  constexpr result<char> read_if_match_char(const char c) noexcept {
+    EMIO_TRY(const char p, peek());
+    if (p == c) {
+      pop();
+      return c;
+    }
+    return err::invalid_data;
+  }
+
+  /**
+   * Reads multiple chars from the stream if the chars matches the expected char sequence.
+   * @param sv The expected char sequence.
+   * @return invalid_data if the chars don't match or EOF if the end of the stream has been reached.
+   */
+  constexpr result<std::string_view> read_if_match_str(const std::string_view sv) noexcept {
+    const std::string_view remaining = view_remaining();
+    if (remaining.size() < sv.size()) {
+      return err::eof;
+    }
+    if (remaining.starts_with(sv)) {
+      pop(sv.size());
+      return detail::unchecked_substr(remaining, 0, sv.size());
+    }
+    return err::invalid_data;
+  }
+
+ private:
+  // Helper function since GCC and Clang complain about "member initializer for '...' needed within definition of
+  // enclosing class". Which is a bug.
+  [[nodiscard]] static constexpr read_until_options default_read_until_options() noexcept {
+    return {};
+  }
+
+  template <typename T>
+  constexpr result<T> parse_sign_and_int(const int base) noexcept {
+    EMIO_TRY(const bool is_negative, detail::parse_sign(*this));
+    return detail::parse_int<T>(*this, base, is_negative);
+  }
+
+  constexpr result<std::string_view> read_until_pos(size_t pos, const read_until_options& options,
+                                                    const size_type delimiter_size = 1) noexcept {
+    const std::string_view remaining = view_remaining();
+    if (remaining.empty()) {
+      return err::eof;
+    }
+    if (pos != npos) {
+      if (!options.keep_delimiter) {
+        pop(pos + delimiter_size);
+      } else {
+        pop(pos);
+      }
+      if (options.include_delimiter) {
+        pos += delimiter_size;
+      }
+      return detail::unchecked_substr(remaining, 0, pos);
+    }
+    if (!options.ignore_eof) {
+      pop(remaining.size());
+      return remaining;
+    }
+    return err::invalid_data;
+  }
+
+  size_t pos_{};
+  std::string_view input_;
+};
+
+namespace detail {
+
+inline constexpr result<bool> parse_sign(reader& in) noexcept {
+  bool is_negative = false;
+  EMIO_TRY(const char c, in.peek());
+  if (c == '+') {
+    in.pop();
+  } else if (c == '-') {
+    is_negative = true;
+    in.pop();
+  }
+  return is_negative;
+}
+
+template <typename T>
+constexpr result<T> parse_int(reader& in, const int base, const bool is_negative) noexcept {
+  if (!is_valid_number_base(base)) {
+    return err::invalid_argument;
+  }
+
+  EMIO_TRY(const char c, in.read_char());
+  std::optional<int> digit = char_to_digit(c, base);
+  if (!digit) {
+    return err::invalid_data;
+  }
+
+  if constexpr (std::is_unsigned_v<T>) {
+    if (is_negative) {
+      return err::out_of_range;
+    }
+  }
+
+  T value{};
+  T maybe_overflowed_value{};
+  const auto has_next_digit = [&]() noexcept {
+    value = maybe_overflowed_value;
+
+    const result<char> res = in.peek();
+    if (!res) {
+      return false;
+    }
+    digit = detail::char_to_digit(res.value(), base);
+    if (!digit) {
+      return false;
+    }
+    in.pop();
+    maybe_overflowed_value = value * static_cast<T>(base);
+    return true;
+  };
+
+  if constexpr (std::is_signed_v<T>) {
+    if (is_negative) {
+      while (true) {
+        maybe_overflowed_value -= static_cast<T>(*digit);
+        if (maybe_overflowed_value > value) {
+          return err::out_of_range;
+        }
+        if (!has_next_digit()) {
+          return value;
+        }
+      }
+    }
+  }
+  while (true) {
+    maybe_overflowed_value += static_cast<T>(*digit);
+    if (maybe_overflowed_value < value) {
+      return err::out_of_range;
+    }
+    if (!has_next_digit()) {
+      return value;
+    }
+  }
+}
+
+}  // namespace detail
+
+}  // namespace emio
+
+//
+// Copyright (c) 2021 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+
+#include <algorithm>
+
+//
+// Copyright (c) 2021 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+
+#include <iterator>
+#include <limits>
+#include <span>
+#include <string>
+#include <string_view>
+#include <type_traits>
+
+//
+// Copyright (c) 2021 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <string>
+
+namespace emio::detail {
+
+/**
+ * A constexpr vector with the bare minimum implementation and inlined storage.
+ * @tparam Char The character type.
+ * @tparam StorageSize The size of the inlined storage.
+ */
+template <typename Char, size_t StorageSize = 32>
+class ct_vector {
+ public:
+  constexpr ct_vector() {
+    if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
+      fill_n(storage_.data(), storage_.size(), 0);
+    }
+  }
+
+  ct_vector(const ct_vector&) = delete;
+  ct_vector(ct_vector&&) = delete;
+  ct_vector& operator=(const ct_vector&) = delete;
+  ct_vector& operator=(ct_vector&&) = delete;
+
+  constexpr ~ct_vector() noexcept {
+    if (hold_external()) {
+      delete[] data_;  // NOLINT(cppcoreguidelines-owning-memory)
+    }
+  }
+
+  constexpr void reserve(size_t new_size) noexcept {
+    if (new_size < StorageSize && !hold_external()) {
+      size_ = new_size;
+      return;
+    }
+
+    // Heavy pointer arithmetic because high level containers are not yet ready to use at constant evaluation.
+    if (capacity_ < new_size) {
+      // NOLINTNEXTLINE(bugprone-unhandled-exception-at-new): char types cannot throw
+      Char* new_data = new Char[new_size];  // NOLINT(cppcoreguidelines-owning-memory)
+      copy_n(data_, size_, new_data);
+      if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
+        // Required at compile-time because another reserve could happen without previous write to the data.
+        fill_n(new_data + size_, new_size - size_, 0);
+      }
+      std::swap(new_data, data_);
+      capacity_ = new_size;
+      if (new_data != storage_.data()) {
+        delete[] new_data;  // NOLINT(cppcoreguidelines-owning-memory)
+      }
+    }
+    size_ = new_size;
+  }
+
+  [[nodiscard]] constexpr size_t capacity() const noexcept {
+    return capacity_;
+  }
+
+  [[nodiscard]] constexpr size_t size() const noexcept {
+    return size_;
+  }
+
+  [[nodiscard]] constexpr Char* data() noexcept {
+    return data_;
+  }
+
+  [[nodiscard]] constexpr const Char* data() const noexcept {
+    return data_;
+  }
+
+ private:
+  [[nodiscard]] constexpr bool hold_external() const noexcept {
+    return data_ != storage_.data() && data_ != nullptr;
+  }
+
+  std::array<Char, StorageSize> storage_;
+  Char* data_{storage_.data()};
+  size_t size_{};
+  size_t capacity_{StorageSize};
+};
+
+}  // namespace emio::detail
 
 namespace emio {
 
@@ -1894,6 +2295,212 @@ class writer {
 }  // namespace emio
 
 //
+// Copyright (c) 2023 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+
+#include <string_view>
+#include <type_traits>
+
+//
+// Copyright (c) 2021 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+
+#include <cstdint>
+#include <limits>
+#include <optional>
+#include <string_view>
+
+//
+// Copyright (c) 2023 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+
+namespace emio::detail {
+
+/**
+ * Type erased argument to validate.
+ */
+template <template <typename> typename Trait>
+class validation_arg {
+ public:
+  template <typename T>
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): will be initialized in constructor
+  explicit validation_arg(std::type_identity<T> /*unused*/) noexcept {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): only way to use the storage
+    std::construct_at(reinterpret_cast<model_t<typename Trait<T>::unified_type>*>(&storage_));
+  }
+
+  validation_arg(const validation_arg&) = delete;
+  validation_arg(validation_arg&&) = delete;
+  validation_arg& operator=(const validation_arg&) = delete;
+  validation_arg& operator=(validation_arg&&) = delete;
+  // No destructor & delete call to concept_t because model_t holds only a reference.
+  ~validation_arg() = default;
+
+  result<void> validate(reader& scan_is) const noexcept {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): only way to get the object back
+    return reinterpret_cast<const concept_t*>(&storage_)->validate(scan_is);
+  }
+
+ private:
+  class concept_t {
+   public:
+    concept_t() = default;
+    concept_t(const concept_t&) = delete;
+    concept_t(concept_t&&) = delete;
+    concept_t& operator=(const concept_t&) = delete;
+    concept_t& operator=(concept_t&&) = delete;
+
+    virtual result<void> validate(reader& scan_is) const noexcept = 0;
+
+   protected:
+    ~concept_t() = default;
+  };
+
+  template <typename T>
+  class model_t final : public concept_t {
+   public:
+    explicit model_t() noexcept = default;
+    model_t(const model_t&) = delete;
+    model_t(model_t&&) = delete;
+    model_t& operator=(const model_t&) = delete;
+    model_t& operator=(model_t&&) = delete;
+
+    result<void> validate(reader& scan_is) const noexcept override {
+      return Trait<std::remove_cvref_t<T>>::validate(scan_is);
+    }
+
+   protected:
+    ~model_t() = default;
+  };
+
+  std::aligned_storage_t<sizeof(model_t<int>)> storage_;
+};
+
+/**
+ * Type erased argument to parse and process.
+ */
+template <typename Input, template <typename> typename Trait>
+class arg {
+ public:
+  template <typename T>
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): will be initialized in constructor
+  explicit arg(T& value) noexcept {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): only way to use the storage
+    std::construct_at(reinterpret_cast<model_t<typename Trait<T>::unified_type>*>(&storage_), value);
+  }
+
+  arg(const arg&) = delete;
+  arg(arg&&) = delete;
+  arg& operator=(const arg&) = delete;
+  arg& operator=(arg&&) = delete;
+  ~arg() = default;  // No destructor & delete call to concept_t because model_t holds only a reference.
+
+  result<void> process_arg(Input& input, reader& scan_is) const noexcept {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): only way to get the object back
+    return reinterpret_cast<const concept_t*>(&storage_)->process_arg(input, scan_is);
+  }
+
+ private:
+  class concept_t {
+   public:
+    concept_t() = default;
+    concept_t(const concept_t&) = delete;
+    concept_t(concept_t&&) = delete;
+    concept_t& operator=(const concept_t&) = delete;
+    concept_t& operator=(concept_t&&) = delete;
+
+    virtual result<void> process_arg(Input& input, reader& scan_is) const noexcept = 0;
+
+   protected:
+    ~concept_t() = default;
+  };
+
+  template <typename T>
+  class model_t final : public concept_t {
+   public:
+    explicit model_t(T value) noexcept : value_{value} {}
+
+    model_t(const model_t&) = delete;
+    model_t(model_t&&) = delete;
+    model_t& operator=(const model_t&) = delete;
+    model_t& operator=(model_t&&) = delete;
+
+    result<void> process_arg(Input& input, reader& scan_is) const noexcept override {
+      return Trait<std::remove_cvref_t<T>>::process_arg(input, scan_is, value_);
+    }
+
+   protected:
+    ~model_t() = default;
+
+   private:
+    T value_;
+  };
+
+  std::aligned_storage_t<sizeof(model_t<std::string_view>)> storage_;
+};
+
+/**
+ * Format arguments just for format string validation.
+ */
+template <typename T>
+class args_span {
+ public:
+  args_span(const args_span&) = delete;
+  args_span(args_span&&) = delete;
+  args_span& operator=(const args_span&) = delete;
+  args_span& operator=(args_span&&) = delete;
+  ~args_span() = default;
+
+  [[nodiscard]] result<std::string_view> get_str() const noexcept {
+    return format_str_;
+  }
+
+  [[nodiscard]] std::span<const T> get_args() const noexcept {
+    return args_;
+  }
+
+ protected:
+  args_span(result<std::string_view> format_str, std::span<const T> args) : format_str_{format_str}, args_{args} {}
+
+ private:
+  result<std::string_view> format_str_;
+  std::span<const T> args_;
+};
+
+/**
+ * Format arguments storage just for format string validation.
+ */
+template <typename Arg, size_t NbrOfArgs>
+class args_storage : public args_span<Arg> {
+ public:
+  template <typename... Args>
+  args_storage(result<std::string_view> str, Args&&... args)
+      : args_span<Arg>{str, args_storage_}, args_storage_{Arg{std::forward<Args>(args)}...} {}
+
+  args_storage(const args_storage&) = delete;
+  args_storage(args_storage&&) = delete;
+  args_storage& operator=(const args_storage&) = delete;
+  args_storage& operator=(args_storage&&) = delete;
+  ~args_storage() = default;
+
+ private:
+  std::array<Arg, NbrOfArgs> args_storage_;
+};
+
+template <typename T, typename... Args>
+args_storage<T, sizeof...(Args)> make_validation_args(std::string_view format_str) {
+  return {format_str, std::type_identity<Args>{}...};
+}
+
+}  // namespace emio::detail
+
+//
 // Copyright (c) 2021 - present, Toni Neubert
 // All rights reserved.
 //
@@ -2001,505 +2608,12 @@ class bitset {
 
 }  // namespace emio::detail
 
-//
-// Copyright (c) 2021 - present, Toni Neubert
-// All rights reserved.
-//
-// For the license information refer to emio.hpp
-
-#include <array>
-#include <span>
-#include <string_view>
-
-//
-// Copyright (c) 2021 - present, Toni Neubert
-// All rights reserved.
-//
-// For the license information refer to emio.hpp
-
-//
-// Copyright (c) 2021 - present, Toni Neubert
-// All rights reserved.
-//
-// For the license information refer to emio.hpp
-
-//
-// Copyright (c) 2021 - present, Toni Neubert
-// All rights reserved.
-//
-// For the license information refer to emio.hpp
-
-#include <cstdint>
-#include <limits>
-#include <optional>
-#include <string_view>
-
-//
-// Copyright (c) 2021 - present, Toni Neubert
-// All rights reserved.
-//
-// For the license information refer to emio.hpp
-
-#include <algorithm>
-#include <string>
-#include <string_view>
-#include <type_traits>
-
-namespace emio {
-
-/**
- * This class operates on a char sequence and allows reading and parsing from it.
- * The reader interprets the char sequence as finite input stream. After every successful operation the read position
- * moves on until the last char of the sequence has been consumed.
- */
-class reader {
- public:
-  /// The size type.
-  using size_type = typename std::string_view::size_type;
-  /// Special value to indicate the end of the view or an error by functions returning an index.
-  static constexpr size_type npos = std::string_view::npos;
-
-  /**
-   * Constructs an empty reader.
-   */
-  constexpr reader() = default;
-
-  // Don't allow temporary strings or any nullptr.
-  constexpr reader(std::string&&) = delete;
-  constexpr reader(std::nullptr_t) = delete;
-  constexpr reader(int) = delete;
-
-  /**
-   * Constructs the reader from any suitable char sequence.
-   * @param input The char sequence.
-   */
-  template <typename Arg>
-    requires(std::is_constructible_v<std::string_view, Arg>)
-  // NOLINTNEXTLINE(bugprone-forwarding-reference-overload): Is guarded by require clause.
-  constexpr explicit(!std::is_convertible_v<Arg, std::string_view>) reader(Arg&& input) noexcept
-      : input_{std::forward<Arg>(input)} {}
-
-  /**
-   * Returns the current read position.
-   * @return The read position.
-   */
-  [[nodiscard]] constexpr size_t pos() const noexcept {
-    return pos_;
-  }
-
-  /**
-   * Checks if the end of the stream has been reached.
-   * @return True if reached and all chars are read, otherwise false.
-   */
-  [[nodiscard]] constexpr bool eof() const noexcept {
-    return input_.size() - pos_ == 0;
-  }
-
-  /**
-   * Returns the number of the not yet read chars of the stream.
-   * @return The number of remaining chars.
-   */
-  [[nodiscard]] constexpr size_t cnt_remaining() const noexcept {
-    return input_.size() - pos_;
-  }
-
-  /**
-   * Obtains a view of the not yet read chars of the stream.
-   * @return The view over the remaining chars.
-   */
-  [[nodiscard]] constexpr std::string_view view_remaining() const noexcept {
-    const size_t x = input_.size() - pos_;
-    if (x == 0) {
-      return {};
-    }
-    return detail::unchecked_substr(input_, pos_);
-  }
-
-  /**
-   * Reads all remaining chars from the stream.
-   * @return The remaining chars. Could be empty.
-   */
-  [[nodiscard]] constexpr std::string_view read_remaining() noexcept {
-    const std::string_view remaining_view = view_remaining();
-    pop(remaining_view.size());
-    return remaining_view;
-  }
-
-  /**
-   * Pops one (default) or n chars from the reader.
-   * @note Does never overflow.
-   * @param cnt The number of chars to pop.
-   */
-  constexpr void pop(const size_t cnt = 1) noexcept {
-    if (pos_ != input_.size()) {
-      pos_ = std::min(pos_ + cnt, input_.size());
-    }
-  }
-
-  /**
-   * Makes the most recently extracted char available again.
-   * @note Does never underflow.
-   */
-  constexpr void unpop(const size_t cnt = 1) noexcept {
-    if (pos_ - cnt <= pos_) {
-      pos_ = pos_ - cnt;
-    } else {
-      pos_ = 0;
-    }
-  }
-
-  /**
-   * Returns the next char from the stream without consuming it.
-   * @return EOF if the end of the stream has been reached.
-   */
-  constexpr result<char> peek() const noexcept {
-    const std::string_view remaining = view_remaining();
-    if (!remaining.empty()) {
-      return remaining[0];
-    }
-    return err::eof;
-  }
-
-  /**
-   * Reads one char from the stream.
-   * @return EOF if the end of the stream has been reached.
-   */
-  constexpr result<char> read_char() noexcept {
-    const std::string_view remaining = view_remaining();
-    if (!remaining.empty()) {
-      pop();
-      return remaining[0];
-    }
-    return err::eof;
-  }
-
-  /**
-   * Reads n chars from the stream.
-   * @param n The number of chars to read.
-   * @return EOF if the end of the stream has been reached before reading n chars.
-   */
-  constexpr result<std::string_view> read_n_chars(const size_t n) noexcept {
-    const std::string_view remaining = view_remaining();
-    if (remaining.size() >= n) {
-      pop(n);
-      return std::string_view{remaining.data(), remaining.data() + n};
-    }
-    return err::eof;
-  }
-
-  /**
-   * Parses an integer from the stream.
-   * @tparam T The type of the integer.
-   * @param base The input base of the integer. Must be greater equal 2 and less equal 36.
-   * @return invalid_argument if the requested input base is not supported, EOF if the end of the stream has been
-   * reached or invalid_data if the char sequence cannot be parsed as integer.
-   */
-  template <typename T>
-    requires(std::is_integral_v<T>)
-  constexpr result<T> parse_int(const int base = 10) noexcept {
-    // Store current read position.
-    const size_t backup_pos = pos_;
-
-    // Reduce code generation by upcasting the integer.
-    using upcast_int_t = decltype(detail::integer_upcast(T{}));
-    const result<upcast_int_t> res = parse_int_impl<upcast_int_t>(base);
-    if (!res) {
-      pos_ = backup_pos;
-      return res.assume_error();
-    }
-    if constexpr (std::is_same_v<upcast_int_t, T>) {
-      return res;
-    } else {
-      // Check if upcast int is within the integer type range.
-      const upcast_int_t val = res.assume_value();
-      if (val < std::numeric_limits<T>::min() || val > std::numeric_limits<T>::max()) {
-        pos_ = backup_pos;
-        return err::out_of_range;
-      }
-      return static_cast<T>(val);
-    }
-  }
-
-  /**
-   * Parse options for read_until operations.
-   */
-  struct read_until_options {
-    bool include_delimiter{false};  ///< If true, the delimiter is part of the output char sequence, otherwise not.
-    bool keep_delimiter{false};     ///< If true, the delimiter will be kept inside the stream, otherwise consumed.
-    bool ignore_eof{false};  ///< If true, reaching EOF does result in a failed read, otherwise in a successfully read.
-  };
-
-  /**
-   * Reads multiple chars from the stream until a given char as delimiter is reached or EOF (configurable).
-   * @param delimiter The char delimiter.
-   * @param options The read until options.
-   * @return invalid_data if the delimiter hasn't been found and ignore_eof is set to true or EOF if the stream is
-   * empty.
-   */
-  constexpr result<std::string_view> read_until_char(
-      const char delimiter, const read_until_options& options = default_read_until_options()) noexcept {
-    return read_until_pos(view_remaining().find(delimiter), options);
-  }
-
-  /**
-   * Reads multiple chars from the stream until a given char sequence as delimiter is reached or EOF (configurable).
-   * @param delimiter The char sequence.
-   * @param options The read until options.
-   * @return invalid_data if the delimiter hasn't been found and ignore_eof is set to true or EOF if the stream is
-   * empty.
-   */
-  constexpr result<std::string_view> read_until_str(const std::string_view delimiter,
-                                                    const read_until_options& options = default_read_until_options()) {
-    return read_until_pos(view_remaining().find(delimiter), options, delimiter.size());
-  }
-
-  /**
-   * Reads multiple chars from the stream until a char of a given group is reached or EOF (configurable).
-   * @param group The char group.
-   * @param options The read until options.
-   * @return invalid_data if no char has been found and ignore_eof is set to True or EOF if the stream is empty.
-   */
-  constexpr result<std::string_view> read_until_any_of(
-      const std::string_view group, const read_until_options& options = default_read_until_options()) noexcept {
-    return read_until_pos(view_remaining().find_first_of(group), options);
-  }
-
-  /**
-   * Reads multiple chars from the stream until no char of a given group is reached or EOF (configurable).
-   * @param group The char group.
-   * @param options The read until options.
-   * @return invalid_data if a char not in the group has been found and ignore_eof is set to True or EOF if the stream
-   * is empty.
-   */
-  constexpr result<std::string_view> read_until_none_of(
-      const std::string_view group, const read_until_options& options = default_read_until_options()) noexcept {
-    return read_until_pos(view_remaining().find_first_not_of(group), options);
-  }
-
-  /**
-   * Reads multiple chars from the stream until a given predicate returns true or EOF is reached (configurable).
-   * @param predicate The predicate taking a char and returning a bool.
-   * @param options The read until options.
-   * @return invalid_data if the predicate never returns true and ignore_eof is set to True or EOF if the stream is
-   * empty.
-   */
-  template <typename Predicate>
-    requires(std::is_invocable_r_v<bool, Predicate, char>)
-  constexpr result<std::string_view> read_until(
-      Predicate&& predicate,
-      const read_until_options& options =
-          default_read_until_options()) noexcept(std::is_nothrow_invocable_r_v<bool, Predicate, char>) {
-    const std::string_view sv = view_remaining();
-    const char* begin = sv.data();
-    const char* end = sv.data() + sv.size();
-    const char* it = std::find_if(begin, end, predicate);
-    const intptr_t pos = (it != end) ? std::distance(begin, it) : 0;
-    return read_until_pos(static_cast<size_t>(pos), options);
-  }
-
-  /**
-   * Reads one char from the stream if the char matches the expected one.
-   * @param c The expected char.
-   * @return invalid_data if the chars don't match or EOF if the end of the stream has been reached.
-   */
-  constexpr result<char> read_if_match_char(const char c) noexcept {
-    EMIO_TRY(const char p, peek());
-    if (p == c) {
-      pop();
-      return c;
-    }
-    return err::invalid_data;
-  }
-
-  /**
-   * Reads multiple chars from the stream if the chars matches the expected char sequence.
-   * @param sv The expected char sequence.
-   * @return invalid_data if the chars don't match or EOF if the end of the stream has been reached.
-   */
-  constexpr result<std::string_view> read_if_match_str(const std::string_view sv) noexcept {
-    const std::string_view remaining = view_remaining();
-    if (remaining.size() < sv.size()) {
-      return err::eof;
-    }
-    if (remaining.starts_with(sv)) {
-      pop(sv.size());
-      return detail::unchecked_substr(remaining, 0, sv.size());
-    }
-    return err::invalid_data;
-  }
-
- private:
-  // Helper function since GCC and Clang complain about "member initializer for '...' needed within definition of
-  // enclosing class". Which is a bug.
-  [[nodiscard]] static constexpr read_until_options default_read_until_options() noexcept {
-    return {};
-  }
-
-  template <typename T>
-    requires(std::is_integral_v<T>)
-  constexpr result<T> parse_int_impl(const int base) {
-    if (!detail::is_valid_number_base(base)) {
-      return err::invalid_argument;
-    }
-
-    bool is_negative = false;  // NOLINT(misc-const-correctness): not for is_signed code-path
-    EMIO_TRY(char c, peek());  // NOLINT(misc-const-correctness): not for is_signed code-path
-    if (c == '-') {
-      if constexpr (std::is_signed_v<T>) {
-        is_negative = true;
-        pop();
-        EMIO_TRY(c, peek());
-      } else {
-        return err::out_of_range;
-      }
-    }
-    std::optional<int> digit = detail::char_to_digit(c, base);
-    if (!digit) {
-      return err::invalid_data;
-    }
-    pop();
-
-    T value{};
-    T maybe_overflowed_value{};
-    const auto has_next_digit = [&]() noexcept {
-      value = maybe_overflowed_value;
-
-      const result<char> res = peek();
-      if (!res) {
-        return false;
-      }
-      digit = detail::char_to_digit(res.value(), base);
-      if (!digit) {
-        return false;
-      }
-      pop();
-      maybe_overflowed_value = value * static_cast<T>(base);
-      return true;
-    };
-
-    if constexpr (std::is_signed_v<T>) {
-      if (is_negative) {
-        while (true) {
-          maybe_overflowed_value -= static_cast<T>(*digit);
-          if (maybe_overflowed_value > value) {
-            return err::out_of_range;
-          }
-          if (!has_next_digit()) {
-            return value;
-          }
-        }
-      }
-    }
-    while (true) {
-      maybe_overflowed_value += static_cast<T>(*digit);
-      if (maybe_overflowed_value < value) {
-        return err::out_of_range;
-      }
-      if (!has_next_digit()) {
-        return value;
-      }
-    }
-  }
-
-  constexpr result<std::string_view> read_until_pos(size_t pos, const read_until_options& options,
-                                                    const size_type delimiter_size = 1) noexcept {
-    const std::string_view remaining = view_remaining();
-    if (remaining.empty()) {
-      return err::eof;
-    }
-    if (pos != npos) {
-      if (!options.keep_delimiter) {
-        pop(pos + delimiter_size);
-      } else {
-        pop(pos);
-      }
-      if (options.include_delimiter) {
-        pos += delimiter_size;
-      }
-      return detail::unchecked_substr(remaining, 0, pos);
-    }
-    if (!options.ignore_eof) {
-      pop(remaining.size());
-      return remaining;
-    }
-    return err::invalid_data;
-  }
-
-  size_t pos_{};
-  std::string_view input_;
-};
-
-}  // namespace emio
-
-//
-// Copyright (c) 2021 - present, Toni Neubert
-// All rights reserved.
-//
-// For the license information refer to emio.hpp
-
-#include <cstdint>
-
-namespace emio::detail::format {
-
-// "{" [arg_id] [":" (format_spec)]
-
-// replacement_field ::=  "{" [arg_id] [":" (format_spec)] "}"
-// arg_id            ::=  integer
-// integer           ::=  digit+
-// digit             ::=  "0"..."9"
-
-// format_spec ::=  [[fill]align][sign]["#"]["0"][width]["." precision]["L"][type]
-// fill        ::=  <a character other than '{' or '}'>
-// align       ::=  "<" | ">" | "^"
-// sign        ::=  "+" | "-" | " "
-// width       ::=  integer (<=int max)
-// precision   ::=  integer (<=int max)
-// type        ::=  "a" | "A" | "b" | "B" | "c" | "d" | "e" | "E" | "f" | "F" | "g" | "G"| "o" | "O" | "p" | "s" | "x"
-//                  | "X"
-
-inline constexpr char no_sign = '\0';
-inline constexpr int no_precision = -1;
-inline constexpr char no_type = 0;
-
-enum class alignment : uint8_t { none, left, center, right };
-
-struct format_specs {
-  char fill{' '};
-  alignment align{alignment::none};
-  char sign{no_sign};
-  bool alternate_form{false};
-  bool zero_flag{false};
-  int32_t width{0};
-  int32_t precision{no_precision};
-  char type{no_type};
-};
-
-}  // namespace emio::detail::format
-
 namespace emio::detail {
 
 /**
- * Flag to enable/disable input validation if already done
+ * Flag to enable/disable input validation.
  */
 enum class input_validation { enabled, disabled };
-
-template <typename T>
-struct always_false : std::false_type {};
-
-template <typename T>
-inline constexpr bool always_false_v = always_false<T>::value;
-
-namespace alternate_form {
-
-inline constexpr std::string_view bin_lower{"0b"};
-inline constexpr std::string_view bin_upper{"0B"};
-inline constexpr std::string_view octal{"0"};
-inline constexpr std::string_view octal_lower{"0o"};
-inline constexpr std::string_view octal_upper{"0O"};
-inline constexpr std::string_view hex_lower{"0x"};
-inline constexpr std::string_view hex_upper{"0X"};
-
-}  // namespace alternate_form
 
 inline constexpr uint8_t no_more_args = std::numeric_limits<uint8_t>::max();
 
@@ -2650,6 +2764,293 @@ class parser_base<input_validation::disabled> {
   std::optional<bool> use_positional_args_{};
   uint8_t increment_arg_number_{};
 };
+
+template <typename T>
+int is_arg_span2(const args_span<T>& t);
+
+bool is_arg_span2(...);
+
+template <typename T>
+constexpr bool is_args_span = sizeof(is_arg_span2(std::declval<T>())) == sizeof(int);
+
+template <typename CRTP, input_validation Validation>
+class parser : public parser_base<Validation> {
+ public:
+  using parser_base<Validation>::parser_base;
+
+  parser(const parser&) = delete;
+  parser(parser&&) = delete;
+  parser& operator=(const parser&) = delete;
+  parser& operator=(parser&&) = delete;
+  constexpr ~parser() noexcept override;  // NOLINT(performance-trivially-destructible): See definition.
+
+  template <typename T>
+  result<void> apply(uint8_t arg_nbr, const args_span<T>& args) noexcept {
+    return static_cast<CRTP*>(this)->process_arg(args.get_args()[arg_nbr]);
+  }
+
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static): not possible because of template function
+  constexpr result<void> apply(uint8_t /*arg_pos*/) noexcept {
+    return err::invalid_format;
+  }
+
+  template <typename Arg, typename... Args>
+    requires(!is_args_span<Arg>)
+  constexpr result<void> apply(uint8_t arg_pos, Arg& arg, Args&... args) noexcept {
+    if (arg_pos == 0) {
+      return static_cast<CRTP*>(this)->process_arg(arg);
+    }
+    return apply(arg_pos - 1, args...);
+  }
+};
+
+// Explicit out-of-class definition because of GCC bug: <destructor> used before its definition.
+template <typename CRTP, input_validation Validation>
+constexpr parser<CRTP, Validation>::~parser() noexcept = default;
+
+template <typename Parser, typename... Args>
+constexpr bool validate(std::string_view str, const size_t arg_cnt, const Args&... args) {
+  reader format_rdr{str};
+  Parser parser{format_rdr};
+  bitset<128> matched{};
+  while (true) {
+    uint8_t arg_nbr{detail::no_more_args};
+    if (auto res = parser.parse(arg_nbr); !res) {
+      return false;
+    }
+    if (arg_nbr == detail::no_more_args) {
+      break;
+    }
+    if (arg_cnt <= arg_nbr) {
+      return false;
+    }
+    matched.set(arg_nbr);
+    auto res = parser.apply(arg_nbr, args...);
+    if (!res) {
+      return false;
+    }
+  }
+  return matched.all_first(arg_cnt);
+}
+
+template <typename Parser, typename T, typename... Args>
+constexpr result<void> parse(std::string_view str, T& input, Args&&... args) {
+  reader format_rdr{str};
+  Parser parser{input, format_rdr};
+  while (true) {
+    uint8_t arg_nbr{detail::no_more_args};
+    if (auto res = parser.parse(arg_nbr); !res) {
+      return res.assume_error();
+    }
+    if (arg_nbr == detail::no_more_args) {
+      break;
+    }
+    if (auto res = parser.apply(arg_nbr, std::forward<Args>(args)...); !res) {
+      return res.assume_error();
+    }
+  }
+  return success;
+}
+
+}  // namespace emio::detail
+
+namespace emio {
+
+namespace detail {
+
+/**
+ * This class represents a not yet validated format/scan string, which has to be validated at runtime.
+ */
+class runtime_string {
+ public:
+  /**
+   * Constructs an empty runtime format/scan string.
+   */
+  constexpr runtime_string() = default;
+
+  // Don't allow temporary strings or any nullptr.
+  constexpr runtime_string(std::string&&) = delete;
+  constexpr runtime_string(std::nullptr_t) = delete;
+  constexpr runtime_string(int) = delete;
+
+  /**
+   * Constructs the runtime format/scan string from any suitable char sequence.
+   * @param str The char sequence.
+   */
+  template <typename S>
+    requires(std::is_constructible_v<std::string_view, S>)
+  constexpr explicit runtime_string(const S& str) : str_{str} {}
+
+  /**
+   * Obtains a view over the runtime format/scan string.
+   * @return The view.
+   */
+  [[nodiscard]] constexpr std::string_view view() const noexcept {
+    return str_;
+  }
+
+ private:
+  std::string_view str_;
+};
+
+template <typename Trait, typename... Args>
+class valid_string;
+
+/**
+ * This class represents a validated format/scan string. The format/scan string is either valid or not.
+ * @note The validation happens at object construction.
+ * @tparam Args The argument types to format.
+ */
+template <typename Trait, typename... Args>
+class validated_string {
+ public:
+  /**
+   * Constructs and validates the format/scan string from any suitable char sequence at compile-time.
+   * @note Terminates compilation if format/scan string is invalid.
+   * @param s The char sequence.
+   */
+  template <typename S>
+    requires(std::is_constructible_v<std::string_view, S>)
+  consteval validated_string(const S& s) noexcept {
+    std::string_view str{s};
+    if (Trait::template validate_string<Args...>(str)) {
+      str_ = str;
+    } else {
+      // Invalid format/scan string detected. Stop compilation.
+      std::terminate();
+    }
+  }
+
+  /**
+   * Constructs and validates a runtime format/scan string at runtime.
+   * @param s The runtime format/scan string.
+   */
+  constexpr validated_string(runtime_string s) noexcept {
+    std::string_view str{s.view()};
+    if (Trait::template validate_string<Args...>(str)) {
+      str_ = str;
+    }
+  }
+
+  /**
+   * Returns the validated format/scan string as view.
+   * @return The view or invalid_format if the validation failed.
+   */
+  constexpr result<std::string_view> get() const noexcept {
+    return str_;
+  }
+
+  /**
+   * Returns format/scan string as valid one.
+   * @return The valid format/scan string or invalid_format if the validation failed.
+   */
+  constexpr result<valid_string<Trait, Args...>> as_valid() const noexcept {
+    if (str_.has_value()) {
+      return valid_string<Trait, Args...>{valid, str_.assume_value()};
+    }
+    return err::invalid_format;
+  }
+
+ protected:
+  static constexpr struct valid_t {
+  } valid{};
+
+  constexpr explicit validated_string(valid_t /*unused*/, std::string_view s) noexcept : str_{s} {}
+
+ private:
+  result<std::string_view> str_{err::invalid_format};  ///< Validated string.
+};
+
+/**
+ * This class represents a validated format/scan string. The format/scan string can only be valid.
+ * @tparam Args The argument types to format.
+ */
+template <typename Trait, typename... Args>
+class valid_string : public validated_string<Trait, Args...> {
+ public:
+  /**
+   * Constructs and validates the format/scan string from any suitable char sequence at compile-time.
+   * @note Terminates compilation if format/scan string is invalid.
+   * @param s The char sequence.
+   */
+  template <typename S>
+    requires(std::is_constructible_v<std::string_view, S>)
+  consteval valid_string(const S& s) noexcept : validated_string<Trait, Args...>{s} {}
+
+  /**
+   * Constructs and validates a format/scan string at runtime.
+   * @param s The format/scan string.
+   * @return The valid format/scan string or invalid_format if the validation failed.
+   */
+  template <typename S>
+    requires(std::is_constructible_v<std::string_view, S>)
+  static constexpr result<valid_string<Trait, Args...>> from(const S& s) noexcept {
+    std::string_view str{s};
+    if (!Trait::template validate_string<Args...>(str)) {
+      return err::invalid_format;
+    }
+    return valid_string{valid, str};
+  }
+
+ private:
+  friend class validated_string<Trait, Args...>;
+
+  using valid_t = typename validated_string<Trait, Args...>::valid_t;
+  using validated_string<Trait, Args...>::valid;
+
+  constexpr explicit valid_string(valid_t /*unused*/, std::string_view s) noexcept
+      : validated_string<Trait, Args...>{valid, s} {}
+};
+
+}  // namespace detail
+
+// Alias template types.
+using runtime_string = detail::runtime_string;
+
+/**
+ * @brief Constructs a runtime string from a given format/scan string.
+ * @param s The format/scan string.
+ * @return The runtime string.
+ */
+inline constexpr runtime_string runtime(const std::string_view& s) noexcept {
+  return runtime_string{s};
+}
+
+}  // namespace emio
+
+//
+// Copyright (c) 2021 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+
+//
+// Copyright (c) 2021 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+
+//
+// Copyright (c) 2021 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+
+//
+// Copyright (c) 20213- present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+
+#include <type_traits>
+
+namespace emio::detail {
+
+template <typename T>
+struct always_false : std::false_type {};
+
+template <typename T>
+inline constexpr bool always_false_v = always_false<T>::value;
 
 }  // namespace emio::detail
 
@@ -3454,12 +3855,69 @@ inline constexpr format_fp_result_t format_shortest(const finite_result_t& dec, 
 
 }  // namespace emio::detail::format
 
+//
+// Copyright (c) 2021 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+
+#include <cstdint>
+
+namespace emio::detail::format {
+
+// "{" [arg_id] [":" (format_spec)]
+
+// replacement_field ::=  "{" [arg_id] [":" (format_spec)] "}"
+// arg_id            ::=  integer
+// integer           ::=  digit+
+// digit             ::=  "0"..."9"
+
+// format_spec ::=  [[fill]align][sign]["#"]["0"][width]["." precision]["L"][type]
+// fill        ::=  <a character other than '{' or '}'>
+// align       ::=  "<" | ">" | "^"
+// sign        ::=  "+" | "-" | " "
+// width       ::=  integer (<=int max)
+// precision   ::=  integer (<=int max)
+// type        ::=  "a" | "A" | "b" | "B" | "c" | "d" | "e" | "E" | "f" | "F" | "g" | "G"| "o" | "O" | "p" | "s" | "x"
+//                  | "X"
+
+inline constexpr char no_sign = '\0';
+inline constexpr int no_precision = -1;
+inline constexpr char no_type = 0;
+
+enum class alignment : uint8_t { none, left, center, right };
+
+struct format_specs {
+  char fill{' '};
+  alignment align{alignment::none};
+  char sign{no_sign};
+  bool alternate_form{false};
+  bool zero_flag{false};
+  int32_t width{0};
+  int32_t precision{no_precision};
+  char type{no_type};
+};
+
+}  // namespace emio::detail::format
+
 namespace emio {
 
 template <typename>
 class formatter;
 
 namespace detail::format {
+
+namespace alternate_form {
+
+inline constexpr std::string_view bin_lower{"0b"};
+inline constexpr std::string_view bin_upper{"0B"};
+inline constexpr std::string_view octal{"0"};
+inline constexpr std::string_view octal_lower{"0o"};
+inline constexpr std::string_view octal_upper{"0O"};
+inline constexpr std::string_view hex_lower{"0x"};
+inline constexpr std::string_view hex_upper{"0X"};
+
+}  // namespace alternate_form
 
 //
 // Write args.
@@ -3593,7 +4051,7 @@ constexpr result<void> write_arg(writer& wtr, format_specs& specs, const Arg& ar
     total_width += 1;
   }
 
-  return write_padded<alignment::right>(wtr, specs, total_width, [&, &options = options]() -> result<void> {
+  return write_padded<alignment::right>(wtr, specs, total_width, [&, &opt = options]() -> result<void> {
     const size_t area_size =
         num_digits + static_cast<size_t>(sign_to_write != no_sign) + static_cast<size_t>(prefix_to_write.size());
     EMIO_TRY(auto area, wtr.get_buffer().get_write_area_of(area_size));
@@ -3604,7 +4062,7 @@ constexpr result<void> write_arg(writer& wtr, format_specs& specs, const Arg& ar
     if (!prefix_to_write.empty()) {
       it = copy_n(prefix_to_write.data(), prefix_to_write.size(), it);
     }
-    write_number(abs_number, options.base, options.upper_case, it + detail::to_signed(num_digits));
+    write_number(abs_number, opt.base, opt.upper_case, it + detail::to_signed(num_digits));
     return success;
   });
 }
@@ -4190,6 +4648,10 @@ inline constexpr result<void> check_string_view_specs(const format_specs& specs)
   return success;
 }
 
+//
+// Type traits.
+//
+
 // Specifies if T has an enabled formatter specialization.
 template <typename Arg>
 inline constexpr bool has_formatter_v = std::is_constructible_v<formatter<Arg>>;
@@ -4204,41 +4666,10 @@ concept has_any_validate_function_v =
     requires { &formatter<T>::validate; } || std::is_member_function_pointer_v<decltype(&formatter<T>::validate)> ||
     requires { std::declval<formatter<T>>().validate(std::declval<reader&>()); };
 
-template <typename Arg>
-constexpr result<void> validate_for(reader& format_is) noexcept {
-  // Check if a formatter exist and a correct validate method is implemented. If not, use the parse method.
-  if constexpr (has_formatter_v<Arg>) {
-    if constexpr (has_validate_function_v<Arg>) {
-      return formatter<Arg>::validate(format_is);
-    } else {
-      static_assert(!has_any_validate_function_v<Arg>,
-                    "Formatter seems to have a validate property which doesn't fit the desired signature.");
-      return formatter<Arg>{}.parse(format_is);
-    }
-  } else {
-    static_assert(has_formatter_v<Arg>,
-                  "Cannot format an argument. To make type T formattable provide a formatter<T> specialization.");
-    return err::invalid_format;
-  }
-}
-
 template <typename T>
 inline constexpr bool is_core_type_v =
     std::is_integral_v<T> || std::is_floating_point_v<T> || std::is_same_v<T, std::nullptr_t> ||
     std::is_same_v<T, void*> || std::is_same_v<T, std::string_view>;
-
-template <input_validation FormatStringValidation, typename T>
-concept formatter_parse_supports_format_string_validation =
-    requires(T formatter) { formatter.template parse<FormatStringValidation>(std::declval<reader>()); };
-
-template <input_validation FormatStringValidation, typename T>
-inline constexpr result<void> invoke_formatter_parse(T& formatter, reader& format_is) noexcept {
-  if constexpr (formatter_parse_supports_format_string_validation<FormatStringValidation, T>) {
-    return formatter.template parse<FormatStringValidation>(format_is);
-  } else {
-    return formatter.parse(format_is);
-  }
-}
 
 template <typename T>
 concept has_format_as = requires(T arg) { format_as(arg); };
@@ -4565,238 +4996,54 @@ class formatter<detail::format_spec_with_value<T>> {
 
 namespace emio::detail::format {
 
-/**
- * Type erased format argument just for format string validation.
- */
-class format_validation_arg {
- public:
-  template <typename T>
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): will be initialized in constructor
-  explicit format_validation_arg(std::type_identity<T> /*unused*/) noexcept {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): only way to use the storage
-    std::construct_at(reinterpret_cast<model_t<unified_type_t<T>>*>(&storage_));
-  }
+template <typename Arg>
+struct format_arg_trait {
+  using unified_type = format::unified_type_t<std::remove_const_t<Arg>>;
 
-  format_validation_arg(const format_validation_arg&) = delete;
-  format_validation_arg(format_validation_arg&&) = delete;
-  format_validation_arg& operator=(const format_validation_arg&) = delete;
-  format_validation_arg& operator=(format_validation_arg&&) = delete;
-  // No destructor & delete call to concept_t because model_t holds only a reference.
-  ~format_validation_arg() = default;
-
-  result<void> validate(reader& format_is) const noexcept {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): only way to get the object back
-    return reinterpret_cast<const concept_t*>(&storage_)->validate(format_is);
-  }
-
- private:
-  class concept_t {
-   public:
-    concept_t() = default;
-    concept_t(const concept_t&) = delete;
-    concept_t(concept_t&&) = delete;
-    concept_t& operator=(const concept_t&) = delete;
-    concept_t& operator=(concept_t&&) = delete;
-
-    virtual result<void> validate(reader& format_is) const noexcept = 0;
-
-   protected:
-    ~concept_t() = default;
-  };
-
-  template <typename T>
-  class model_t final : public concept_t {
-   public:
-    explicit model_t() noexcept = default;
-    model_t(const model_t&) = delete;
-    model_t(model_t&&) = delete;
-    model_t& operator=(const model_t&) = delete;
-    model_t& operator=(model_t&&) = delete;
-
-    result<void> validate(reader& format_is) const noexcept override {
-      return validate_for<std::remove_cvref_t<T>>(format_is);
+  static constexpr result<void> validate(reader& format_is) noexcept {
+    // Check if a formatter exist and a correct validate method is implemented. If not, use the parse method.
+    if constexpr (has_formatter_v<Arg>) {
+      if constexpr (has_validate_function_v<Arg>) {
+        return formatter<Arg>::validate(format_is);
+      } else {
+        static_assert(!has_any_validate_function_v<Arg>,
+                      "Formatter seems to have a validate property which doesn't fit the desired signature.");
+        return formatter<Arg>{}.parse(format_is);
+      }
+    } else {
+      static_assert(has_formatter_v<Arg>,
+                    "Cannot format an argument. To make type T formattable provide a formatter<T> specialization.");
+      return err::invalid_format;
     }
-
-   protected:
-    ~model_t() = default;
-  };
-
-  std::aligned_storage_t<sizeof(model_t<int>)> storage_;
-};
-
-/**
- * Format arguments just for format string validation.
- */
-class format_validation_args {
- public:
-  format_validation_args(const format_validation_args&) = delete;
-  format_validation_args(format_validation_args&&) = delete;
-  format_validation_args& operator=(const format_validation_args&) = delete;
-  format_validation_args& operator=(format_validation_args&&) = delete;
-  ~format_validation_args() = default;
-
-  [[nodiscard]] std::string_view get_format_str() const noexcept {
-    return format_str_;
   }
 
-  [[nodiscard]] std::span<const format_validation_arg> get_args() const noexcept {
-    return args_;
+  static constexpr result<void> process_arg(writer& wtr, reader& format_is, const Arg& arg) noexcept {
+    formatter<Arg> formatter;
+    EMIO_TRYV(formatter.parse(format_is));
+    return formatter.format(wtr, arg);
   }
-
- protected:
-  format_validation_args(std::string_view format_str, std::span<const format_validation_arg> args)
-      : format_str_{format_str}, args_{args} {}
-
- private:
-  std::string_view format_str_;
-  std::span<const detail::format::format_validation_arg> args_;
 };
 
-/**
- * Format arguments storage just for format string validation.
- */
-template <size_t NbrOfArgs>
-class format_validation_args_storage : public format_validation_args {
- public:
-  template <typename... Args>
-  format_validation_args_storage(std::string_view str, const Args&... args)
-      : format_validation_args{str, args_storage_}, args_storage_{format_validation_arg{args}...} {}
+using format_validation_arg = validation_arg<format_arg_trait>;
 
-  format_validation_args_storage(const format_validation_args_storage&) = delete;
-  format_validation_args_storage(format_validation_args_storage&&) = delete;
-  format_validation_args_storage& operator=(const format_validation_args_storage&) = delete;
-  format_validation_args_storage& operator=(format_validation_args_storage&&) = delete;
-  ~format_validation_args_storage() = default;
+using format_arg = arg<writer, format_arg_trait>;
 
- private:
-  std::array<format_validation_arg, NbrOfArgs> args_storage_;
-};
-
-template <typename... Args>
-format_validation_args_storage<sizeof...(Args)> make_format_validation_args(std::string_view format_str) {
-  return {format_str, std::type_identity<Args>{}...};
-}
-
-/**
- * Type erased format argument for formatting.
- */
-class format_arg {
- public:
-  template <typename T>
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): will be initialized in constructor
-  explicit format_arg(const T& value) noexcept {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): only way to use the storage
-    std::construct_at(reinterpret_cast<model_t<unified_type_t<T>>*>(&storage_), value);
-  }
-
-  format_arg(const format_arg&) = delete;
-  format_arg(format_arg&&) = delete;
-  format_arg& operator=(const format_arg&) = delete;
-  format_arg& operator=(format_arg&&) = delete;
-  ~format_arg() = default;  // No destructor & delete call to concept_t because model_t holds only a reference.
-
-  result<void> format(writer& wtr, reader& format_is) const noexcept {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): only way to get the object back
-    return reinterpret_cast<const concept_t*>(&storage_)->format(wtr, format_is);
-  }
-
- private:
-  class concept_t {
-   public:
-    concept_t() = default;
-    concept_t(const concept_t&) = delete;
-    concept_t(concept_t&&) = delete;
-    concept_t& operator=(const concept_t&) = delete;
-    concept_t& operator=(concept_t&&) = delete;
-
-    virtual result<void> format(writer& wtr, reader& format_is) const noexcept = 0;
-
-   protected:
-    ~concept_t() = default;
-  };
-
-  template <typename T>
-  class model_t final : public concept_t {
-   public:
-    explicit model_t(T value) noexcept : value_{value} {}
-
-    model_t(const model_t&) = delete;
-    model_t(model_t&&) = delete;
-    model_t& operator=(const model_t&) = delete;
-    model_t& operator=(model_t&&) = delete;
-
-    result<void> format(writer& wtr, reader& format_is) const noexcept override {
-      formatter<std::remove_cvref_t<T>> formatter;
-      EMIO_TRYV(invoke_formatter_parse<input_validation::disabled>(formatter, format_is));
-      return formatter.format(wtr, value_);
-    }
-
-   protected:
-    ~model_t() = default;
-
-   private:
-    T value_;
-  };
-
-  std::aligned_storage_t<sizeof(model_t<std::string_view>)> storage_;
-};
-
-/**
- * Format arguments for formatting.
- */
-class format_args {
- public:
-  format_args(const format_args&) = delete;
-  format_args(format_args&&) = delete;
-  format_args& operator=(const format_args&) = delete;
-  format_args& operator=(format_args&&) = delete;
-  ~format_args() = default;
-
-  result<std::string_view> get_format_str() const noexcept {
-    return format_str_;
-  }
-
-  [[nodiscard]] std::span<const format_arg> get_args() const noexcept {
-    return args_;
-  }
-
- protected:
-  format_args(result<std::string_view> format_str, std::span<const format_arg> args)
-      : format_str_{format_str}, args_{args} {}
-
- private:
-  result<std::string_view> format_str_;
-  std::span<const format_arg> args_;
-};
-
-/**
- * Format arguments storage for formatting.
- */
-template <size_t NbrOfArgs>
-class format_args_storage : public format_args {
- public:
-  template <typename... Args>
-  format_args_storage(result<std::string_view> str, const Args&... args)
-      : format_args{str, args_storage_}, args_storage_{format_arg{args}...} {}
-
-  format_args_storage(const format_args_storage&) = delete;
-  format_args_storage(format_args_storage&&) = delete;
-  format_args_storage& operator=(const format_args_storage&) = delete;
-  format_args_storage& operator=(format_args_storage&&) = delete;
-  ~format_args_storage() = default;
-
- private:
-  std::array<format_arg, NbrOfArgs> args_storage_;
-};
+using format_args = args_span<format_arg>;
 
 }  // namespace emio::detail::format
 
+//
+// Copyright (c) 2021 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+
 namespace emio::detail::format {
 
-class format_parser final : public parser_base<input_validation::disabled> {
+class format_parser final : public parser<format_parser, input_validation::disabled> {
  public:
-  constexpr explicit format_parser(writer& wtr, reader& format_rdr) noexcept
-      : parser_base<input_validation::disabled>{format_rdr}, wtr_{wtr} {}
+  constexpr explicit format_parser(writer& output, reader& format_rdr) noexcept
+      : parser<format_parser, input_validation::disabled>{format_rdr}, output_{output} {}
 
   format_parser(const format_parser&) = delete;
   format_parser(format_parser&&) = delete;
@@ -4805,44 +5052,35 @@ class format_parser final : public parser_base<input_validation::disabled> {
   constexpr ~format_parser() noexcept override;  // NOLINT(performance-trivially-destructible): See definition.
 
   constexpr result<void> process(char c) noexcept override {
-    return wtr_.write_char(c);
+    return output_.write_char(c);
   }
 
-  // NOLINTNEXTLINE(readability-convert-member-functions-to-static): not possible because of template function
-  constexpr result<void> find_and_write_arg(uint8_t /*arg_pos*/) noexcept {
-    return err::invalid_format;
+  result<void> process_arg(const format_arg& arg) noexcept {
+    return arg.process_arg(output_, format_rdr_);
   }
 
-  template <typename Arg, typename... Args>
-  constexpr result<void> find_and_write_arg(uint8_t arg_pos, const Arg& arg, const Args&... args) noexcept {
-    if (arg_pos == 0) {
-      return write_arg(arg);
-    }
-    return find_and_write_arg(arg_pos - 1, args...);
-  }
-
- private:
   template <typename Arg>
-  constexpr result<void> write_arg(const Arg& arg) noexcept {
+  constexpr result<void> process_arg(const Arg& arg) noexcept {
     if constexpr (has_formatter_v<Arg>) {
       formatter<Arg> formatter;
       EMIO_TRYV(formatter.parse(this->format_rdr_));
-      return formatter.format(wtr_, arg);
+      return formatter.format(output_, arg);
     } else {
       static_assert(has_formatter_v<Arg>,
                     "Cannot format an argument. To make type T formattable provide a formatter<T> specialization.");
     }
   }
 
-  writer& wtr_;
+ private:
+  writer& output_;
 };
 
-// Explicit out-of-class definition because of GCC bug: ~format_parser() used before its definition.
+// Explicit out-of-class definition because of GCC bug: <destructor> used before its definition.
 constexpr format_parser::~format_parser() noexcept = default;
 
-class format_specs_checker final : public parser_base<input_validation::enabled> {
+class format_specs_checker final : public parser<format_specs_checker, input_validation::enabled> {
  public:
-  using parser_base<input_validation::enabled>::parser_base;
+  using parser<format_specs_checker, input_validation::enabled>::parser;
 
   format_specs_checker(const format_specs_checker& other) = delete;
   format_specs_checker(format_specs_checker&& other) = delete;
@@ -4854,295 +5092,54 @@ class format_specs_checker final : public parser_base<input_validation::enabled>
     return success;
   }
 
-  // NOLINTNEXTLINE(readability-convert-member-functions-to-static): not possible because of template function
-  template <typename... Args>
-    requires(sizeof...(Args) == 0)
-  constexpr result<void> find_and_validate_arg(uint8_t /*arg_pos*/) noexcept {
-    return err::invalid_format;
+  result<void> process_arg(const format_validation_arg& arg) noexcept {
+    return arg.validate(this->format_rdr_);
   }
 
-  template <typename Arg, typename... Args>
-  constexpr result<void> find_and_validate_arg(uint8_t arg_pos) noexcept {
-    if (arg_pos == 0) {
-      return validate_arg<Arg>();
-    }
-    return find_and_validate_arg<Args...>(arg_pos - 1);
-  }
-
- private:
   template <typename Arg>
-  constexpr result<void> validate_arg() noexcept {
-    return validate_for<std::remove_cvref_t<Arg>>(this->format_rdr_);
+  constexpr result<void> process_arg(std::type_identity<Arg> /*unused*/) noexcept {
+    return format_arg_trait<std::remove_cvref_t<Arg>>::validate(this->format_rdr_);
   }
 };
 
-// Explicit out-of-class definition because of GCC bug: ~format_parser() used before its definition.
+// Explicit out-of-class definition because of GCC bug: <destructor> used before its definition.
 constexpr format_specs_checker::~format_specs_checker() noexcept = default;
 
-[[nodiscard]] inline bool validate_format_string_fallback(const format_validation_args& args) noexcept {
-  reader format_rdr{args.get_format_str()};
-  format_specs_checker fh{format_rdr};
-  bitset<128> matched{};
-  const size_t arg_cnt = args.get_args().size();
-  while (true) {
-    uint8_t arg_nbr{detail::no_more_args};
-    if (auto res = fh.parse(arg_nbr); !res) {
-      return false;
-    }
-    if (arg_nbr == detail::no_more_args) {
-      break;
-    }
-    if (arg_cnt <= arg_nbr) {
-      return false;
-    }
-    matched.set(arg_nbr);
-    auto res = args.get_args()[arg_nbr].validate(format_rdr);
-    if (!res) {
-      return false;
-    }
-  }
-  return matched.all_first(arg_cnt);
-}
-
-template <typename... Args>
-[[nodiscard]] constexpr bool validate_format_string(std::string_view format_str) noexcept {
-  if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
-    reader format_rdr{format_str};
-    format_specs_checker fh{format_rdr};
-    bitset<sizeof...(Args)> matched{};
-    while (true) {
-      uint8_t arg_nbr{detail::no_more_args};
-      if (auto res = fh.parse(arg_nbr); !res) {
-        return false;
-      }
-      if (arg_nbr == detail::no_more_args) {
-        break;
-      }
-      if (matched.size() <= arg_nbr) {
-        return false;
-      }
-      matched.set(arg_nbr);
-      auto res = fh.template find_and_validate_arg<Args...>(arg_nbr);
-      if (!res) {
-        return false;
-      }
-    }
-    return matched.all();
-  } else {
-    return validate_format_string_fallback(make_format_validation_args<Args...>(format_str));
-  }
-}
-
 }  // namespace emio::detail::format
 
 namespace emio::detail::format {
 
-/**
- * This class represents a not yet validated format string, which has to be validated at runtime.
- */
-class runtime_format_string {
- public:
-  /**
-   * Constructs an empty runtime format string.
-   */
-  constexpr runtime_format_string() = default;
-
-  // Don't allow temporary strings or any nullptr.
-  constexpr runtime_format_string(std::string&&) = delete;
-  constexpr runtime_format_string(std::nullptr_t) = delete;
-  constexpr runtime_format_string(int) = delete;
-
-  /**
-   * Constructs the runtime format string from any suitable char sequence.
-   * @param str The char sequence.
-   */
-  template <typename S>
-    requires(std::is_constructible_v<std::string_view, S>)
-  constexpr explicit runtime_format_string(const S& str) : str_{str} {}
-
-  /**
-   * Obtains a view over the runtime format string.
-   * @return The view.
-   */
-  [[nodiscard]] constexpr std::string_view view() const noexcept {
-    return str_;
-  }
-
- private:
-  std::string_view str_;
-};
-
-template <typename... Args>
-class valid_format_string;
-
-/**
- * This class represents a validated format string. The format string is either valid or not.
- * @note The validation happens at object construction.
- * @tparam Args The argument types to format.
- */
-template <typename... Args>
-class format_string {
- public:
-  /**
-   * Constructs and validates the format string from any suitable char sequence at compile-time.
-   * @note Terminates compilation if format string is invalid.
-   * @param s The char sequence.
-   */
-  template <typename S>
-    requires(std::is_constructible_v<std::string_view, S>)
-  consteval format_string(const S& s) noexcept {
-    std::string_view str{s};
-    if (validate_format_string<Args...>(str)) {
-      str_ = str;
+struct format_trait {
+  template <typename... Args>
+  [[nodiscard]] static constexpr bool validate_string(std::string_view format_str) noexcept {
+    if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
+      return validate<format_specs_checker>(format_str, sizeof...(Args), std::type_identity<Args>{}...);
     } else {
-      // Invalid format string detected. Stop compilation.
-      std::terminate();
+      return validate<format_specs_checker>(format_str, sizeof...(Args),
+                                            make_validation_args<format_validation_arg, Args...>(format_str));
     }
   }
-
-  /**
-   * Constructs and validates a runtime format string at runtime.
-   * @param s The runtime format string.
-   */
-  constexpr format_string(runtime_format_string s) noexcept {
-    std::string_view str{s.view()};
-    if (validate_format_string<Args...>(str)) {
-      str_ = str;
-    }
-  }
-
-  /**
-   * Returns the validated format string as view.
-   * @return The view or invalid_format if the validation failed.
-   */
-  constexpr result<std::string_view> get() const noexcept {
-    return str_;
-  }
-
-  /**
-   * Returns format string as valid one.
-   * @return The valid format string or invalid_format if the validation failed.
-   */
-  constexpr result<valid_format_string<Args...>> as_valid() const noexcept {
-    if (str_.has_value()) {
-      return valid_format_string<Args...>{valid, str_.assume_value()};
-    }
-    return err::invalid_format;
-  }
-
- protected:
-  static constexpr struct valid_t {
-  } valid{};
-
-  constexpr explicit format_string(valid_t /*unused*/, std::string_view s) noexcept : str_{s} {}
-
- private:
-  result<std::string_view> str_{err::invalid_format};  ///< Validated format string.
 };
 
-/**
- * This class represents a validated format string. The format string can only be valid.
- * @tparam Args The argument types to format.
- */
 template <typename... Args>
-class valid_format_string : public format_string<Args...> {
- public:
-  /**
-   * Constructs and validates the format string from any suitable char sequence at compile-time.
-   * @note Terminates compilation if format string is invalid.
-   * @param s The char sequence.
-   */
-  template <typename S>
-    requires(std::is_constructible_v<std::string_view, S>)
-  consteval valid_format_string(const S& s) noexcept : format_string<Args...>{s} {}
-
-  /**
-   * Constructs and validates a format string at runtime.
-   * @param s The format string.
-   * @return The valid format string or invalid_format if the validation failed.
-   */
-  template <typename S>
-    requires(std::is_constructible_v<std::string_view, S>)
-  static constexpr result<valid_format_string<Args...>> from(const S& s) noexcept {
-    std::string_view str{s};
-    if (!validate_format_string<Args...>(str)) {
-      return err::invalid_format;
-    }
-    return valid_format_string{valid, str};
-  }
-
- private:
-  friend class format_string<Args...>;
-
-  using valid_t = typename format_string<Args...>::valid_t;
-  using format_string<Args...>::valid;
-
-  constexpr explicit valid_format_string(valid_t /*unused*/, std::string_view s) noexcept
-      : format_string<Args...>{valid, s} {}
-};
-
-}  // namespace emio::detail::format
-
-namespace emio {
-
-// Alias template types.
-using runtime_format_string = detail::format::runtime_format_string;
+using format_string = validated_string<format_trait, std::type_identity_t<Args>...>;
 
 template <typename... Args>
-using format_string = detail::format::format_string<std::type_identity_t<Args>...>;
-
-template <typename... Args>
-using valid_format_string = detail::format::valid_format_string<std::type_identity_t<Args>...>;
-
-inline constexpr runtime_format_string runtime(const std::string_view& s) noexcept {
-  return runtime_format_string{s};
-}
-
-}  // namespace emio
-
-namespace emio::detail::format {
+using valid_format_string = valid_string<format_trait, std::type_identity_t<Args>...>;
 
 // Non constexpr version.
 inline result<void> vformat_to(buffer& buf, const format_args& args) noexcept {
-  EMIO_TRY(const std::string_view str, args.get_format_str());
-  reader format_rdr{str};
+  EMIO_TRY(const std::string_view str, args.get_str());
   writer wtr{buf};
-  format_parser fh{wtr, format_rdr};
-  while (true) {
-    uint8_t arg_nbr{detail::no_more_args};
-    if (auto res = fh.parse(arg_nbr); !res) {
-      return res.assume_error();
-    }
-    if (arg_nbr == detail::no_more_args) {
-      break;
-    }
-    if (auto res = args.get_args()[arg_nbr].format(wtr, format_rdr); !res) {
-      return res.assume_error();
-    }
-  }
-  return success;
+  return parse<format_parser>(str, wtr, args);
 }
 
 // Constexpr version.
 template <typename... Args>
 constexpr result<void> format_to(buffer& buf, format_string<Args...> format_str, const Args&... args) noexcept {
-  EMIO_TRY(std::string_view str, format_str.get());
-  reader format_rdr{str};
+  EMIO_TRY(const std::string_view str, format_str.get());
   writer wtr{buf};
-  format_parser fh{wtr, format_rdr};
-  while (true) {
-    uint8_t arg_nbr{detail::no_more_args};
-    if (auto res = fh.parse(arg_nbr); !res) {
-      return res.assume_error();
-    }
-    if (arg_nbr == detail::no_more_args) {
-      break;
-    }
-    if (auto res = fh.find_and_write_arg(arg_nbr, args...); !res) {
-      return res.assume_error();
-    }
-  }
-  return success;
+  return parse<format_parser>(str, wtr, args...);
 }
 
 }  // namespace emio::detail::format
@@ -5300,13 +5297,17 @@ namespace emio {
 
 /**
  * Provides access to the format string and the arguments to format.
- * @note This type should only be "constructed" via make_format_args(format_str, args...) and passed directly to an
+ * @note This type should only be "constructed" via make_format_args(format_str, args...) and passed directly to a
  * formatting function.
  */
 using format_args = detail::format::format_args;
 
-// Alias type.
-using format_args = detail::format::format_args;
+// Alias template types.
+template <typename... Args>
+using format_string = detail::format::format_string<Args...>;
+
+template <typename... Args>
+using valid_format_string = detail::format::valid_format_string<Args...>;
 
 /**
  * Returns an object that stores a format string with an array of all arguments to format.
@@ -5320,8 +5321,8 @@ using format_args = detail::format::format_args;
  * @return Internal type. Implicit convertible to format_args.
  */
 template <typename... Args>
-[[nodiscard]] detail::format::format_args_storage<sizeof...(Args)> make_format_args(format_string<Args...> format_str,
-                                                                                    const Args&... args) noexcept {
+[[nodiscard]] detail::args_storage<detail::format::format_arg, sizeof...(Args)> make_format_args(
+    format_string<Args...> format_str, const Args&... args) noexcept {
   return {format_str.get(), args...};
 }
 
@@ -5359,7 +5360,7 @@ template <typename... Args>
  * validation failed.
  */
 template <typename T, typename... Args>
-  requires(std::is_same_v<T, runtime_format_string> || std::is_same_v<T, format_string<Args...>>)
+  requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, format_string<Args...>>)
 constexpr result<size_t> formatted_size(T format_str, const Args&... args) noexcept {
   detail::counting_buffer buf{};
   format_string<Args...> str{format_str};
@@ -5410,7 +5411,7 @@ constexpr result<OutputIt> vformat_to(OutputIt out, const format_args& args) noe
  * Formats arguments according to the format string, and writes the result to the output buffer.
  * @param buf The output buffer.
  * @param format_str The format string.
- * @param args The format args with the format string.
+ * @param args The arguments to be formatted.
  * @return Success or EOF if the buffer is to small or invalid_format if the format string validation failed.
  */
 template <typename Buffer, typename... Args>
@@ -5428,7 +5429,7 @@ constexpr result<void> format_to(Buffer& buf, format_string<Args...> format_str,
  * Formats arguments according to the format string, and writes the result to the writer's buffer.
  * @param wrt The writer.
  * @param format_str The format string.
- * @param args The format args with the format string.
+ * @param args The arguments to be formatted.
  * @return Success or EOF if the buffer is to small or invalid_format if the format string validation failed.
  */
 template <typename... Args>
@@ -5477,7 +5478,7 @@ inline result<std::string> vformat(const format_args& args) noexcept {
 /**
  * Formats arguments according to the format string, and returns the result as string.
  * @param format_str The format string.
- * @param args The format args with the format string.
+ * @param args The arguments to be formatted.
  * @return The string.
  */
 template <typename... Args>
@@ -5489,12 +5490,12 @@ template <typename... Args>
 /**
  * Formats arguments according to the format string, and returns the result as string.
  * @param format_str The format string.
- * @param args The format args with the format string.
+ * @param args The arguments to be formatted.
  * @return The string on success or invalid_format if the format string validation
  * failed.
  */
 template <typename T, typename... Args>
-  requires(std::is_same_v<T, runtime_format_string> || std::is_same_v<T, format_string<Args...>>)
+  requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, format_string<Args...>>)
 result<std::string> format(T format_str, const Args&... args) noexcept {
   return vformat(make_format_args(format_str, args...));
 }
@@ -5534,7 +5535,7 @@ result<format_to_n_result<OutputIt>> vformat_to_n(OutputIt out, std::iter_differ
  * @param out The output iterator.
  * @param n The maximum number of characters to be written to the buffer.
  * @param format_str The format string.
- * @param args The format args with the format string.
+ * @param args The arguments to be formatted.
  * @return The format_to_n_result on success or invalid_format if the format string validation failed.
  */
 template <typename OutputIt, typename... Args>
@@ -5586,7 +5587,7 @@ void print(valid_format_string<Args...> format_str, const Args&... args) {
  * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
  */
 template <typename T, typename... Args>
-  requires(std::is_same_v<T, runtime_format_string> || std::is_same_v<T, format_string<Args...>>)
+  requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, format_string<Args...>>)
 result<void> print(T format_str, const Args&... args) {
   return vprint(stdout, make_format_args(format_str, args...));
 }
@@ -5641,7 +5642,7 @@ void println(valid_format_string<Args...> format_str, const Args&... args) {
  * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
  */
 template <typename T, typename... Args>
-  requires(std::is_same_v<T, runtime_format_string> || std::is_same_v<T, format_string<Args...>>)
+  requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, format_string<Args...>>)
 result<void> println(T format_str, const Args&... args) {
   return vprintln(stdout, make_format_args(format_str, args...));
 }
@@ -6032,6 +6033,589 @@ class formatter<T> {
   detail::format::tuple_formatters<T> formatters_{};
   detail::format::ranges_specs specs_{};
 };
+
+}  // namespace emio
+
+//
+// Copyright (c) 2021 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+
+//
+// Copyright (c) 2023 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+
+//
+// Copyright (c) 2023 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+
+//
+// Copyright (c) 2021 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+
+//
+// Copyright (c) 2023 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+
+//
+// Copyright (c) 2023 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+
+#include <cstdint>
+
+namespace emio::detail::scan {
+
+inline constexpr char no_type = 0;
+
+struct scan_specs {
+  bool alternate_form{false};
+  char type{no_type};
+};
+
+}  // namespace emio::detail::scan
+
+namespace emio {
+
+template <typename>
+class scanner;
+
+namespace detail::scan {
+
+//
+// Read args.
+//
+
+inline constexpr result<void> disallow_sign(reader& in) noexcept {
+  EMIO_TRY(const char c, in.peek());
+  if (c == '+' || c == '-') {
+    return err::invalid_data;
+  }
+  return success;
+}
+
+inline constexpr result<int> determine_base(reader in) noexcept {
+  EMIO_TRY(char c, in.read_char());
+  if (c != '0') {
+    // Assume decimal.
+    return 10;
+  }
+  result<char> next_char = in.read_char();
+  if (!next_char) {
+    // Assume decimal.
+    return 10;
+  }
+  c = next_char.assume_value();
+  if (c == 'b' || c == 'B') {
+    return 2;
+  }
+  if (c == 'x' || c == 'X') {
+    return 16;
+  }
+  return 8;
+}
+
+inline constexpr int get_base(char type) noexcept {
+  switch (type) {
+  case 'b':
+    return 2;
+  case 'o':
+    return 8;
+  case 'd':
+  case no_type:
+    return 10;
+  case 'x':
+    return 16;
+  }
+  EMIO_Z_DEV_ASSERT(false);
+  EMIO_Z_INTERNAL_UNREACHABLE;
+}
+
+inline constexpr result<void> parse_alternate_form(reader& in, int base) noexcept {
+  EMIO_TRYV(in.read_if_match_char('0'));
+
+  if (base == 8) {
+    return success;
+  }
+  EMIO_TRY(const char c, in.read_char());
+
+  if (base == 2) {
+    if (c == 'b' || c == 'B') {
+      return success;
+    }
+    return err::invalid_data;
+  }
+
+  // Base 16.
+  if (c == 'x' || c == 'X') {
+    return success;
+  }
+  return err::invalid_data;
+}
+
+template <typename Arg>
+  requires(std::is_integral_v<Arg> && !std::is_same_v<Arg, bool> && !std::is_same_v<Arg, char>)
+constexpr result<void> read_arg(reader& in, const scan_specs& specs, Arg& arg) noexcept {
+  EMIO_TRY(const bool is_negative, parse_sign(in));
+
+  int base = 0;
+  if (specs.type == no_type && specs.alternate_form) {
+    EMIO_TRY(base, determine_base(in));
+    if (base != 10) {
+      // Discard alternate form from input.
+      if (base == 8) {
+        in.pop(1);
+      } else {
+        in.pop(2);
+      }
+      EMIO_TRYV(disallow_sign(in));
+    }
+  } else {
+    base = get_base(specs.type);
+    if (specs.alternate_form && base != 10) {
+      EMIO_TRYV(parse_alternate_form(in, base));
+      EMIO_TRYV(disallow_sign(in));
+    }
+  }
+
+  EMIO_TRY(arg, parse_int<Arg>(in, base, is_negative));
+  return success;
+}
+
+template <typename Arg>
+  requires(std::is_same_v<Arg, char>)
+constexpr result<void> read_arg(reader& in, const scan_specs& /*unused*/, Arg& arg) noexcept {
+  EMIO_TRY(arg, in.read_char());
+  return success;
+}
+
+//
+// Checks.
+//
+
+// specs is passed by reference instead as return type to reduce copying of big value (and code bloat)
+inline constexpr result<void> validate_scan_specs(reader& rdr, scan_specs& specs) noexcept {
+  EMIO_TRY(char c, rdr.read_char());
+  if (c == '}') {  // Scan end.
+    return success;
+  }
+  if (c == '{') {  // No dynamic spec support.
+    return err::invalid_format;
+  }
+  if (c == '#') {  // Alternate form.
+    specs.alternate_form = true;
+    EMIO_TRY(c, rdr.read_char());
+  }
+  if (detail::isalpha(c)) {
+    specs.type = c;
+    EMIO_TRY(c, rdr.read_char());
+  }
+  if (c == '}') {  // Scan end.
+    return success;
+  }
+  return err::invalid_format;
+}
+
+inline constexpr result<void> parse_scan_specs(reader& rdr, scan_specs& specs) noexcept {
+  char c = rdr.read_char().assume_value();
+  if (c == '}') {  // Scan end.
+    return success;
+  }
+
+  if (c == '#') {  // Alternate form.
+    specs.alternate_form = true;
+    c = rdr.read_char().assume_value();
+  }
+  if (detail::isalpha(c)) {
+    specs.type = c;
+    rdr.pop();  // rdr.read_char() in validate_scan_spec;
+  }
+  return success;
+}
+
+inline constexpr result<void> check_char_specs(const scan_specs& specs) noexcept {
+  if ((specs.type != no_type && specs.type != 'c') || (specs.alternate_form)) {
+    return err::invalid_format;
+  }
+  return success;
+}
+
+inline constexpr result<void> check_integral_specs(const scan_specs& specs) noexcept {
+  switch (specs.type) {
+  case no_type:
+  case 'b':
+  case 'd':
+  case 'o':
+  case 'x':
+    return success;
+  }
+  return err::invalid_format;
+}
+
+//
+// Type traits.
+//
+
+// Specifies if T has an enabled scanner specialization.
+template <typename Arg>
+inline constexpr bool has_scanner_v = std::is_constructible_v<scanner<Arg>>;
+
+template <typename T>
+concept has_validate_function_v = requires {
+                                    { scanner<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
+                                  };
+
+template <typename T>
+concept has_any_validate_function_v =
+    requires { &scanner<T>::validate; } || std::is_member_function_pointer_v<decltype(&scanner<T>::validate)> ||
+    requires { std::declval<scanner<T>>().validate(std::declval<reader&>()); };
+
+template <typename T>
+inline constexpr bool is_core_type_v = std::is_integral_v<T>;
+
+}  // namespace detail::scan
+
+}  // namespace emio
+
+namespace emio {
+
+/**
+ * Checks if a type is scannable.
+ * @tparam T The type to check.
+ */
+template <typename T>
+inline constexpr bool is_scannable_v = detail::scan::has_scanner_v<std::remove_cvref_t<T>>;
+
+/**
+ * Class template that defines scanning rules for a given type.
+ * @note This class definition is just a mock-up. See other template specialization for a concrete scanning.
+ * @tparam T The type to scan.
+ */
+template <typename T>
+class scanner {
+ public:
+  // Not constructable because this is just a minimal example how to write a custom scanner.
+  scanner() = delete;
+
+  /**
+   * Optional static function to validate the scan specs for this type.
+   * @note If not present, the parse function is invoked for validation.
+   * @param rdr The scan reader.
+   * @return Success if the scan spec is valid.
+   */
+  static constexpr result<void> validate(reader& rdr) noexcept {
+    return rdr.read_if_match_char('}');
+  }
+
+  /**
+   * Function to parse the scan specs for this type.
+   * @param rdr The scan reader.
+   * @return Success if the scan spec is valid and could be parsed.
+   */
+  constexpr result<void> parse(reader& rdr) noexcept {
+    return rdr.read_if_match_char('}');
+  }
+
+  /**
+   * Function to scan the object of this type according to the parsed scan specs.
+   * @param input The input reader.
+   * @param arg The argument to scan.
+   * @return Success if the scanning could be done.
+   */
+  constexpr result<void> scan(reader& input, T& arg) const noexcept {
+    EMIO_TRY(arg, input.parse_int<T>());
+    return success;
+  }
+};
+
+/**
+ * Scanner for most common unambiguity types.
+ * This includes:
+ * - char
+ * - integral
+ * To be implemented:
+ * - floating-point types
+ * @tparam T The type.
+ */
+template <typename T>
+  requires(detail::scan::is_core_type_v<T>)
+class scanner<T> {
+ public:
+  static constexpr result<void> validate(reader& rdr) noexcept {
+    detail::scan::scan_specs specs{};
+    EMIO_TRYV(detail::scan::validate_scan_specs(rdr, specs));
+    if constexpr (std::is_same_v<T, char>) {
+      EMIO_TRYV(check_char_specs(specs));
+    } else if constexpr (std::is_integral_v<T>) {
+      EMIO_TRYV(check_integral_specs(specs));
+    } else {
+      static_assert(detail::always_false_v<T>, "Unknown core type!");
+    }
+    return success;
+  }
+
+  constexpr result<void> parse(reader& rdr) noexcept {
+    return detail::scan::parse_scan_specs(rdr, specs_);
+  }
+
+  constexpr result<void> scan(reader& input, T& arg) const noexcept {
+    return read_arg(input, specs_, arg);
+  }
+
+ private:
+  detail::scan::scan_specs specs_{};
+};
+
+}  // namespace emio
+
+namespace emio::detail::scan {
+
+template <typename Arg>
+struct scan_arg_trait {
+  using unified_type = Arg&;
+
+  static constexpr result<void> validate(reader& format_is) noexcept {
+    // Check if a scanner exist and a correct validate method is implemented. If not, use the parse method.
+    if constexpr (has_scanner_v<Arg>) {
+      if constexpr (has_validate_function_v<Arg>) {
+        return scanner<Arg>::validate(format_is);
+      } else {
+        static_assert(!has_any_validate_function_v<Arg>,
+                      "Scanner seems to have a validate property which doesn't fit the desired signature.");
+        return scanner<Arg>{}.parse(format_is);
+      }
+    } else {
+      static_assert(has_scanner_v<Arg>,
+                    "Cannot format an argument. To make type T scannable provide a scanner<T> specialization.");
+      return err::invalid_format;
+    }
+  }
+
+  static constexpr result<void> process_arg(reader& input, reader& scan_is, Arg& arg) noexcept {
+    scanner<Arg> scanner;
+    EMIO_TRYV(scanner.parse(scan_is));
+    return scanner.scan(input, arg);
+  }
+};
+
+using scan_validation_arg = validation_arg<scan_arg_trait>;
+
+using scan_arg = arg<reader, scan_arg_trait>;
+
+using scan_args = args_span<scan_arg>;
+
+}  // namespace emio::detail::scan
+
+//
+// Copyright (c) 2023 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+
+namespace emio::detail::scan {
+
+class scan_parser final : public parser<scan_parser, input_validation::disabled> {
+ public:
+  constexpr explicit scan_parser(reader& input, reader& format_rdr) noexcept
+      : parser<scan_parser, input_validation::disabled>{format_rdr}, input_{input} {}
+
+  scan_parser(const scan_parser&) = delete;
+  scan_parser(scan_parser&&) = delete;
+  scan_parser& operator=(const scan_parser&) = delete;
+  scan_parser& operator=(scan_parser&&) = delete;
+  constexpr ~scan_parser() noexcept override;  // NOLINT(performance-trivially-destructible): See definition.
+
+  constexpr result<void> process(const char c) noexcept override {
+    return input_.read_if_match_char(c);
+  }
+
+  result<void> process_arg(const scan_arg& arg) noexcept {
+    return arg.process_arg(input_, format_rdr_);
+  }
+
+  template <typename Arg>
+  constexpr result<void> process_arg(Arg& arg) noexcept {
+    if constexpr (has_scanner_v<Arg>) {
+      scanner<Arg> scanner;
+      EMIO_TRYV(scanner.parse(this->format_rdr_));
+      return scanner.scan(input_, arg);
+    } else {
+      static_assert(has_scanner_v<Arg>,
+                    "Cannot scan an argument. To make type T scannable provide a scanner<T> specialization.");
+    }
+  }
+
+ private:
+  reader& input_;
+};
+
+// Explicit out-of-class definition because of GCC bug: <destructor> used before its definition.
+constexpr scan_parser::~scan_parser() noexcept = default;
+
+class scan_specs_checker final : public parser<scan_specs_checker, input_validation::enabled> {
+ public:
+  using parser<scan_specs_checker, input_validation::enabled>::parser;
+
+  scan_specs_checker(const scan_specs_checker& other) = delete;
+  scan_specs_checker(scan_specs_checker&& other) = delete;
+  scan_specs_checker& operator=(const scan_specs_checker& other) = delete;
+  scan_specs_checker& operator=(scan_specs_checker&& other) = delete;
+  constexpr ~scan_specs_checker() noexcept override;  // NOLINT(performance-trivially-destructible): See definition.
+
+  constexpr result<void> process(char /*c*/) noexcept override {
+    return success;
+  }
+
+  result<void> process_arg(const scan_validation_arg& arg) noexcept {
+    return arg.validate(this->format_rdr_);
+  }
+
+  template <typename Arg>
+  constexpr result<void> process_arg(std::type_identity<Arg> /*unused*/) noexcept {
+    return scan_arg_trait<std::remove_cvref_t<Arg>>::validate(this->format_rdr_);
+  }
+};
+
+// Explicit out-of-class definition because of GCC bug: <destructor> used before its definition.
+constexpr scan_specs_checker::~scan_specs_checker() noexcept = default;
+
+}  // namespace emio::detail::scan
+
+namespace emio::detail::scan {
+
+struct scan_trait {
+  template <typename... Args>
+  [[nodiscard]] static constexpr bool validate_string(std::string_view scan_str) {
+    if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
+      return validate<scan_specs_checker>(scan_str, sizeof...(Args), std::type_identity<Args>{}...);
+    } else {
+      return validate<scan_specs_checker>(scan_str, sizeof...(Args),
+                                          make_validation_args<scan_validation_arg, Args...>(scan_str));
+    }
+  }
+};
+
+template <typename... Args>
+using scan_string = validated_string<scan_trait, std::type_identity_t<Args>...>;
+
+template <typename... Args>
+using valid_scan_string = valid_string<scan_trait, std::type_identity_t<Args>...>;
+
+inline result<void> vscan_from(reader& input, const scan_args& args) noexcept {
+  EMIO_TRY(const std::string_view str, args.get_str());
+  return parse<scan_parser>(str, input, args);
+}
+
+template <typename... Args>
+constexpr result<void> scan_from(reader& input, validated_string<scan_trait, Args...> scan_string,
+                                 Args&... args) noexcept {
+  EMIO_TRY(const std::string_view str, scan_string.get());
+  return parse<scan_parser>(str, input, args...);
+}
+
+}  // namespace emio::detail::scan
+
+namespace emio {
+
+/**
+ * Provides access to the scan string and the arguments to scan.
+ * @note This type should only be "constructed" via make_scan_args(scan_str, args...) and passed directly to a
+ * scanning function.
+ */
+using scan_args = detail::args_span<detail::scan::scan_arg>;
+
+// Alias template types.
+template <typename... Args>
+using scan_string = detail::scan::scan_string<Args...>;
+
+template <typename... Args>
+using valid_scan_string = detail::scan::valid_scan_string<Args...>;
+
+/**
+ * Returns an object that stores a scan string with an array of all arguments to scan.
+
+ * @note The storage uses reference semantics and does not extend the lifetime of args. It is the programmer's
+ * responsibility to ensure that args outlive the return value. Usually, the result is only used as argument to a
+ * scanning function taking scan_args by reference.
+
+ * @param scan_str The scan string.
+ * @param args The arguments to be scanned.
+ * @return Internal type. Implicit convertible to scan_args.
+ */
+template <typename... Args>
+[[nodiscard]] detail::args_storage<detail::scan::scan_arg, sizeof...(Args)> make_scan_args(
+    scan_string<Args...> scan_str, Args&... args) noexcept {
+  return {scan_str.get(), args...};
+}
+
+/**
+ * Scans the content of the reader for the given arguments according to the scan string.
+ * @param rdr The reader to scan.
+ * @param args The scan args with scan string.
+ * @return Success if the scanning was successfully for all arguments. The reader may not be empty.
+ */
+inline result<void> vscan_from(reader& rdr, const scan_args& args) noexcept {
+  return detail::scan::vscan_from(rdr, args);
+}
+
+/**
+ * Scans the content of the input string for the given arguments according to the scan string.
+ * @param input The input string to scan.
+ * @param args The scan args with scan string.
+ * @return Success if the scanning was successfully for all arguments for the entire input string.
+ */
+inline result<void> vscan(std::string_view input, const scan_args& args) noexcept {
+  reader rdr{input};
+  EMIO_TRYV(detail::scan::vscan_from(rdr, args));
+  if (rdr.eof()) {
+    return success;
+  }
+  return err::invalid_format;
+}
+
+/**
+ * Scans the content of the reader for the given arguments according to the scan string.
+ * @param rdr The reader.
+ * @param scan_string The scan string.
+ * @param args The arguments which are to be scanned.
+ * @return Success if the scanning was successfully for all arguments. The reader may not be empty.
+ */
+template <typename... Args>
+constexpr result<void> scan_from(reader& rdr, scan_string<Args...> scan_string, Args&... args) {
+  if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
+    EMIO_TRYV(detail::scan::scan_from(rdr, scan_string, args...));
+  } else {
+    EMIO_TRYV(detail::scan::vscan_from(rdr, make_scan_args(scan_string, args...)));
+  }
+  return success;
+}
+
+/**
+ * Scans the input string for the given arguments according to the scan string.
+ * @param input The input string.
+ * @param scan_string The scan string.
+ * @param args The arguments which are to be scanned.
+ * @return Success if the scanning was successfully for all arguments for the entire input string.
+ */
+template <typename... Args>
+constexpr result<void> scan(std::string_view input, scan_string<Args...> scan_string, Args&... args) {
+  reader rdr{input};
+  EMIO_TRYV(scan_from(rdr, scan_string, args...));
+  if (rdr.eof()) {
+    return success;
+  }
+  return err::invalid_format;
+}
 
 }  // namespace emio
 
