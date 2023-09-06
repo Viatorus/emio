@@ -4358,8 +4358,11 @@ constexpr result<void> write_arg(writer& wtr, format_specs& specs, const Arg& ar
   return format_and_write_decimal(wtr, specs, decode(arg));
 }
 
-inline constexpr result<void> write_arg(writer& wtr, format_specs& specs, const std::string_view arg) noexcept {
+inline constexpr result<void> write_arg(writer& wtr, format_specs& specs, std::string_view arg) noexcept {
   if (specs.type != '?') {
+    if (specs.precision >= 0) {
+      arg = unchecked_substr(arg, 0, static_cast<size_t>(specs.precision));
+    }
     return write_padded<alignment::left>(wtr, specs, arg.size(), [&] {
       return wtr.write_str(arg);
     });
@@ -4641,7 +4644,8 @@ inline constexpr result<void> check_floating_point_specs(const format_specs& spe
 }
 
 inline constexpr result<void> check_string_view_specs(const format_specs& specs) noexcept {
-  if (specs.alternate_form || specs.sign != no_sign || specs.zero_flag || specs.precision != no_precision ||
+  if (specs.alternate_form || specs.sign != no_sign || specs.zero_flag ||
+      (specs.precision != no_precision && specs.type == '?') ||
       (specs.type != no_type && specs.type != 's' && specs.type != '?')) {
     return err::invalid_format;
   }
