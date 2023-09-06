@@ -10,6 +10,15 @@ using namespace std::string_view_literals;
 
 // Test cases from fmt/test/format-test.cc - 9.1.0
 
+namespace {
+
+template <typename... Args>
+bool validate_format_string(std::string_view str) {
+  return emio::detail::format::format_trait::validate_string<Args...>(str);
+}
+
+}  // namespace
+
 TEST_CASE("escape") {
   CHECK(emio::format("{{") == "{");
   CHECK(emio::format("before {{") == "before {");
@@ -755,8 +764,8 @@ TEST_CASE("format_enum") {
 }
 
 TEST_CASE("format_string") {
-  CHECK(emio::format("{0}", std::string("test")) == "test");
-  CHECK(emio::format("{0}", std::string("test")) == "test");
+  CHECK(emio::format("{}", std::string("test")) == "test");
+  CHECK(emio::format("{:s}", std::string("test")) == "test");
   CHECK(emio::format("{:?}", std::string("test")) == "\"test\"");
   CHECK(emio::format("{:*^10?}", std::string("test")) == "**\"test\"**");
   CHECK(emio::format("{:?}", std::string("\test")) == "\"\\test\"");
@@ -766,10 +775,17 @@ TEST_CASE("format_string") {
 
 TEST_CASE("format_string_view") {
   CHECK(emio::format("{}", std::string_view("test")) == "test");
+  CHECK(emio::format("{:s}", std::string_view("test")) == "test");
+  CHECK(emio::format("{:.0}", std::string_view("test")) == "");
+  CHECK(emio::format("{:.2}", std::string_view("test")) == "te");
+  CHECK(emio::format("{:.4}", std::string_view("test")) == "test");
+  CHECK(emio::format("{:.6}", std::string_view("test")) == "test");
   CHECK(emio::format("{:?}", std::string_view("t\nst")) == "\"t\\nst\"");
   CHECK(emio::format("{}", std::string_view()) == "");
   CHECK(emio::format("{:?}", std::string_view("t\n\r\t\\\'\"st")) == "\"t\\n\\r\\t\\\\\\'\\\"st\"");
   CHECK(emio::format("{:?}", std::string_view("\x05\xab\xEf")) == "\"\\x05\\xab\\xef\"");
+
+  CHECK(!validate_format_string<std::string_view>("{:.3?}"sv));
 }
 
 #ifdef FMT_USE_STRING_VIEW
@@ -816,15 +832,6 @@ TEST_CASE("format at compile-time") {
   }();
   STATIC_CHECK(success);
 }
-
-namespace {
-
-template <typename... Args>
-bool validate_format_string(std::string_view str) {
-  return emio::detail::format::format_trait::validate_string<Args...>(str);
-}
-
-}  // namespace
 
 TEST_CASE("validate_format_string") {
   CHECK(validate_format_string(""sv));
