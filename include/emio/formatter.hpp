@@ -89,7 +89,7 @@ class formatter<T> {
     } else if constexpr (std::is_floating_point_v<T>) {
       EMIO_TRYV(check_floating_point_specs(specs));
     } else if constexpr (std::is_constructible_v<std::string_view, T>) {
-      EMIO_TRYV(check_string_view_specs(specs));
+      EMIO_TRYV(check_string_specs_specs(specs));
     } else {
       static_assert(detail::always_false_v<T>, "Unknown core type!");
     }

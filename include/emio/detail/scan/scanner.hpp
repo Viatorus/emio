@@ -123,6 +123,26 @@ constexpr result<void> read_arg(reader& in, const scan_specs& /*unused*/, Arg& a
   return success;
 }
 
+inline constexpr result<void> read_arg(reader& in, scan_string_specs& specs, std::string_view& arg) noexcept {
+  if (specs.size >= 0) {
+    EMIO_TRY(arg, in.read_n_chars(static_cast<size_t>(specs.size)));
+    return success;
+  }
+  const result<std::string_view> until_next_res = specs.remaining.read_until_char('{');
+  if (until_next_res == err::eof) {  // Just read until end.
+    arg = in.read_remaining();
+    return success;
+  }
+  const std::string_view until_next = until_next_res.assume_value();
+  if (specs.remaining.peek() != '{') {  // Just read until match.
+    EMIO_TRY(arg, in.read_until_str(until_next, {.keep_delimiter = true}));
+    return success;
+  }
+  // Complex read until by including '{'
+  return success;
+  return success;
+}
+
 //
 // Checks.
 //
@@ -132,9 +152,6 @@ inline constexpr result<void> validate_scan_specs(reader& rdr, scan_specs& specs
   EMIO_TRY(char c, rdr.read_char());
   if (c == '}') {  // Scan end.
     return success;
-  }
-  if (c == '{') {  // No dynamic spec support.
-    return err::invalid_format;
   }
   if (c == '#') {  // Alternate form.
     specs.alternate_form = true;
@@ -155,14 +172,51 @@ inline constexpr result<void> parse_scan_specs(reader& rdr, scan_specs& specs) n
   if (c == '}') {  // Scan end.
     return success;
   }
-
   if (c == '#') {  // Alternate form.
     specs.alternate_form = true;
     c = rdr.read_char().assume_value();
   }
   if (detail::isalpha(c)) {
     specs.type = c;
-    rdr.pop();  // rdr.read_char() in validate_scan_spec;
+    rdr.pop();  // rdr.read_char() in validate_scan_specs;
+  }
+  return success;
+}
+
+// specs is passed by reference instead as return type to reduce copying of big value (and code bloat)
+inline constexpr result<void> validate_scan_string_specs(reader& rdr, scan_string_specs& specs) noexcept {
+  EMIO_TRY(char c, rdr.read_char());
+  if (c == '}') {  // Scan end.
+    return success;
+  }
+  if (c == '.') {  // Size.
+    EMIO_TRY(const uint32_t size, rdr.parse_int<uint32_t>());
+    if (size > (static_cast<uint32_t>(std::numeric_limits<int32_t>::max()))) {
+      return err::invalid_format;
+    }
+    specs.size = static_cast<int32_t>(size);
+    EMIO_TRY(c, rdr.read_char());
+  }
+  if (c == 's') {  // Type.
+    EMIO_TRY(c, rdr.read_char());
+  }
+  if (c == '}') {  // Scan end.
+    return success;
+  }
+  return err::invalid_format;
+}
+
+inline constexpr result<void> parse_scan_string_specs(reader& rdr, scan_string_specs& specs) noexcept {
+  char c = rdr.read_char().assume_value();
+  if (c == '}') {  // Scan end.
+    return success;
+  }
+  if (c == '.') {  // Size.
+    specs.size = static_cast<int32_t>(rdr.parse_int<uint32_t>().assume_value());
+    rdr.pop();  // rdr.read_char() in validate_scan_string_specs;
+  }
+  if (c == 's') {  // Type.
+    c = rdr.read_char().assume_value();
   }
   return success;
 }
@@ -205,7 +259,7 @@ concept has_any_validate_function_v =
     requires { std::declval<scanner<T>>().validate(std::declval<reader&>()); };
 
 template <typename T>
-inline constexpr bool is_core_type_v = std::is_integral_v<T>;
+inline constexpr bool is_core_type_v = !std::is_same_v<T, bool> && std::is_integral_v<T>;
 
 }  // namespace detail::scan
 

@@ -429,3 +429,54 @@ TEST_CASE("scan_hex", "[scan]") {
     CHECK(emio::scan("0x-3", "{:#x}", val) == emio::err::invalid_data);
   }
 }
+
+TEST_CASE("scan_string", "[scan]") {
+  std::string s;
+  SECTION("until eof") {
+    REQUIRE(emio::scan("abc", "{}", s));
+    CHECK(s == "abc");
+
+    REQUIRE(emio::scan("abc", "a{}", s));
+    CHECK(s == "bc");
+
+    REQUIRE(emio::scan("abc", "ab{}", s));
+    CHECK(s == "c");
+
+    REQUIRE(emio::scan("abc", "abc{}", s));
+    CHECK(s.empty());
+  }
+  SECTION("until given size") {
+    REQUIRE(emio::scan("abc", "{:.3}", s));
+    CHECK(s == "abc");
+
+    REQUIRE(emio::scan("aaa", "{:.2}a", s));
+    CHECK(s == "aa");
+
+    REQUIRE(emio::scan("abc", "{:.4}", s) == emio::err::eof);
+    REQUIRE(emio::scan("abc", "{:.3}c", s) == emio::err::eof);
+  }
+  SECTION("until next") {
+    std::string s2;
+    REQUIRE(emio::scan("abc", "{}b{}", s, s2));
+    CHECK(s == "a");
+    CHECK(s2 == "c");
+
+    CHECK(validate_scan_string<std::string, std::string>("{:.1}{}"));
+    CHECK(!validate_scan_string<std::string, std::string>("{}{}"));
+
+    REQUIRE(emio::scan("abc", "{:.1}{}c", s, s2));
+    CHECK(s == "a");
+    CHECK(s2 == "b");
+
+    REQUIRE(emio::scan("abc", "{}abc", s));
+    CHECK(s.empty());
+
+    REQUIRE(emio::scan("abc", "{:.2}{}c", s, s2));
+    CHECK(s == "ab");
+    CHECK(s2.empty());
+  }
+  SECTION("complex") {
+    //    REQUIRE(emio::scan("ab{", "a{}{{", s));
+    //    CHECK(s == "b");
+  }
+}

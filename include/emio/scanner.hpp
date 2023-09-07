@@ -98,4 +98,44 @@ class scanner<T> {
   detail::scan::scan_specs specs_{};
 };
 
+template <>
+class scanner<std::string_view> {
+ public:
+  static constexpr result<void> validate(reader& rdr) noexcept {
+    detail::scan::scan_string_specs specs{};
+    EMIO_TRYV(detail::scan::validate_scan_string_specs(rdr, specs));
+    if (specs.size == detail::scan::no_size) {
+      reader remaining = rdr;
+      if (remaining.read_if_match_char('{') && !remaining.read_if_match_char('{')) {
+        return err::invalid_format;
+      }
+    }
+    return success;
+  }
+
+  constexpr result<void> parse(reader& rdr) noexcept {
+    EMIO_TRYV(detail::scan::parse_scan_string_specs(rdr, specs_));
+    specs_.remaining = rdr;
+    return success;
+  }
+
+  constexpr result<void> scan(reader& input, std::string_view& arg) noexcept {
+    return detail::scan::read_arg(input, specs_, arg);
+  }
+
+ private:
+  detail::scan::scan_string_specs specs_;
+};
+
+template <>
+class scanner<std::string> : public scanner<std::string_view> {
+ public:
+  constexpr result<void> scan(reader& input, std::string& arg) noexcept {
+    std::string_view s;
+    EMIO_TRYV(scanner<std::string_view>::scan(input, s));
+    arg = s;
+    return success;
+  }
+};
+
 }  // namespace emio

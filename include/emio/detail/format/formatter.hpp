@@ -674,7 +674,7 @@ inline constexpr result<void> parse_format_specs(reader& rdr, format_specs& spec
   }
   if (detail::isalpha(c) || c == '?') {  // Type.
     specs.type = c;
-    rdr.pop();  // rdr.read_char() in validate_format_spec;
+    rdr.pop();  // rdr.read_char() in validate_format_specs;
   }
   return success;
 }
@@ -755,7 +755,7 @@ inline constexpr result<void> check_floating_point_specs(const format_specs& spe
   return err::invalid_format;
 }
 
-inline constexpr result<void> check_string_view_specs(const format_specs& specs) noexcept {
+inline constexpr result<void> check_string_specs_specs(const format_specs& specs) noexcept {
   if (specs.alternate_form || specs.sign != no_sign || specs.zero_flag ||
       (specs.precision != no_precision && specs.type == '?') ||
       (specs.type != no_type && specs.type != 's' && specs.type != '?')) {
