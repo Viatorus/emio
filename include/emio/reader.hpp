@@ -85,14 +85,6 @@ class reader {
   }
 
   /**
-   * Checks if the char stream is empty.
-   * @return True if empty, otherwise false.
-   */
-  [[nodiscard]] constexpr bool empty() const noexcept {
-    return (input_.size() - pos_) == 0;
-  }
-
-  /**
    * Obtains a view of the not yet read chars of the stream.
    * @return The view over the remaining chars.
    */

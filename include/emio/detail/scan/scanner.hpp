@@ -138,9 +138,8 @@ inline constexpr result<void> read_arg(reader& in, scan_string_specs& specs, std
     EMIO_TRY(arg, in.read_until_str(until_next, {.keep_delimiter = true}));
     return success;
   }
-  // Complex read until by including '{'
-  return success;
-  return success;
+  // TODO: Complex read by including {, maybe multiple times is not implemented yet.
+  return emio::err::invalid_format;
 }
 
 //
@@ -216,7 +215,7 @@ inline constexpr result<void> parse_scan_string_specs(reader& rdr, scan_string_s
     rdr.pop();  // rdr.read_char() in validate_scan_string_specs;
   }
   if (c == 's') {  // Type.
-    c = rdr.read_char().assume_value();
+    rdr.pop();     // rdr.read_char() in validate_scan_string_specs;
   }
   return success;
 }
@@ -250,8 +249,8 @@ inline constexpr bool has_scanner_v = std::is_constructible_v<scanner<Arg>>;
 
 template <typename T>
 concept has_validate_function_v = requires {
-                                    { scanner<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
-                                  };
+  { scanner<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
+};
 
 template <typename T>
 concept has_any_validate_function_v =
