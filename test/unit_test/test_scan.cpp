@@ -506,6 +506,25 @@ TEST_CASE("scan_string", "[scan]") {
     CHECK(s2 == "b");
   }
   SECTION("complex") {
-    // Not implemented yet.
+    std::string s2;
+    REQUIRE(emio::scan("abc{", "{}{{", s));
+    CHECK(s == "abc");
+
+    REQUIRE(emio::scan("abc}", "{}}}", s));
+    CHECK(s == "abc");
+
+    REQUIRE(emio::scan("abc{}def}x", "{}}}x", s));
+    CHECK(s == "abc{}def");
+
+    REQUIRE(emio::scan("abc{}def}x12", "{}}}x{}", s, s2));
+    CHECK(s == "abc{}def");
+    CHECK(s2 == "12");
+
+    REQUIRE(emio::scan("abc{x", "{}{{y", s) == emio::err::invalid_data);
   }
+
+  CHECK(validate_scan_string<std::string>("{:s}"));
+  CHECK(validate_scan_string<std::string_view>("{:s}"));
+  CHECK(!validate_scan_string<std::string>("{:#}"));
+  CHECK(!validate_scan_string<std::string>("{:d}"));
 }

@@ -104,13 +104,13 @@ class scanner<std::string_view> {
   static constexpr result<void> validate(reader& rdr) noexcept {
     detail::scan::scan_string_specs specs{};
     EMIO_TRYV(detail::scan::validate_scan_specs(rdr, specs));
-    if (specs.width == detail::scan::no_width) {
-      reader remaining = rdr;
-      if (remaining.read_if_match_char('{') && remaining.read_if_match_char('{')) {
-        // Complex part is not implemented yet.
-        return err::invalid_format;
-      }
-    }
+//    if (specs.width == detail::scan::no_width) {
+//      reader remaining = rdr;
+//      if (remaining.read_if_match_char('{') && remaining.read_if_match_char('{')) {
+//        // Complex part is not implemented yet.
+//        return err::invalid_format;
+//      }
+//    }
     EMIO_TRYV(detail::scan::check_string_specs(specs));
     return success;
   }

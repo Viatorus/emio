@@ -93,7 +93,7 @@ constexpr result<void> read_arg(reader& original_in, const scan_specs& specs, Ar
   reader in = original_in;
   if (specs.width != no_width) {
     EMIO_TRY(std::string_view sub_content, in.read_n_chars(static_cast<size_t>(specs.width)));
-    in = reader{sub_content}; // TODO TRIM?
+    in = reader{sub_content};  // TODO TRIM?
   }
 
   EMIO_TRY(const bool is_negative, parse_sign(in));
@@ -120,7 +120,7 @@ constexpr result<void> read_arg(reader& original_in, const scan_specs& specs, Ar
   EMIO_TRY(arg, parse_int<Arg>(in, base, is_negative));
 
   if (specs.width != no_width) {
-    if (!in.view_remaining().empty()) { // TODO: empty?
+    if (!in.view_remaining().empty()) {  // TODO: empty?
       return err::invalid_data;
     }
     original_in.pop(static_cast<size_t>(specs.width));
@@ -142,18 +142,71 @@ inline constexpr result<void> read_arg(reader& in, scan_string_specs& specs, std
     EMIO_TRY(arg, in.read_n_chars(static_cast<size_t>(specs.width)));
     return success;
   }
-  const result<std::string_view> until_next_res = specs.remaining.read_until_char('{');
+  const result<std::string_view> until_next_res = specs.remaining.read_until_any_of("{}", {.keep_delimiter = true});
   if (until_next_res == err::eof) {  // Just read until end.
     arg = in.read_remaining();
     return success;
   }
-  const std::string_view until_next = until_next_res.assume_value();
-  if (specs.remaining.peek() != '{') {  // Just read until match.
-    EMIO_TRY(arg, in.read_until_str(until_next, {.keep_delimiter = true}));
+  const auto r = [&] {
+    const char next_char = specs.remaining.read_char().assume_value();
+    const char overnext_char = specs.remaining.read_char().assume_value();  // Cannot be eof.
+    return (next_char == '{' && overnext_char != '{');
+  };
+
+  if (specs.remaining.eof() || r()) {  // Just read until matches_cnt.
+    EMIO_TRY(arg, in.read_until_str(until_next_res.assume_value(), {.keep_delimiter = true}));
     return success;
   }
-  // TODO: Complex read by including {, maybe multiple times is not implemented yet.
-  return emio::err::invalid_format;
+
+  const std::string_view remaining = in.view_remaining();
+  const char* const src_begin = remaining.begin();
+  const char* src_it = src_begin;
+  const char* const src_end = remaining.end();
+
+  specs.remaining.unpop(2);
+  const std::string_view spec_remaining = specs.remaining.view_remaining();
+  const char* const dst_begin = spec_remaining.begin();
+  const char* dst_it = dst_begin;
+  const char* const dst_end = spec_remaining.end();
+
+  size_t matches_cnt = 0;
+
+  while (true) {
+    if (dst_it == dst_end) {
+      break;  // Complete spec matches input. Succeed.
+    }
+    if (src_it == src_end) {
+      return err::invalid_data;  // Reached end of input. Fail.
+    }
+
+    // Check for maybe escaped { and }.
+    // Skip them.
+    if (*dst_it == '{') {                          // If + 1 wasn't there, it format wouldn't be validated.
+      EMIO_Z_DEV_ASSERT((dst_it + 1) != dst_end);  // Spec is already validated.
+      if (*(dst_it + 1) != '{') {                  // New replacement field.
+        break;                                     // Spec matches input. Succeed.
+      }
+      dst_it += 1;
+      EMIO_Z_DEV_ASSERT(*dst_it == '{');  // Must be '{'.
+    } else if (*dst_it == '}') {
+      EMIO_Z_DEV_ASSERT((dst_it + 1) != dst_end);  // Spec is already validated.
+      dst_it += 1;
+      EMIO_Z_DEV_ASSERT(*dst_it == '}');  // Must be '}'.
+    }
+
+    if (*src_it == *dst_it) {  // If input and spec match, check next spec char.
+      ++dst_it;
+      ++matches_cnt;
+    } else {  // Otherwise start from the beginning with the spec.
+      matches_cnt = 0;
+      dst_it = dst_begin;
+    }
+    ++src_it;
+  }
+  // Found matches_cnt.
+  arg = std::string_view{src_begin, src_it - matches_cnt};
+  in.pop(arg.size());
+  return success;
 }
 
 //
