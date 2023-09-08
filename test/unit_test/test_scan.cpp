@@ -149,7 +149,7 @@ TEST_CASE("incomplete scan", "[scan]") {
   }
 }
 
-TEST_CASE("scan char", "[scan]") {
+TEST_CASE("scan_char", "[scan]") {
   char c;
   REQUIRE(emio::scan("o", "{}", c));
   CHECK(c == 'o');
@@ -157,7 +157,15 @@ TEST_CASE("scan char", "[scan]") {
   REQUIRE(emio::scan("k", "{:c}", c));
   CHECK(c == 'k');
 
+  REQUIRE(emio::scan("f", "{:1}", c));
+  CHECK(c == 'f');
+
+  REQUIRE(emio::scan("g", "{:1c}", c));
+  CHECK(c == 'g');
+
   CHECK(validate_scan_string<char>("{:c}"));
+  CHECK(!validate_scan_string<char>("{:0}"));
+  CHECK(!validate_scan_string<char>("{:2}"));
   CHECK(!validate_scan_string<char>("{:d}"));
   CHECK(!validate_scan_string<char>("{:#}"));
 }
