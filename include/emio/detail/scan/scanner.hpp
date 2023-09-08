@@ -89,7 +89,13 @@ inline constexpr result<void> parse_alternate_form(reader& in, int base) noexcep
 
 template <typename Arg>
   requires(std::is_integral_v<Arg> && !std::is_same_v<Arg, bool> && !std::is_same_v<Arg, char>)
-constexpr result<void> read_arg(reader& in, const scan_specs& specs, Arg& arg) noexcept {
+constexpr result<void> read_arg(reader& original_in, const scan_specs& specs, Arg& arg) noexcept {
+  reader in = original_in;
+  if (specs.width != no_width) {
+    EMIO_TRY(std::string_view sub_content, in.read_n_chars(static_cast<size_t>(specs.width)));
+    in = reader{sub_content}; // TODO TRIM?
+  }
+
   EMIO_TRY(const bool is_negative, parse_sign(in));
 
   int base = 0;
@@ -111,8 +117,16 @@ constexpr result<void> read_arg(reader& in, const scan_specs& specs, Arg& arg) n
       EMIO_TRYV(disallow_sign(in));
     }
   }
-
   EMIO_TRY(arg, parse_int<Arg>(in, base, is_negative));
+
+  if (specs.width != no_width) {
+    if (!in.view_remaining().empty()) { // TODO: empty?
+      return err::invalid_data;
+    }
+    original_in.pop(static_cast<size_t>(specs.width));
+  } else {
+    original_in = in;
+  }
   return success;
 }
 

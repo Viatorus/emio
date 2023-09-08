@@ -240,6 +240,27 @@ TEST_CASE("detect base", "[scan]") {
   CHECK(!validate_scan_string<int>("{:.5}"));
 }
 
+TEST_CASE("integral with width", "[scan]") {
+  int val{};
+  int val2{};
+
+  REQUIRE(emio::scan("1524", "{:2}{:2}", val, val2));
+  CHECK(val == 15);
+  CHECK(val2 == 24);
+
+  REQUIRE(emio::scan("+0x5", "{:4#}", val));
+  CHECK(val == 5);
+
+  REQUIRE(emio::scan("+0x5", "{:2#}x{}", val, val2));
+  CHECK(val == 0);
+  CHECK(val2 == 5);
+
+  REQUIRE(emio::scan("12ab", "{:4}", val) == emio::err::invalid_data);
+  REQUIRE(emio::scan("+0x5", "{:1#}0x5", val) == emio::err::eof);
+  REQUIRE(emio::scan("+0x5", "{:6#}", val) == emio::err::eof);
+  REQUIRE(emio::scan("+0x5", "{:3#}5", val) == emio::err::eof);
+}
+
 TEST_CASE("scan_binary", "[scan]") {
   int val{};
   SECTION("no prefix") {
