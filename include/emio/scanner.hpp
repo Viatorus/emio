@@ -103,19 +103,20 @@ class scanner<std::string_view> {
  public:
   static constexpr result<void> validate(reader& rdr) noexcept {
     detail::scan::scan_string_specs specs{};
-    return detail::scan::validate_scan_string_specs(rdr, specs);
-    if (specs.size == detail::scan::no_size) {
+    EMIO_TRYV(detail::scan::validate_scan_specs(rdr, specs));
+    if (specs.width == detail::scan::no_width) {
       reader remaining = rdr;
       if (remaining.read_if_match_char('{') && remaining.read_if_match_char('{')) {
         // Complex part is not implemented yet.
         return err::invalid_format;
       }
     }
+    EMIO_TRYV(detail::scan::check_string_specs(specs));
     return success;
   }
 
   constexpr result<void> parse(reader& rdr) noexcept {
-    EMIO_TRYV(detail::scan::parse_scan_string_specs(rdr, specs_));
+    EMIO_TRYV(detail::scan::parse_scan_specs(rdr, specs_));
     specs_.remaining = rdr;
     return success;
   }

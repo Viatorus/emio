@@ -13,17 +13,16 @@
 namespace emio::detail::scan {
 
 inline constexpr char no_type = 0;
+inline constexpr int no_width = -1;
 
 struct scan_specs {
   bool alternate_form{false};
   char type{no_type};
+  int32_t width{no_width};
 };
 
-inline constexpr int no_size = -1;
-
-struct scan_string_specs {
+struct scan_string_specs : scan_specs {
   reader remaining;
-  int32_t size{no_size};
 };
 
 }  // namespace emio::detail::scan

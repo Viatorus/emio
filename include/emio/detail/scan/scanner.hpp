@@ -124,8 +124,8 @@ constexpr result<void> read_arg(reader& in, const scan_specs& /*unused*/, Arg& a
 }
 
 inline constexpr result<void> read_arg(reader& in, scan_string_specs& specs, std::string_view& arg) noexcept {
-  if (specs.size >= 0) {
-    EMIO_TRY(arg, in.read_n_chars(static_cast<size_t>(specs.size)));
+  if (specs.width != no_width) {
+    EMIO_TRY(arg, in.read_n_chars(static_cast<size_t>(specs.width)));
     return success;
   }
   const result<std::string_view> until_next_res = specs.remaining.read_until_char('{');
@@ -152,6 +152,16 @@ inline constexpr result<void> validate_scan_specs(reader& rdr, scan_specs& specs
   if (c == '}') {  // Scan end.
     return success;
   }
+
+  if (isdigit(c)) {  // Width.
+    rdr.unpop();
+    EMIO_TRY(const uint32_t size, rdr.parse_int<uint32_t>());
+    if (size == 0 || size > (static_cast<uint32_t>(std::numeric_limits<int32_t>::max()))) {
+      return err::invalid_format;
+    }
+    specs.width = static_cast<int32_t>(size);
+    EMIO_TRY(c, rdr.read_char());
+  }
   if (c == '#') {  // Alternate form.
     specs.alternate_form = true;
     EMIO_TRY(c, rdr.read_char());
@@ -171,6 +181,12 @@ inline constexpr result<void> parse_scan_specs(reader& rdr, scan_specs& specs) n
   if (c == '}') {  // Scan end.
     return success;
   }
+
+  if (isdigit(c)) {  // Width.
+    rdr.unpop();
+    specs.width = static_cast<int32_t>(rdr.parse_int<uint32_t>().assume_value());
+    c = rdr.read_char().assume_value();
+  }
   if (c == '#') {  // Alternate form.
     specs.alternate_form = true;
     c = rdr.read_char().assume_value();
@@ -182,46 +198,8 @@ inline constexpr result<void> parse_scan_specs(reader& rdr, scan_specs& specs) n
   return success;
 }
 
-// specs is passed by reference instead as return type to reduce copying of big value (and code bloat)
-inline constexpr result<void> validate_scan_string_specs(reader& rdr, scan_string_specs& specs) noexcept {
-  EMIO_TRY(char c, rdr.read_char());
-  if (c == '}') {  // Scan end.
-    return success;
-  }
-  if (c == '.') {  // Size.
-    EMIO_TRY(const uint32_t size, rdr.parse_int<uint32_t>());
-    if (size > (static_cast<uint32_t>(std::numeric_limits<int32_t>::max()))) {
-      return err::invalid_format;
-    }
-    specs.size = static_cast<int32_t>(size);
-    EMIO_TRY(c, rdr.read_char());
-  }
-  if (c == 's') {  // Type.
-    EMIO_TRY(c, rdr.read_char());
-  }
-  if (c == '}') {  // Scan end.
-    return success;
-  }
-  return err::invalid_format;
-}
-
-inline constexpr result<void> parse_scan_string_specs(reader& rdr, scan_string_specs& specs) noexcept {
-  char c = rdr.read_char().assume_value();
-  if (c == '}') {  // Scan end.
-    return success;
-  }
-  if (c == '.') {  // Size.
-    specs.size = static_cast<int32_t>(rdr.parse_int<uint32_t>().assume_value());
-    rdr.pop();  // rdr.read_char() in validate_scan_string_specs;
-  }
-  if (c == 's') {  // Type.
-    rdr.pop();     // rdr.read_char() in validate_scan_string_specs;
-  }
-  return success;
-}
-
 inline constexpr result<void> check_char_specs(const scan_specs& specs) noexcept {
-  if ((specs.type != no_type && specs.type != 'c') || (specs.alternate_form)) {
+  if ((specs.type != no_type && specs.type != 'c') || specs.alternate_form || specs.width > 1) {
     return err::invalid_format;
   }
   return success;
@@ -237,6 +215,13 @@ inline constexpr result<void> check_integral_specs(const scan_specs& specs) noex
     return success;
   }
   return err::invalid_format;
+}
+
+inline constexpr result<void> check_string_specs(const scan_specs& specs) noexcept {
+  if ((specs.type != no_type && specs.type != 's') || specs.alternate_form) {
+    return err::invalid_format;
+  }
+  return success;
 }
 
 //

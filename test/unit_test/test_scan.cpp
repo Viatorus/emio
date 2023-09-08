@@ -446,14 +446,14 @@ TEST_CASE("scan_string", "[scan]") {
     CHECK(s.empty());
   }
   SECTION("until given size") {
-    REQUIRE(emio::scan("abc", "{:.3}", s));
+    REQUIRE(emio::scan("abc", "{:3}", s));
     CHECK(s == "abc");
 
-    REQUIRE(emio::scan("aaa", "{:.2}a", s));
+    REQUIRE(emio::scan("aaa", "{:2}a", s));
     CHECK(s == "aa");
 
-    REQUIRE(emio::scan("abc", "{:.4}", s) == emio::err::eof);
-    REQUIRE(emio::scan("abc", "{:.3}c", s) == emio::err::eof);
+    REQUIRE(emio::scan("abc", "{:4}", s) == emio::err::eof);
+    REQUIRE(emio::scan("abc", "{:3}c", s) == emio::err::eof);
   }
   SECTION("until next") {
     std::string s2;
@@ -468,11 +468,11 @@ TEST_CASE("scan_string", "[scan]") {
     CHECK(s.empty());
     CHECK(s2 == "ab");
 
-    REQUIRE(emio::scan("abc", "{:.2}{}c", s, s2));
+    REQUIRE(emio::scan("abc", "{:2}{}c", s, s2));
     CHECK(s == "ab");
     CHECK(s2.empty());
 
-    REQUIRE(emio::scan("abc", "{:.1}{}c", s, s2));
+    REQUIRE(emio::scan("abc", "{:1}{}c", s, s2));
     CHECK(s == "a");
     CHECK(s2 == "b");
   }
