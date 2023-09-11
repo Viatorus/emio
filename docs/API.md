@@ -322,20 +322,20 @@ class emio::formatter<foo> {
   /**
    * Optional static function to validate the format spec for this type.
    * @note If not present, the parse function is invoked for validation.
-   * @param rdr The format reader.
+   * @param format_rdr The format reader.
    * @return Success if the format spec is valid.
    */
-  static constexpr result<void> validate(reader& rdr) noexcept {
-    return rdr.read_if_match_char('}');
+  static constexpr result<void> validate(reader& format_rdr) noexcept {
+    return format_rdr.read_if_match_char('}');
   }
 
   /**
    * Function to parse the format specs for this type.
-   * @param rdr The format reader.
+   * @param format_rdr The format reader.
    * @return Success if the format spec is valid and could be parsed.
    */
-  constexpr result<void> parse(reader& rdr) noexcept {
-    return rdr.read_if_match_char('}');
+  constexpr result<void> parse(reader& format_rdr) noexcept {
+    return format_rdr.read_if_match_char('}');
   }
 
   /**
@@ -499,20 +499,20 @@ class emio::scanner<foo> {
   /**
    * Optional static function to validate the scan specs for this type.
    * @note If not present, the parse function is invoked for validation.
-   * @param rdr The scan reader.
+   * @param scan_rdr The scan reader.
    * @return Success if the scan spec is valid.
    */
-  static constexpr result<void> validate(reader& rdr) noexcept {
-    return rdr.read_if_match_char('}');
+  static constexpr result<void> validate(reader& scan_rdr) noexcept {
+    return scan_rdr.read_if_match_char('}');
   }
 
   /**
    * Function to parse the scan specs for this type.
-   * @param rdr The scan reader.
+   * @param scan_rdr The scan reader.
    * @return Success if the scan spec is valid and could be parsed.
    */
-  constexpr result<void> parse(reader& rdr) noexcept {
-    return rdr.read_if_match_char('}');
+  constexpr result<void> parse(reader& scan_rdr) noexcept {
+    return scan_rdr.read_if_match_char('}');
   }
 
   /**

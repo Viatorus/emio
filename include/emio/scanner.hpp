@@ -32,20 +32,20 @@ class scanner {
   /**
    * Optional static function to validate the scan specs for this type.
    * @note If not present, the parse function is invoked for validation.
-   * @param rdr The scan reader.
+   * @param scan_rdr The scan reader.
    * @return Success if the scan spec is valid.
    */
-  static constexpr result<void> validate(reader& rdr) noexcept {
-    return rdr.read_if_match_char('}');
+  static constexpr result<void> validate(reader& scan_rdr) noexcept {
+    return scan_rdr.read_if_match_char('}');
   }
 
   /**
    * Function to parse the scan specs for this type.
-   * @param rdr The scan reader.
+   * @param scan_rdr The scan reader.
    * @return Success if the scan spec is valid and could be parsed.
    */
-  constexpr result<void> parse(reader& rdr) noexcept {
-    return rdr.read_if_match_char('}');
+  constexpr result<void> parse(reader& scan_rdr) noexcept {
+    return scan_rdr.read_if_match_char('}');
   }
 
   /**
@@ -73,9 +73,9 @@ template <typename T>
   requires(detail::scan::is_core_type_v<T>)
 class scanner<T> {
  public:
-  static constexpr result<void> validate(reader& rdr) noexcept {
+  static constexpr result<void> validate(reader& scan_rdr) noexcept {
     detail::scan::scan_specs specs{};
-    EMIO_TRYV(detail::scan::validate_scan_specs(rdr, specs));
+    EMIO_TRYV(detail::scan::validate_scan_specs(scan_rdr, specs));
     if constexpr (std::is_same_v<T, char>) {
       EMIO_TRYV(check_char_specs(specs));
     } else if constexpr (std::is_integral_v<T>) {
@@ -86,8 +86,8 @@ class scanner<T> {
     return success;
   }
 
-  constexpr result<void> parse(reader& rdr) noexcept {
-    return detail::scan::parse_scan_specs(rdr, specs_);
+  constexpr result<void> parse(reader& scan_rdr) noexcept {
+    return detail::scan::parse_scan_specs(scan_rdr, specs_);
   }
 
   constexpr result<void> scan(reader& input, T& arg) const noexcept {
@@ -101,32 +101,26 @@ class scanner<T> {
 template <>
 class scanner<std::string_view> {
  public:
-  static constexpr result<void> validate(reader& rdr) noexcept {
-    detail::scan::scan_string_specs specs{};
-    EMIO_TRYV(detail::scan::validate_scan_specs(rdr, specs));
-//    if (specs.width == detail::scan::no_width) {
-//      reader remaining = rdr;
-//      if (remaining.read_if_match_char('{') && remaining.read_if_match_char('{')) {
-//        // Complex part is not implemented yet.
-//        return err::invalid_format;
-//      }
-//    }
+  static constexpr result<void> validate(reader& scan_rdr) noexcept {
+    detail::scan::scan_specs specs{};
+    EMIO_TRYV(detail::scan::validate_scan_specs(scan_rdr, specs));
     EMIO_TRYV(detail::scan::check_string_specs(specs));
     return success;
   }
 
-  constexpr result<void> parse(reader& rdr) noexcept {
-    EMIO_TRYV(detail::scan::parse_scan_specs(rdr, specs_));
-    specs_.remaining = rdr;
+  constexpr result<void> parse(reader& scan_rdr) noexcept {
+    EMIO_TRYV(detail::scan::parse_scan_specs(scan_rdr, specs_));
+    scan_rdr_ = scan_rdr;
     return success;
   }
 
   constexpr result<void> scan(reader& input, std::string_view& arg) noexcept {
-    return detail::scan::read_arg(input, specs_, arg);
+    return detail::scan::read_string(input, specs_, scan_rdr_, arg);
   }
 
  private:
-  detail::scan::scan_string_specs specs_;
+  detail::scan::scan_specs specs_;
+  reader scan_rdr_;
 };
 
 template <>

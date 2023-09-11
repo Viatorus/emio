@@ -21,8 +21,4 @@ struct scan_specs {
   int32_t width{no_width};
 };
 
-struct scan_string_specs : scan_specs {
-  reader remaining;
-};
-
 }  // namespace emio::detail::scan

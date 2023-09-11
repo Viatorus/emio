@@ -137,76 +137,98 @@ constexpr result<void> read_arg(reader& in, const scan_specs& /*unused*/, Arg& a
   return success;
 }
 
-inline constexpr result<void> read_arg(reader& in, scan_string_specs& specs, std::string_view& arg) noexcept {
-  if (specs.width != no_width) {
+inline constexpr result<void> read_string_complex(reader& in, const std::string_view spec_remaining, // RENAME TODO
+                                                  std::string_view& arg) noexcept {
+  // The following algorithm compares the chars of the scan string specs (`spec`) against the chars of the input string
+  // (`in`).
+  // The chars are compared one by one (#1).
+  // The `spec` contains at least one escape sequence of '{{' or '}}', therefor, at least one char in `spec` must be
+  // skipped (#2).
+  // If there is a missmatch, the chars of `spec` starts from the beginning but `in` remains unchanged (#3)
+  // The algorithm ends successfully if:
+  // - all chars of `spec` are found inside `in` (#4)
+  // - chars in `spec` are found inside `in` and the next chars in `spec` is another replacement field (#5)
+  // The algorithm terminates without success if all chars of `in`has been compared (#6)
+
+  const char* const spec_begin = spec_remaining.begin();
+  const char* spec_it = spec_begin;
+  const char* const spec_end = spec_remaining.end();
+
+  const std::string_view remaining = in.view_remaining();
+  const char* const in_begin = remaining.begin();
+  const char* in_it = in_begin;
+  const char* const in_end = remaining.end();
+
+  size_t matches_cnt = 0;  // Count number matches.
+  while (true) {
+    if (spec_it == spec_end) {
+      break;  // Complete spec matches input. Succeed. #4
+    }
+    if (in_it == in_end) {
+      return err::invalid_data;  // Reached end of input. Fail. #6
+    }
+
+    // If there is an escape sequence, skip one spec char. #2
+    if (*spec_it == '{') {                           // If + 1 wasn't there, it format wouldn't be validated.
+      EMIO_Z_DEV_ASSERT((spec_it + 1) != spec_end);  // Spec is already validated.
+      if (*(spec_it + 1) != '{') {                   // New replacement field.
+        break;                                       // Spec matches input. Succeed. #5
+      }
+      spec_it += 1;                        // Skip.
+      EMIO_Z_DEV_ASSERT(*spec_it == '{');  // Must be '{'.
+    } else if (*spec_it == '}') {
+      EMIO_Z_DEV_ASSERT((spec_it + 1) != spec_end);  // Spec is already validated.
+      spec_it += 1;                                  // Skip.
+      EMIO_Z_DEV_ASSERT(*spec_it == '}');            // Must be '}'.
+    }
+
+    if (*in_it == *spec_it) {  // If input and spec match, check next spec char. #1
+      ++spec_it;
+      ++matches_cnt;
+    } else {  // Otherwise start from the beginning with the spec. #3
+      spec_it = spec_begin;
+      matches_cnt = 0;
+    }
+    ++in_it;
+  }
+  // `in` and `spec` matches. Capture string.
+  arg = std::string_view{in_begin, in_it - matches_cnt};
+  in.pop(arg.size());
+  return success;
+}
+
+inline constexpr result<void> read_string(reader& in, scan_specs& specs, reader& scan_rdr, std::string_view& arg) noexcept {
+  // There exists 5 cases on how to read a string.
+  // 1) The string spec has specified an exact width.
+  // 2) The remaining string spec is empty, read everything.
+  // 3) The remaining string spec does not contain any possible escape sequence ('{{' or '}}'), read until match.
+  // 4) The remaining string spec does contain a possible escape sequence, but it turns out, it is the replacement
+  //    field.
+  // 5) The remaining string spec does contain at least one escape sequence.
+
+  if (specs.width != no_width) {  // 1)
     EMIO_TRY(arg, in.read_n_chars(static_cast<size_t>(specs.width)));
     return success;
   }
-  const result<std::string_view> until_next_res = specs.remaining.read_until_any_of("{}", {.keep_delimiter = true});
-  if (until_next_res == err::eof) {  // Just read until end.
+  const result<std::string_view> until_next_res = scan_rdr.read_until_any_of("{}", {.keep_delimiter = true});
+  if (until_next_res == err::eof) {  // Read everything. 2)
     arg = in.read_remaining();
     return success;
   }
-  const auto r = [&] {
-    const char next_char = specs.remaining.read_char().assume_value();
-    const char overnext_char = specs.remaining.read_char().assume_value();  // Cannot be eof.
-    return (next_char == '{' && overnext_char != '{');
+
+  const result<char> next_char_res = scan_rdr.read_char();
+  const auto is_replacement_field = [&] {  // 4)
+    const char next_char = next_char_res.assume_value();
+    const char over_next_char = scan_rdr.read_char().assume_value();  // Spec is validated.
+    return next_char == '{' && over_next_char != '{';
   };
 
-  if (specs.remaining.eof() || r()) {  // Just read until matches_cnt.
+  if (next_char_res == err::eof /* 3) */ || is_replacement_field()) {
     EMIO_TRY(arg, in.read_until_str(until_next_res.assume_value(), {.keep_delimiter = true}));
     return success;
   }
-
-  const std::string_view remaining = in.view_remaining();
-  const char* const src_begin = remaining.begin();
-  const char* src_it = src_begin;
-  const char* const src_end = remaining.end();
-
-  specs.remaining.unpop(2);
-  const std::string_view spec_remaining = specs.remaining.view_remaining();
-  const char* const dst_begin = spec_remaining.begin();
-  const char* dst_it = dst_begin;
-  const char* const dst_end = spec_remaining.end();
-
-  size_t matches_cnt = 0;
-
-  while (true) {
-    if (dst_it == dst_end) {
-      break;  // Complete spec matches input. Succeed.
-    }
-    if (src_it == src_end) {
-      return err::invalid_data;  // Reached end of input. Fail.
-    }
-
-    // Check for maybe escaped { and }.
-    // Skip them.
-    if (*dst_it == '{') {                          // If + 1 wasn't there, it format wouldn't be validated.
-      EMIO_Z_DEV_ASSERT((dst_it + 1) != dst_end);  // Spec is already validated.
-      if (*(dst_it + 1) != '{') {                  // New replacement field.
-        break;                                     // Spec matches input. Succeed.
-      }
-      dst_it += 1;
-      EMIO_Z_DEV_ASSERT(*dst_it == '{');  // Must be '{'.
-    } else if (*dst_it == '}') {
-      EMIO_Z_DEV_ASSERT((dst_it + 1) != dst_end);  // Spec is already validated.
-      dst_it += 1;
-      EMIO_Z_DEV_ASSERT(*dst_it == '}');  // Must be '}'.
-    }
-
-    if (*src_it == *dst_it) {  // If input and spec match, check next spec char.
-      ++dst_it;
-      ++matches_cnt;
-    } else {  // Otherwise start from the beginning with the spec.
-      matches_cnt = 0;
-      dst_it = dst_begin;
-    }
-    ++src_it;
-  }
-  // Found matches_cnt.
-  arg = std::string_view{src_begin, src_it - matches_cnt};
-  in.pop(arg.size());
-  return success;
+  scan_rdr.unpop(2);                                               // Undo replacement field check from 4).
+  return read_string_complex(in, scan_rdr.view_remaining(), arg);  // 5)
 }
 
 //
