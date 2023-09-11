@@ -26,11 +26,11 @@ using valid_scan_string = detail::scan::valid_scan_string<Args...>;
 
 /**
  * Returns an object that stores a scan spec string with an array of all arguments to scan.
-
+ *
  * @note The storage uses reference semantics and does not extend the lifetime of args. It is the programmer's
  * responsibility to ensure that args outlive the return value. Usually, the result is only used as argument to a
  * scanning function taking scan_args by reference.
-
+ *
  * @param spec_str The scan spec string.
  * @param args The arguments to be scanned.
  * @return Internal type. Implicit convertible to scan_args.

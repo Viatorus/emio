@@ -29,11 +29,11 @@ using valid_format_string = detail::format::valid_format_string<Args...>;
 
 /**
  * Returns an object that stores a format spec string with an array of all arguments to format.
-
+ *
  * @note The storage uses reference semantics and does not extend the lifetime of args. It is the programmer's
  * responsibility to ensure that args outlive the return value. Usually, the result is only used as argument to a
  * formatting function taking format_args by reference.
-
+ *
  * @param spec_str The format spec string.
  * @param args The arguments to be formatted.
  * @return Internal type. Implicit convertible to format_args.
