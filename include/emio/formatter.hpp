@@ -49,12 +49,12 @@ class formatter {
 
   /**
    * Function to format the object of this type according to the parsed format specs.
-   * @param wtr The output writer.
+   * @param out The output writer.
    * @param arg The argument to format.
    * @return Success if the formatting could be done.
    */
-  constexpr result<void> format(writer& wtr, const T& arg) const noexcept {
-    return wtr.write_int(sizeof(arg));
+  constexpr result<void> format(writer& out, const T& arg) const noexcept {
+    return out.write_int(sizeof(arg));
   }
 };
 
@@ -100,9 +100,9 @@ class formatter<T> {
     return detail::format::parse_format_specs(format_rdr, specs_);
   }
 
-  constexpr result<void> format(writer& wtr, const T& arg) const noexcept {
+  constexpr result<void> format(writer& out, const T& arg) const noexcept {
     auto specs = specs_;  // Copy spec because format could be called multiple times (e.g. ranges).
-    return write_arg(wtr, specs, arg);
+    return write_arg(out, specs, arg);
   }
 
   /**
@@ -158,8 +158,8 @@ template <typename T>
   requires(std::is_enum_v<T> && std::is_convertible_v<T, std::underlying_type_t<T>>)
 class formatter<T> : public formatter<std::underlying_type_t<T>> {
  public:
-  constexpr result<void> format(writer& wtr, const T& arg) const noexcept {
-    return formatter<std::underlying_type_t<T>>::format(wtr, static_cast<std::underlying_type_t<T>>(arg));
+  constexpr result<void> format(writer& out, const T& arg) const noexcept {
+    return formatter<std::underlying_type_t<T>>::format(out, static_cast<std::underlying_type_t<T>>(arg));
   }
 };
 
@@ -171,8 +171,8 @@ template <typename T>
   requires(detail::format::has_format_as<T>)
 class formatter<T> : public formatter<detail::format::format_as_return_t<T>> {
  public:
-  constexpr result<void> format(writer& wtr, const T& arg) const noexcept {
-    return formatter<detail::format::format_as_return_t<T>>::format(wtr, format_as(arg));
+  constexpr result<void> format(writer& out, const T& arg) const noexcept {
+    return formatter<detail::format::format_as_return_t<T>>::format(out, format_as(arg));
   }
 };
 
@@ -242,9 +242,9 @@ class formatter<detail::format_spec_with_value<T>> {
     return underlying_.parse(format_rdr);
   }
 
-  constexpr result<void> format(writer& wtr, const detail::format_spec_with_value<T>& arg) noexcept {
+  constexpr result<void> format(writer& out, const detail::format_spec_with_value<T>& arg) noexcept {
     overwrite_spec(arg.spec);
-    return underlying_.format(wtr, arg.value);
+    return underlying_.format(out, arg.value);
   }
 
  private:

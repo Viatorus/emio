@@ -340,11 +340,11 @@ class emio::formatter<foo> {
 
   /**
    * Function to format the object of this type according to the parsed format specs.
-   * @param wtr The output writer.
+   * @param out The output writer.
    * @param arg The argument to format.
    * @return Success if the formatting could be done.
    */
-  constexpr result<void> format(writer& wtr, const foo& arg) const noexcept {
+  constexpr result<void> format(writer& out, const foo& arg) const noexcept {
     return wtr.write_int(arg.x);
   }
 };
@@ -364,7 +364,7 @@ struct foo {
 template <>
 class emio::formatter<foo> : public emio::format<int> {
  public:
-  constexpr result<void> format(writer& wtr, const foo& arg) noexcept {
+  constexpr result<void> format(writer& out, const foo& arg) noexcept {
     return emio::format<int>::format(wtr, arg.x);
   }
 };

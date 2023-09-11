@@ -75,8 +75,8 @@ class formatter<T> {
     return underlying_.parse(rdr);
   }
 
-  constexpr result<void> format(writer& wtr, const T& arg) const noexcept {
-    EMIO_TRYV(wtr.write_str(specs_.opening_bracket));
+  constexpr result<void> format(writer& out, const T& arg) const noexcept {
+    EMIO_TRYV(out.write_str(specs_.opening_bracket));
 
     using std::begin;
     using std::end;
@@ -84,11 +84,11 @@ class formatter<T> {
     const auto last = end(arg);
     for (auto it = first; it != last; ++it) {
       if (it != first) {
-        EMIO_TRYV(wtr.write_str(specs_.separator));
+        EMIO_TRYV(out.write_str(specs_.separator));
       }
-      EMIO_TRYV(underlying_.format(wtr, *it));
+      EMIO_TRYV(underlying_.format(out, *it));
     }
-    EMIO_TRYV(wtr.write_str(specs_.closing_bracket));
+    EMIO_TRYV(out.write_str(specs_.closing_bracket));
     return success;
   }
 
@@ -159,10 +159,10 @@ class formatter<T> {
     return parse_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), rdr, set_debug);
   }
 
-  constexpr result<void> format(writer& wtr, const T& args) const noexcept {
-    EMIO_TRYV(wtr.write_str(specs_.opening_bracket));
-    EMIO_TRYV(format_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), wtr, args));
-    EMIO_TRYV(wtr.write_str(specs_.closing_bracket));
+  constexpr result<void> format(writer& out, const T& args) const noexcept {
+    EMIO_TRYV(out.write_str(specs_.opening_bracket));
+    EMIO_TRYV(format_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), out, args));
+    EMIO_TRYV(out.write_str(specs_.closing_bracket));
     return success;
   }
 
@@ -226,18 +226,18 @@ class formatter<T> {
   }
 
   template <size_t N, size_t... Ns>
-  constexpr result<void> format_for_each(std::index_sequence<N, Ns...> /*unused*/, writer& wtr,
+  constexpr result<void> format_for_each(std::index_sequence<N, Ns...> /*unused*/, writer& out,
                                          const T& args) const noexcept {
     using std::get;
-    EMIO_TRYV(get<N>(formatters_).format(wtr, get<N>(args)));
+    EMIO_TRYV(get<N>(formatters_).format(out, get<N>(args)));
 
     result<void> res = success;
-    const auto format = [&res, &wtr, this](auto& f, const auto& arg) {
-      res = wtr.write_str(specs_.separator);
+    const auto format = [&res, &out, this](auto& f, const auto& arg) {
+      res = out.write_str(specs_.separator);
       if (res.has_error()) {
         return false;
       }
-      res = f.format(wtr, arg);
+      res = f.format(out, arg);
       return res.has_value();
     };
     static_cast<void>(format);  // Maybe unused warning.
@@ -247,7 +247,7 @@ class formatter<T> {
     return res;
   }
 
-  constexpr result<void> format_for_each(std::index_sequence<> /*unused*/, writer& /*wtr*/,
+  constexpr result<void> format_for_each(std::index_sequence<> /*unused*/, writer& /*out*/,
                                          const T& /*args*/) const noexcept {
     return success;
   }

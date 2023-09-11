@@ -15,15 +15,15 @@ template <typename Arg>
 struct scan_arg_trait {
   using unified_type = Arg&;
 
-  static constexpr result<void> validate(reader& format_is) noexcept {
+  static constexpr result<void> validate(reader& scan_rdr) noexcept {
     // Check if a scanner exist and a correct validate method is implemented. If not, use the parse method.
     if constexpr (has_scanner_v<Arg>) {
       if constexpr (has_validate_function_v<Arg>) {
-        return scanner<Arg>::validate(format_is);
+        return scanner<Arg>::validate(scan_rdr);
       } else {
         static_assert(!has_any_validate_function_v<Arg>,
                       "Scanner seems to have a validate property which doesn't fit the desired signature.");
-        return scanner<Arg>{}.parse(format_is);
+        return scanner<Arg>{}.parse(scan_rdr);
       }
     } else {
       static_assert(has_scanner_v<Arg>,
@@ -32,10 +32,10 @@ struct scan_arg_trait {
     }
   }
 
-  static constexpr result<void> process_arg(reader& input, reader& scan_is, Arg& arg) noexcept {
+  static constexpr result<void> process_arg(reader& in, reader& scan_rdr, Arg& arg) noexcept {
     scanner<Arg> scanner;
-    EMIO_TRYV(scanner.parse(scan_is));
-    return scanner.scan(input, arg);
+    EMIO_TRYV(scanner.parse(scan_rdr));
+    return scanner.scan(in, arg);
   }
 };
 

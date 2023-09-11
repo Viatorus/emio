@@ -15,8 +15,8 @@ struct wrap {
 template <>
 class emio::formatter<wrap> : public emio::formatter<int> {
  public:
-  constexpr result<void> format(writer& wtr, const wrap& arg) const noexcept {
-    return formatter<int>::format(wtr, arg.id);
+  constexpr result<void> format(writer& out, const wrap& arg) const noexcept {
+    return formatter<int>::format(out, arg.id);
   }
 };
 
@@ -84,8 +84,8 @@ class emio::formatter<foo> {
     return success;
   }
 
-  constexpr result<void> format(writer& wtr, const foo& arg) const noexcept {
-    return emio::format_to(wtr.get_buffer(), "foo: {}", sign_ * arg.id);
+  constexpr result<void> format(writer& out, const foo& arg) const noexcept {
+    return emio::format_to(out.get_buffer(), "foo: {}", sign_ * arg.id);
   }
 
  private:
@@ -163,11 +163,11 @@ class emio::formatter<bar> {
     return success;
   }
 
-  result<void> format(writer& wtr, const bar& /*arg*/) const noexcept {
+  result<void> format(writer& out, const bar& /*arg*/) const noexcept {
     if (upper_case_) {
-      return wtr.write_str("BAR");
+      return out.write_str("BAR");
     }
-    return wtr.write_str("bar");
+    return out.write_str("bar");
   }
 
  private:
@@ -207,8 +207,8 @@ class emio::formatter<foobar> {
     return emio::err::invalid_format;
   }
 
-  constexpr result<void> format(writer& wtr, const foobar& arg) const noexcept {
-    return emio::format_to(wtr.get_buffer(), "foobar: {}", sign_ * arg.id);
+  constexpr result<void> format(writer& out, const foobar& arg) const noexcept {
+    return emio::format_to(out.get_buffer(), "foobar: {}", sign_ * arg.id);
   }
 
  private:
