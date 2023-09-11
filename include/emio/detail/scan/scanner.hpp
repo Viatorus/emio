@@ -242,6 +242,10 @@ inline constexpr result<void> validate_scan_specs(reader& spec_rdr, scan_specs& 
     return success;
   }
 
+  if (c == '#') {  // Alternate form.
+    specs.alternate_form = true;
+    EMIO_TRY(c, spec_rdr.read_char());
+  }
   if (isdigit(c)) {  // Width.
     spec_rdr.unpop();
     EMIO_TRY(const uint32_t size, spec_rdr.parse_int<uint32_t>());
@@ -249,10 +253,6 @@ inline constexpr result<void> validate_scan_specs(reader& spec_rdr, scan_specs& 
       return err::invalid_format;
     }
     specs.width = static_cast<int32_t>(size);
-    EMIO_TRY(c, spec_rdr.read_char());
-  }
-  if (c == '#') {  // Alternate form.
-    specs.alternate_form = true;
     EMIO_TRY(c, spec_rdr.read_char());
   }
   if (detail::isalpha(c)) {
@@ -271,13 +271,13 @@ inline constexpr result<void> parse_scan_specs(reader& spec_rdr, scan_specs& spe
     return success;
   }
 
+  if (c == '#') {  // Alternate form.
+    specs.alternate_form = true;
+    c = spec_rdr.read_char().assume_value();
+  }
   if (isdigit(c)) {  // Width.
     spec_rdr.unpop();
     specs.width = static_cast<int32_t>(spec_rdr.parse_int<uint32_t>().assume_value());
-    c = spec_rdr.read_char().assume_value();
-  }
-  if (c == '#') {  // Alternate form.
-    specs.alternate_form = true;
     c = spec_rdr.read_char().assume_value();
   }
   if (detail::isalpha(c)) {

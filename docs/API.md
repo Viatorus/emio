@@ -16,8 +16,7 @@ The public namespace is `emio` only - no deeper nesting.
 * [Reader](#reader)
 * [Writer](#writer)
 * [Format](#format)
-    - [Dynamic format specification](#dynamic-format-specification)
-
+    + [Dynamic format specification](#dynamic-format-specification)
     + [Formatter](#formatter)
 * [Print](#print)
 * [Scan](#scan)
@@ -243,7 +242,7 @@ type        ::=  "b" | "B" | "c" | "d" | "o" | "s" | "x" | "X" | "e" | "E" | "f"
 ```
 
 The syntax of the format spec string is validated at compile-time. If a validation at runtime is required, the string
-must  be wrapped inside a `runtime_string` object. There is a simple helper function for that:
+must be wrapped inside a `runtime_string` object. There is a simple helper function for that:
 
 `runtime(string_view) -> runtime_string`
 
@@ -281,7 +280,7 @@ implementations and reduce the binary size. **Note:** These type erased function
 - Keep in mind that the storage uses reference semantics and does not extend the lifetime of args. It is the
   programmer's responsibility to ensure that args outlive the return value.
 
-#### Dynamic format specification
+### Dynamic format specification
 
 Unlike other libraries, the format specification cannot be changed through extra replacement fields, as it is possible
 e.g. with fmt to dynamically set the precision to 1 with `fmt::format("{:.{}f}", 3.14, 1);`.
@@ -431,9 +430,9 @@ The following functions use a scan spec syntax which is similar to the format sy
 The grammar for the replacement field is the same. The grammar for the scan specification is as follows:
 
 ```sass
-format_spec ::=  ["#"][type]
+format_spec ::=  ["#"][width][type]
 
-type        ::=  "b" | "B" | "c" | "d" | "o" | "x" | "X"
+type        ::=  "b" | "B" | "c" | "d" | "o" | "s" | "x" | "X"
 ```
 
 `type`
@@ -443,6 +442,8 @@ type        ::=  "b" | "B" | "c" | "d" | "o" | "x" | "X"
     - d: base 10 (decimal)
     - o: base 8 (octal)
     - x/X: base 16 (hexadecimal)
+- c for char
+- s for string/string_view
 
 `#`
 
