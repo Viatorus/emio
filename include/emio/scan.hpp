@@ -11,8 +11,8 @@
 namespace emio {
 
 /**
- * Provides access to the scan string and the arguments to scan.
- * @note This type should only be "constructed" via make_scan_args(scan_str, args...) and passed directly to a
+ * Provides access to the scan spec string and the arguments to scan.
+ * @note This type should only be "constructed" via make_scan_args(spec_str, args...) and passed directly to a
  * scanning function.
  */
 using scan_args = detail::args_span<detail::scan::scan_arg>;
@@ -25,75 +25,75 @@ template <typename... Args>
 using valid_scan_string = detail::scan::valid_scan_string<Args...>;
 
 /**
- * Returns an object that stores a scan string with an array of all arguments to scan.
+ * Returns an object that stores a scan spec string with an array of all arguments to scan.
 
  * @note The storage uses reference semantics and does not extend the lifetime of args. It is the programmer's
  * responsibility to ensure that args outlive the return value. Usually, the result is only used as argument to a
  * scanning function taking scan_args by reference.
 
- * @param scan_str The scan string.
+ * @param spec_str The scan spec string.
  * @param args The arguments to be scanned.
  * @return Internal type. Implicit convertible to scan_args.
  */
 template <typename... Args>
 [[nodiscard]] detail::args_storage<detail::scan::scan_arg, sizeof...(Args)> make_scan_args(
-    scan_string<Args...> scan_str, Args&... args) noexcept {
-  return {scan_str.get(), args...};
+    scan_string<Args...> spec_str, Args&... args) noexcept {
+  return {spec_str.get(), args...};
 }
 
 /**
- * Scans the content of the reader for the given arguments according to the scan string.
- * @param rdr The reader to scan.
- * @param args The scan args with scan string.
+ * Scans the content of the reader for the given arguments according to the scan spec string.
+ * @param in_rdr The reader to scan.
+ * @param args The scan args with scan spec string.
  * @return Success if the scanning was successfully for all arguments. The reader may not be empty.
  */
-inline result<void> vscan_from(reader& rdr, const scan_args& args) noexcept {
-  return detail::scan::vscan_from(rdr, args);
+inline result<void> vscan_from(reader& in_rdr, const scan_args& args) noexcept {
+  return detail::scan::vscan_from(in_rdr, args);
 }
 
 /**
- * Scans the content of the input string for the given arguments according to the scan string.
- * @param input The input string to scan.
- * @param args The scan args with scan string.
+ * Scans the content of the input string for the given arguments according to the scan spec string.
+ * @param in The input string to scan.
+ * @param args The scan args with scan spec string.
  * @return Success if the scanning was successfully for all arguments for the entire input string.
  */
-inline result<void> vscan(std::string_view input, const scan_args& args) noexcept {
-  reader rdr{input};
-  EMIO_TRYV(detail::scan::vscan_from(rdr, args));
-  if (rdr.eof()) {
+inline result<void> vscan(std::string_view in, const scan_args& args) noexcept {
+  reader in_rdr{in};
+  EMIO_TRYV(detail::scan::vscan_from(in_rdr, args));
+  if (in_rdr.eof()) {
     return success;
   }
   return err::invalid_format;
 }
 
 /**
- * Scans the content of the reader for the given arguments according to the scan string.
- * @param rdr The reader.
- * @param scan_string The scan string.
+ * Scans the content of the reader for the given arguments according to the scan spec string.
+ * @param in_rdr The reader to scan.
+ * @param spec_str The scan spec string.
  * @param args The arguments which are to be scanned.
  * @return Success if the scanning was successfully for all arguments. The reader may not be empty.
  */
 template <typename... Args>
-constexpr result<void> scan_from(reader& rdr, scan_string<Args...> scan_string, Args&... args) {
+constexpr result<void> scan_from(reader& in_rdr, scan_string<Args...> spec_str, Args&... args) {
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
-    EMIO_TRYV(detail::scan::scan_from(rdr, scan_string, args...));
+    EMIO_TRYV(detail::scan::scan_from(in_rdr, spec_str, args...));
   } else {
-    EMIO_TRYV(detail::scan::vscan_from(rdr, make_scan_args(scan_string, args...)));
+    EMIO_TRYV(detail::scan::vscan_from(in_rdr, make_scan_args(spec_str, args...)));
   }
   return success;
 }
 
 /**
- * Scans the input string for the given arguments according to the scan string.
+ * Scans the input string for the given arguments according to the scan spec string.
  * @param input The input string.
- * @param scan_string The scan string.
+ * @param spec_str The scan spec string.
  * @param args The arguments which are to be scanned.
  * @return Success if the scanning was successfully for all arguments for the entire input string.
  */
 template <typename... Args>
-constexpr result<void> scan(std::string_view input, scan_string<Args...> scan_string, Args&... args) {
+constexpr result<void> scan(std::string_view input, scan_string<Args...> spec_str, Args&... args) {
   reader rdr{input};
-  EMIO_TRYV(scan_from(rdr, scan_string, args...));
+  EMIO_TRYV(emio::scan_from(rdr, spec_str, args...));
   if (rdr.eof()) {
     return success;
   }

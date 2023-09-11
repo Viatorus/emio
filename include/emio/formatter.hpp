@@ -31,20 +31,20 @@ class formatter {
   /**
    * Optional static function to validate the format spec for this type.
    * @note If not present, the parse function is invoked for validation.
-   * @param format_rdr The format reader.
+   * @param spec_rdr The format spec reader.
    * @return Success if the format spec is valid.
    */
-  static constexpr result<void> validate(reader& format_rdr) noexcept {
-    return format_rdr.read_if_match_char('}');
+  static constexpr result<void> validate(reader& spec_rdr) noexcept {
+    return spec_rdr.read_if_match_char('}');
   }
 
   /**
    * Function to parse the format specs for this type.
-   * @param format_rdr The format reader.
+   * @param spec_rdr The format spec reader.
    * @return Success if the format spec is valid and could be parsed.
    */
-  constexpr result<void> parse(reader& format_rdr) noexcept {
-    return format_rdr.read_if_match_char('}');
+  constexpr result<void> parse(reader& spec_rdr) noexcept {
+    return spec_rdr.read_if_match_char('}');
   }
 
   /**
@@ -72,9 +72,9 @@ template <typename T>
   requires(detail::format::is_core_type_v<T>)
 class formatter<T> {
  public:
-  static constexpr result<void> validate(reader& format_rdr) noexcept {
+  static constexpr result<void> validate(reader& spec_rdr) noexcept {
     detail::format::format_specs specs{};
-    EMIO_TRYV(validate_format_specs(format_rdr, specs));
+    EMIO_TRYV(validate_format_specs(spec_rdr, specs));
     if constexpr (std::is_same_v<T, bool>) {
       EMIO_TRYV(check_bool_specs(specs));
     } else if constexpr (std::is_same_v<T, char>) {
@@ -96,8 +96,8 @@ class formatter<T> {
     return success;
   }
 
-  constexpr result<void> parse(reader& format_rdr) noexcept {
-    return detail::format::parse_format_specs(format_rdr, specs_);
+  constexpr result<void> parse(reader& spec_rdr) noexcept {
+    return detail::format::parse_format_specs(spec_rdr, specs_);
   }
 
   constexpr result<void> format(writer& out, const T& arg) const noexcept {
@@ -187,7 +187,7 @@ struct format_spec_with_value;
  * Struct to dynamically specify width and precision.
  */
 struct format_spec {
-  /// Constant which indicates that the spec should not overwrite existing spec defined in the format string.
+  /// Constant which indicates that the spec should not overwrite existing spec defined in the format spec string.
   static constexpr int32_t not_defined = -std::numeric_limits<int32_t>::max();
 
   /// The width.
@@ -234,12 +234,12 @@ template <typename T>
 template <typename T>
 class formatter<detail::format_spec_with_value<T>> {
  public:
-  static constexpr result<void> validate(reader& format_rdr) noexcept {
-    return formatter<T>::validate(format_rdr);
+  static constexpr result<void> validate(reader& spec_rdr) noexcept {
+    return formatter<T>::validate(spec_rdr);
   }
 
-  constexpr result<void> parse(reader& format_rdr) noexcept {
-    return underlying_.parse(format_rdr);
+  constexpr result<void> parse(reader& spec_rdr) noexcept {
+    return underlying_.parse(spec_rdr);
   }
 
   constexpr result<void> format(writer& out, const detail::format_spec_with_value<T>& arg) noexcept {

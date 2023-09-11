@@ -137,7 +137,7 @@ constexpr result<void> read_arg(reader& in, const scan_specs& /*unused*/, Arg& a
   return success;
 }
 
-inline constexpr result<void> read_string_complex(reader& in, const std::string_view spec_remaining, // RENAME TODO
+inline constexpr result<void> read_string_complex(reader& in, const std::string_view spec_remaining,
                                                   std::string_view& arg) noexcept {
   // The following algorithm compares the chars of the scan string specs (`spec`) against the chars of the input string
   // (`in`).
@@ -154,10 +154,10 @@ inline constexpr result<void> read_string_complex(reader& in, const std::string_
   const char* spec_it = spec_begin;
   const char* const spec_end = spec_remaining.end();
 
-  const std::string_view remaining = in.view_remaining();
-  const char* const in_begin = remaining.begin();
+  const std::string_view in_remaining = in.view_remaining();
+  const char* const in_begin = in_remaining.begin();
   const char* in_it = in_begin;
-  const char* const in_end = remaining.end();
+  const char* const in_end = in_remaining.end();
 
   size_t matches_cnt = 0;  // Count number matches.
   while (true) {
@@ -169,16 +169,16 @@ inline constexpr result<void> read_string_complex(reader& in, const std::string_
     }
 
     // If there is an escape sequence, skip one spec char. #2
-    if (*spec_it == '{') {                           // If + 1 wasn't there, it format wouldn't be validated.
+    if (*spec_it == '{') {
       EMIO_Z_DEV_ASSERT((spec_it + 1) != spec_end);  // Spec is already validated.
       if (*(spec_it + 1) != '{') {                   // New replacement field.
         break;                                       // Spec matches input. Succeed. #5
       }
-      spec_it += 1;                        // Skip.
+      spec_it += 1;                        // Skip escaped one.
       EMIO_Z_DEV_ASSERT(*spec_it == '{');  // Must be '{'.
     } else if (*spec_it == '}') {
       EMIO_Z_DEV_ASSERT((spec_it + 1) != spec_end);  // Spec is already validated.
-      spec_it += 1;                                  // Skip.
+      spec_it += 1;                                  // Skip escaped one.
       EMIO_Z_DEV_ASSERT(*spec_it == '}');            // Must be '}'.
     }
 
@@ -197,7 +197,8 @@ inline constexpr result<void> read_string_complex(reader& in, const std::string_
   return success;
 }
 
-inline constexpr result<void> read_string(reader& in, scan_specs& specs, reader& scan_rdr, std::string_view& arg) noexcept {
+inline constexpr result<void> read_string(reader& in, scan_specs& specs, reader& spec_rdr,
+                                          std::string_view& arg) noexcept {
   // There exists 5 cases on how to read a string.
   // 1) The string spec has specified an exact width.
   // 2) The remaining string spec is empty, read everything.
@@ -210,16 +211,16 @@ inline constexpr result<void> read_string(reader& in, scan_specs& specs, reader&
     EMIO_TRY(arg, in.read_n_chars(static_cast<size_t>(specs.width)));
     return success;
   }
-  const result<std::string_view> until_next_res = scan_rdr.read_until_any_of("{}", {.keep_delimiter = true});
+  const result<std::string_view> until_next_res = spec_rdr.read_until_any_of("{}", {.keep_delimiter = true});
   if (until_next_res == err::eof) {  // Read everything. 2)
     arg = in.read_remaining();
     return success;
   }
 
-  const result<char> next_char_res = scan_rdr.read_char();
+  const result<char> next_char_res = spec_rdr.read_char();
   const auto is_replacement_field = [&] {  // 4)
     const char next_char = next_char_res.assume_value();
-    const char over_next_char = scan_rdr.read_char().assume_value();  // Spec is validated.
+    const char over_next_char = spec_rdr.read_char().assume_value();  // Spec is validated.
     return next_char == '{' && over_next_char != '{';
   };
 
@@ -227,8 +228,8 @@ inline constexpr result<void> read_string(reader& in, scan_specs& specs, reader&
     EMIO_TRY(arg, in.read_until_str(until_next_res.assume_value(), {.keep_delimiter = true}));
     return success;
   }
-  scan_rdr.unpop(2);                                               // Undo replacement field check from 4).
-  return read_string_complex(in, scan_rdr.view_remaining(), arg);  // 5)
+  spec_rdr.unpop(2);                                               // Undo replacement field check from 4).
+  return read_string_complex(in, spec_rdr.view_remaining(), arg);  // 5)
 }
 
 //
@@ -236,28 +237,28 @@ inline constexpr result<void> read_string(reader& in, scan_specs& specs, reader&
 //
 
 // specs is passed by reference instead as return type to reduce copying of big value (and code bloat)
-inline constexpr result<void> validate_scan_specs(reader& rdr, scan_specs& specs) noexcept {
-  EMIO_TRY(char c, rdr.read_char());
+inline constexpr result<void> validate_scan_specs(reader& spec_rdr, scan_specs& specs) noexcept {
+  EMIO_TRY(char c, spec_rdr.read_char());
   if (c == '}') {  // Scan end.
     return success;
   }
 
   if (isdigit(c)) {  // Width.
-    rdr.unpop();
-    EMIO_TRY(const uint32_t size, rdr.parse_int<uint32_t>());
+    spec_rdr.unpop();
+    EMIO_TRY(const uint32_t size, spec_rdr.parse_int<uint32_t>());
     if (size == 0 || size > (static_cast<uint32_t>(std::numeric_limits<int32_t>::max()))) {
       return err::invalid_format;
     }
     specs.width = static_cast<int32_t>(size);
-    EMIO_TRY(c, rdr.read_char());
+    EMIO_TRY(c, spec_rdr.read_char());
   }
   if (c == '#') {  // Alternate form.
     specs.alternate_form = true;
-    EMIO_TRY(c, rdr.read_char());
+    EMIO_TRY(c, spec_rdr.read_char());
   }
   if (detail::isalpha(c)) {
     specs.type = c;
-    EMIO_TRY(c, rdr.read_char());
+    EMIO_TRY(c, spec_rdr.read_char());
   }
   if (c == '}') {  // Scan end.
     return success;
@@ -265,24 +266,24 @@ inline constexpr result<void> validate_scan_specs(reader& rdr, scan_specs& specs
   return err::invalid_format;
 }
 
-inline constexpr result<void> parse_scan_specs(reader& rdr, scan_specs& specs) noexcept {
-  char c = rdr.read_char().assume_value();
+inline constexpr result<void> parse_scan_specs(reader& spec_rdr, scan_specs& specs) noexcept {
+  char c = spec_rdr.read_char().assume_value();
   if (c == '}') {  // Scan end.
     return success;
   }
 
   if (isdigit(c)) {  // Width.
-    rdr.unpop();
-    specs.width = static_cast<int32_t>(rdr.parse_int<uint32_t>().assume_value());
-    c = rdr.read_char().assume_value();
+    spec_rdr.unpop();
+    specs.width = static_cast<int32_t>(spec_rdr.parse_int<uint32_t>().assume_value());
+    c = spec_rdr.read_char().assume_value();
   }
   if (c == '#') {  // Alternate form.
     specs.alternate_form = true;
-    c = rdr.read_char().assume_value();
+    c = spec_rdr.read_char().assume_value();
   }
   if (detail::isalpha(c)) {
     specs.type = c;
-    rdr.pop();  // rdr.read_char() in validate_scan_specs;
+    spec_rdr.pop();  // spec_rdr.read_char() in validate_scan_specs;
   }
   return success;
 }
@@ -323,8 +324,8 @@ inline constexpr bool has_scanner_v = std::is_constructible_v<scanner<Arg>>;
 
 template <typename T>
 concept has_validate_function_v = requires {
-  { scanner<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
-};
+                                    { scanner<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
+                                  };
 
 template <typename T>
 concept has_any_validate_function_v =
