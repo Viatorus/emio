@@ -130,6 +130,21 @@ class reader {
   }
 
   /**
+   * Returns a newly constructed reader of the not yet read char sequence of the range [pos, pos + len). If len is
+   * greater than the size of the remaining chars, the end of the char sequence is used.
+   * @param pos The position of the first char to include.
+   * @param len The length of the char sequence.
+   * @return EOF if the position is outside the char sequence.
+   */
+  constexpr result<reader> subreader(const size_t pos, const size_t len = npos) const noexcept {
+    const size_t subpos = pos_ + pos;
+    if (subpos > input_.size()) {
+      return err::eof;
+    }
+    return reader{detail::unchecked_substr(input_, subpos, len)};
+  }
+
+  /**
    * Returns the next char from the stream without consuming it.
    * @return EOF if the end of the stream has been reached.
    */

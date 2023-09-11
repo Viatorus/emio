@@ -92,8 +92,7 @@ template <typename Arg>
 constexpr result<void> read_arg(reader& original_in, const scan_specs& specs, Arg& arg) noexcept {
   reader in = original_in;
   if (specs.width != no_width) {
-    EMIO_TRY(std::string_view sub_content, in.read_n_chars(static_cast<size_t>(specs.width)));
-    in = reader{sub_content};  // TODO TRIM?
+    EMIO_TRY(in, in.subreader(0, static_cast<size_t>(specs.width)));
   }
 
   EMIO_TRY(const bool is_negative, parse_sign(in));
@@ -120,7 +119,7 @@ constexpr result<void> read_arg(reader& original_in, const scan_specs& specs, Ar
   EMIO_TRY(arg, parse_int<Arg>(in, base, is_negative));
 
   if (specs.width != no_width) {
-    if (!in.view_remaining().empty()) {  // TODO: empty?
+    if (!in.eof()) {
       return err::invalid_data;
     }
     original_in.pop(static_cast<size_t>(specs.width));
