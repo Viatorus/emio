@@ -92,6 +92,9 @@ template <typename Arg>
 constexpr result<void> read_arg(reader& original_in, const scan_specs& specs, Arg& arg) noexcept {
   reader in = original_in;
   if (specs.width != no_width) {
+    if (in.cnt_remaining() < static_cast<size_t>(specs.width)) {
+      return err::eof;
+    }
     EMIO_TRY(in, in.subreader(0, static_cast<size_t>(specs.width)));
   }
 
