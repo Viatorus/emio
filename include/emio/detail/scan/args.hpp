@@ -33,9 +33,28 @@ struct scan_arg_trait {
   }
 
   static constexpr result<void> process_arg(reader& in, reader& format_rdr, Arg& arg) noexcept {
-    scanner<Arg> scanner;
-    EMIO_TRYV(scanner.parse(format_rdr));
-    return scanner.scan(in, arg);
+    if constexpr (std::is_integral_v<Arg> && !std::is_same_v<Arg, bool> && !std::is_same_v<Arg, char>) {
+      using upcast_int_t = decltype(detail::integer_upcast(Arg{}));
+      if constexpr (std::is_same_v<upcast_int_t, Arg>) {
+        scanner<Arg> scanner;
+        EMIO_TRYV(scanner.parse(format_rdr));
+        return scanner.scan(in, arg);
+      } else {
+        // Check if upcast int is within the integer type range.
+        upcast_int_t val{};
+        EMIO_TRYV(scan_arg_trait<upcast_int_t>::process_arg(in, format_rdr, val));
+        if (val < std::numeric_limits<Arg>::min() || val > std::numeric_limits<Arg>::max()) {
+          return err::out_of_range;
+        }
+        arg = static_cast<Arg>(val);
+        return success;
+      }
+    } else {
+      scanner<Arg> scanner;
+      EMIO_TRYV(scanner.parse(format_rdr));
+      return scanner.scan(in, arg);
+    }
+
   }
 };
 

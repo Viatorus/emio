@@ -284,6 +284,23 @@ TEST_CASE("integral with width", "[scan]") {
   REQUIRE(emio::scan("+0x5", "{:#3}5", val) == emio::err::eof);
 }
 
+TEST_CASE("integral with different types", "[scan]") {
+  int8_t i8{};
+  uint8_t u8{};
+  int16_t i16{};
+  uint16_t u16{};
+  int32_t i32{};
+  uint32_t u32{};
+  int64_t i64{};
+  uint64_t u64{};
+  REQUIRE(emio::scan("1 2 3 4 5 6 7 8", "{} {} {} {} {} {} {} {}", i8, u8, i16, u16, i32, u32, i64, u64));
+  CHECK(i8 == 1);
+  CHECK(u8 == 2);
+  CHECK(i16 == 3);
+  CHECK(u16 == 4);
+  CHECK(u64 == 8);
+}
+
 TEST_CASE("scan_binary", "[scan]") {
   int val{};
   SECTION("no prefix") {

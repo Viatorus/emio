@@ -28,9 +28,9 @@ class validation_arg {
   // No destructor & delete call to concept_t because model_t holds only a reference.
   ~validation_arg() = default;
 
-  result<void> validate(reader& scan_is) const noexcept {
+  result<void> validate(reader& format_rdr) const noexcept {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): only way to get the object back
-    return reinterpret_cast<const concept_t*>(&storage_)->validate(scan_is);
+    return reinterpret_cast<const concept_t*>(&storage_)->validate(format_rdr);
   }
 
  private:
@@ -42,7 +42,7 @@ class validation_arg {
     concept_t& operator=(const concept_t&) = delete;
     concept_t& operator=(concept_t&&) = delete;
 
-    virtual result<void> validate(reader& scan_is) const noexcept = 0;
+    virtual result<void> validate(reader& format_rdr) const noexcept = 0;
 
    protected:
     ~concept_t() = default;
@@ -57,8 +57,8 @@ class validation_arg {
     model_t& operator=(const model_t&) = delete;
     model_t& operator=(model_t&&) = delete;
 
-    result<void> validate(reader& scan_is) const noexcept override {
-      return Trait<std::remove_cvref_t<T>>::validate(scan_is);
+    result<void> validate(reader& format_rdr) const noexcept override {
+      return Trait<std::remove_cvref_t<T>>::validate(format_rdr);
     }
 
    protected:
@@ -87,9 +87,9 @@ class arg {
   arg& operator=(arg&&) = delete;
   ~arg() = default;  // No destructor & delete call to concept_t because model_t holds only a reference.
 
-  result<void> process_arg(Input& input, reader& scan_is) const noexcept {
+  result<void> process_arg(Input& input, reader& format_rdr) const noexcept {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): only way to get the object back
-    return reinterpret_cast<const concept_t*>(&storage_)->process_arg(input, scan_is);
+    return reinterpret_cast<const concept_t*>(&storage_)->process_arg(input, format_rdr);
   }
 
  private:
@@ -101,7 +101,7 @@ class arg {
     concept_t& operator=(const concept_t&) = delete;
     concept_t& operator=(concept_t&&) = delete;
 
-    virtual result<void> process_arg(Input& input, reader& scan_is) const noexcept = 0;
+    virtual result<void> process_arg(Input& input, reader& format_rdr) const noexcept = 0;
 
    protected:
     ~concept_t() = default;
@@ -117,8 +117,8 @@ class arg {
     model_t& operator=(const model_t&) = delete;
     model_t& operator=(model_t&&) = delete;
 
-    result<void> process_arg(Input& input, reader& scan_is) const noexcept override {
-      return Trait<std::remove_cvref_t<T>>::process_arg(input, scan_is, value_);
+    result<void> process_arg(Input& input, reader& format_rdr) const noexcept override {
+      return Trait<std::remove_cvref_t<T>>::process_arg(input, format_rdr, value_);
     }
 
    protected:
