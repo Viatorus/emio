@@ -40,7 +40,7 @@ enum class err {
   invalid_argument,  ///< A parameter is incorrect (e.g. the output base is invalid).
   invalid_data,      ///< The data is malformed (e.g. no digit where a digit was expected).
   out_of_range,      ///< The parsed value is not in the range representable by the type (e.g. parsing 578 as uint8_t).
-  invalid_format,    ///< The format/scan string is invalid.
+  invalid_format,    ///< The format string is invalid.
 };
 
 /**

@@ -135,6 +135,21 @@ TEST_CASE("vscan_from API", "[scan]") {
   }
 }
 
+TEST_CASE("format scan string", "[scan]") {
+  SECTION("compile-time validation") {
+    emio::format_scan_string<int> str{"{}"};
+    CHECK(str.get() == "{}");
+  }
+  SECTION("runtime validation") {
+    emio::format_scan_string<int> str{emio::runtime("{}")};
+    CHECK(str.get() == "{}");
+  }
+  SECTION("failed runtime validation") {
+    emio::format_scan_string<int> str{emio::runtime("{")};
+    CHECK(str.get() == emio::err::invalid_format);
+  }
+}
+
 TEST_CASE("incomplete scan", "[scan]") {
   int a = 0;
   int b = 0;
@@ -149,7 +164,7 @@ TEST_CASE("incomplete scan", "[scan]") {
   }
 }
 
-TEST_CASE("scan char", "[scan]") {
+TEST_CASE("scan_char", "[scan]") {
   char c;
   REQUIRE(emio::scan("o", "{}", c));
   CHECK(c == 'o');
@@ -157,7 +172,15 @@ TEST_CASE("scan char", "[scan]") {
   REQUIRE(emio::scan("k", "{:c}", c));
   CHECK(c == 'k');
 
+  REQUIRE(emio::scan("f", "{:1}", c));
+  CHECK(c == 'f');
+
+  REQUIRE(emio::scan("g", "{:1c}", c));
+  CHECK(c == 'g');
+
   CHECK(validate_scan_string<char>("{:c}"));
+  CHECK(!validate_scan_string<char>("{:0}"));
+  CHECK(!validate_scan_string<char>("{:2}"));
   CHECK(!validate_scan_string<char>("{:d}"));
   CHECK(!validate_scan_string<char>("{:#}"));
 }
@@ -238,6 +261,27 @@ TEST_CASE("detect base", "[scan]") {
   CHECK(!validate_scan_string<int>("{:d#}"));
   CHECK(!validate_scan_string<int>("{:f}"));
   CHECK(!validate_scan_string<int>("{:.5}"));
+}
+
+TEST_CASE("integral with width", "[scan]") {
+  int val{};
+  int val2{};
+
+  REQUIRE(emio::scan("1524", "{:2}{:2}", val, val2));
+  CHECK(val == 15);
+  CHECK(val2 == 24);
+
+  REQUIRE(emio::scan("+0x5", "{:#4}", val));
+  CHECK(val == 5);
+
+  REQUIRE(emio::scan("+0x5", "{:#2}x{}", val, val2));
+  CHECK(val == 0);
+  CHECK(val2 == 5);
+
+  REQUIRE(emio::scan("12ab", "{:4}", val) == emio::err::invalid_data);
+  REQUIRE(emio::scan("+0x5", "{:#1}0x5", val) == emio::err::eof);
+  REQUIRE(emio::scan("+0x5", "{:#6}", val) == emio::err::eof);
+  REQUIRE(emio::scan("+0x5", "{:#3}5", val) == emio::err::eof);
 }
 
 TEST_CASE("scan_binary", "[scan]") {
@@ -428,4 +472,74 @@ TEST_CASE("scan_hex", "[scan]") {
     CHECK(emio::scan("0x+3", "{:#x}", val) == emio::err::invalid_data);
     CHECK(emio::scan("0x-3", "{:#x}", val) == emio::err::invalid_data);
   }
+}
+
+TEST_CASE("format_string", "[scan]") {
+  std::string s;
+  SECTION("until eof") {
+    REQUIRE(emio::scan("abc", "{}", s));
+    CHECK(s == "abc");
+
+    REQUIRE(emio::scan("abc", "a{}", s));
+    CHECK(s == "bc");
+
+    REQUIRE(emio::scan("abc", "ab{}", s));
+    CHECK(s == "c");
+
+    REQUIRE(emio::scan("abc", "abc{}", s));
+    CHECK(s.empty());
+  }
+  SECTION("until given size") {
+    REQUIRE(emio::scan("abc", "{:3}", s));
+    CHECK(s == "abc");
+
+    REQUIRE(emio::scan("aaa", "{:2}a", s));
+    CHECK(s == "aa");
+
+    REQUIRE(emio::scan("abc", "{:4}", s) == emio::err::eof);
+    REQUIRE(emio::scan("abc", "{:3}c", s) == emio::err::eof);
+  }
+  SECTION("until next") {
+    std::string s2;
+    REQUIRE(emio::scan("abc", "{}b{}", s, s2));
+    CHECK(s == "a");
+    CHECK(s2 == "c");
+
+    REQUIRE(emio::scan("abc", "{}abc", s));
+    CHECK(s.empty());
+
+    REQUIRE(emio::scan("abc", "{}{}c", s, s2));
+    CHECK(s.empty());
+    CHECK(s2 == "ab");
+
+    REQUIRE(emio::scan("abc", "{:2}{}c", s, s2));
+    CHECK(s == "ab");
+    CHECK(s2.empty());
+
+    REQUIRE(emio::scan("abc", "{:1}{}c", s, s2));
+    CHECK(s == "a");
+    CHECK(s2 == "b");
+  }
+  SECTION("complex") {
+    std::string s2;
+    REQUIRE(emio::scan("abc{", "{}{{", s));
+    CHECK(s == "abc");
+
+    REQUIRE(emio::scan("abc}", "{}}}", s));
+    CHECK(s == "abc");
+
+    REQUIRE(emio::scan("abc{}def}x", "{}}}x", s));
+    CHECK(s == "abc{}def");
+
+    REQUIRE(emio::scan("abc{}def}x12", "{}}}x{}", s, s2));
+    CHECK(s == "abc{}def");
+    CHECK(s2 == "12");
+
+    REQUIRE(emio::scan("abc{x", "{}{{y", s) == emio::err::invalid_data);
+  }
+
+  CHECK(validate_scan_string<std::string>("{:s}"));
+  CHECK(validate_scan_string<std::string_view>("{:s}"));
+  CHECK(!validate_scan_string<std::string>("{:#}"));
+  CHECK(!validate_scan_string<std::string>("{:d}"));
 }

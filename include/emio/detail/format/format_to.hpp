@@ -41,8 +41,8 @@ inline result<void> vformat_to(buffer& buf, const format_args& args) noexcept {
 
 // Constexpr version.
 template <typename... Args>
-constexpr result<void> format_to(buffer& buf, format_string<Args...> format_str, const Args&... args) noexcept {
-  EMIO_TRY(const std::string_view str, format_str.get());
+constexpr result<void> format_to(buffer& buf, format_string<Args...> format_string, const Args&... args) noexcept {
+  EMIO_TRY(const std::string_view str, format_string.get());
   writer wtr{buf};
   return parse<format_parser>(str, wtr, args...);
 }

@@ -321,3 +321,86 @@ TEST_CASE("reader::read_until_options", "[reader]") {
     CHECK(i == 5);
   }
 }
+
+TEST_CASE("reader::subreader", "[reader]") {
+  SECTION("from empty reader") {
+    emio::reader rdr;
+
+    SECTION("defaulted") {
+      emio::result<emio::reader> res = rdr.subreader(0);
+      REQUIRE(res);
+      CHECK(res->eof());
+
+      res->unpop();
+      CHECK(res->eof());
+
+      res->pop();
+      CHECK(res->eof());
+    }
+    SECTION("normal") {
+      const size_t len = GENERATE(0U, 1U, 2U, emio::reader::npos);
+
+      emio::result<emio::reader> res = rdr.subreader(0, len);
+      REQUIRE(res);
+      CHECK(res->eof());
+    }
+    SECTION("eof") {
+      CHECK(rdr.subreader(1, 0) == emio::err::eof);
+    }
+  }
+  SECTION("from non-empty reader") {
+    constexpr std::string_view expected{"abc"};
+    emio::reader rdr{expected};
+
+    SECTION("defaulted") {
+      emio::result<emio::reader> res = rdr.subreader(0);
+      REQUIRE(res);
+      CHECK(res->view_remaining() == expected);
+
+      res->unpop();
+      CHECK(res->view_remaining() == expected);
+
+      res->pop();
+      CHECK(res->view_remaining() == expected.substr(1));
+    }
+    SECTION("normal") {
+      const size_t pos = GENERATE(0U, 1U, 2U, 3U);
+      const size_t len = GENERATE(0U, 1U, 2U, 3U, emio::reader::npos);
+
+      emio::result<emio::reader> res = rdr.subreader(pos, len);
+      REQUIRE(res);
+      CHECK(res->view_remaining() == expected.substr(pos, len));
+    }
+    SECTION("eof") {
+      CHECK(rdr.subreader(expected.size() + 1) == emio::err::eof);
+    }
+  }
+  SECTION("from non-empty reader after some reading") {
+    emio::reader rdr{"123abc"};
+    REQUIRE(rdr.read_n_chars(3));
+    constexpr std::string_view expected{"abc"};
+
+    SECTION("defaulted") {
+      emio::result<emio::reader> res = rdr.subreader(0);
+      REQUIRE(res);
+      CHECK(res->view_remaining() == expected);
+
+      res->unpop();
+      CHECK(res->view_remaining() == expected);
+
+      res->pop();
+      CHECK(res->view_remaining() == expected.substr(1));
+    }
+    SECTION("normal") {
+      const size_t pos = GENERATE(0U, 1U, 2U, 3U);
+      const size_t len = GENERATE(0U, 1U, 2U, 3U, emio::reader::npos);
+
+      emio::result<emio::reader> res = rdr.subreader(pos, len);
+      REQUIRE(res);
+      CHECK(res->view_remaining() == expected.substr(pos, len));
+    }
+    SECTION("eof") {
+      CHECK(rdr.subreader(expected.size() + 1) == emio::err::eof);
+    }
+  }
+}

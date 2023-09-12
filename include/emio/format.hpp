@@ -29,11 +29,11 @@ using valid_format_string = detail::format::valid_format_string<Args...>;
 
 /**
  * Returns an object that stores a format string with an array of all arguments to format.
-
+ *
  * @note The storage uses reference semantics and does not extend the lifetime of args. It is the programmer's
  * responsibility to ensure that args outlive the return value. Usually, the result is only used as argument to a
  * formatting function taking format_args by reference.
-
+ *
  * @param format_str The format string.
  * @param args The arguments to be formatted.
  * @return Internal type. Implicit convertible to format_args.
@@ -101,12 +101,12 @@ result<void> vformat_to(Buffer& buf, const format_args& args) noexcept {
 
 /**
  * Formats arguments according to the format string, and writes the result to the writer's buffer.
- * @param wrt The writer.
+ * @param out The output writer.
  * @param args The format args with the format string.
  * @return Success or EOF if the buffer is to small or invalid_format if the format string validation failed.
  */
-inline result<void> vformat_to(writer& wrt, const format_args& args) noexcept {
-  EMIO_TRYV(detail::format::vformat_to(wrt.get_buffer(), args));
+inline result<void> vformat_to(writer& out, const format_args& args) noexcept {
+  EMIO_TRYV(detail::format::vformat_to(out.get_buffer(), args));
   return success;
 }
 
@@ -145,17 +145,17 @@ constexpr result<void> format_to(Buffer& buf, format_string<Args...> format_str,
 
 /**
  * Formats arguments according to the format string, and writes the result to the writer's buffer.
- * @param wrt The writer.
+ * @param out The writer.
  * @param format_str The format string.
  * @param args The arguments to be formatted.
  * @return Success or EOF if the buffer is to small or invalid_format if the format string validation failed.
  */
 template <typename... Args>
-constexpr result<void> format_to(writer& wrt, format_string<Args...> format_str, const Args&... args) noexcept {
+constexpr result<void> format_to(writer& out, format_string<Args...> format_str, const Args&... args) noexcept {
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
-    EMIO_TRYV(detail::format::format_to(wrt.get_buffer(), format_str, args...));
+    EMIO_TRYV(detail::format::format_to(out.get_buffer(), format_str, args...));
   } else {
-    EMIO_TRYV(detail::format::vformat_to(wrt.get_buffer(), make_format_args(format_str, args...)));
+    EMIO_TRYV(detail::format::vformat_to(out.get_buffer(), make_format_args(format_str, args...)));
   }
   return success;
 }
@@ -357,7 +357,8 @@ void println(valid_format_string<Args...> format_str, const Args&... args) {
  * at the end.
  * @param format_str The format string.
  * @param args The arguments to be formatted.
- * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
+ * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation
+ * failed.
  */
 template <typename T, typename... Args>
   requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, format_string<Args...>>)
@@ -366,8 +367,7 @@ result<void> println(T format_str, const Args&... args) {
 }
 
 /**
- * Formats arguments according to the format string, and writes the result to a file stream with a new line
- * at the end.
+ * Formats arguments according to the format string, and writes the result to a file stream with a new line at the end.
  * @param file The file stream.
  * @param format_str The format string.
  * @param args The arguments to be formatted.

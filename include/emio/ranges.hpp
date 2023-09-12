@@ -21,16 +21,16 @@ template <typename T>
   requires(detail::format::is_valid_range<T> && !detail::format::is_contiguous_but_not_span<T>)
 class formatter<T> {
  public:
-  static constexpr result<void> validate(reader& rdr) noexcept {
-    EMIO_TRY(char c, rdr.read_char());
+  static constexpr result<void> validate(reader& format_rdr) noexcept {
+    EMIO_TRY(char c, format_rdr.read_char());
     if (c == 'n') {
-      EMIO_TRY(c, rdr.read_char());
+      EMIO_TRY(c, format_rdr.read_char());
     }
     if (c == '}') {
       return success;
     }
     if (c == ':') {
-      return formatter<detail::format::element_type_t<T>>::validate(rdr);
+      return formatter<detail::format::element_type_t<T>>::validate(format_rdr);
     } else {
       return err::invalid_format;
     }
@@ -60,23 +60,23 @@ class formatter<T> {
     specs_.closing_bracket = closing_bracket;
   }
 
-  constexpr result<void> parse(reader& rdr) noexcept {
-    char c = rdr.peek().assume_value();
+  constexpr result<void> parse(reader& format_rdr) noexcept {
+    char c = format_rdr.peek().assume_value();
     if (c == 'n') {
       set_brackets({}, {});
-      rdr.pop();  // n
-      c = rdr.peek().assume_value();
+      format_rdr.pop();  // n
+      c = format_rdr.peek().assume_value();
     }
     if (c == '}') {
       detail::format::maybe_set_debug_format(underlying_, true);
     } else {
-      rdr.pop();  // :
+      format_rdr.pop();  // :
     }
-    return underlying_.parse(rdr);
+    return underlying_.parse(format_rdr);
   }
 
-  constexpr result<void> format(writer& wtr, const T& arg) const noexcept {
-    EMIO_TRYV(wtr.write_str(specs_.opening_bracket));
+  constexpr result<void> format(writer& out, const T& arg) const noexcept {
+    EMIO_TRYV(out.write_str(specs_.opening_bracket));
 
     using std::begin;
     using std::end;
@@ -84,11 +84,11 @@ class formatter<T> {
     const auto last = end(arg);
     for (auto it = first; it != last; ++it) {
       if (it != first) {
-        EMIO_TRYV(wtr.write_str(specs_.separator));
+        EMIO_TRYV(out.write_str(specs_.separator));
       }
-      EMIO_TRYV(underlying_.format(wtr, *it));
+      EMIO_TRYV(underlying_.format(out, *it));
     }
-    EMIO_TRYV(wtr.write_str(specs_.closing_bracket));
+    EMIO_TRYV(out.write_str(specs_.closing_bracket));
     return success;
   }
 
@@ -128,47 +128,47 @@ class formatter<T> {
     specs_.closing_bracket = closing_bracket;
   }
 
-  static constexpr result<void> validate(reader& rdr) noexcept {
-    EMIO_TRY(char c, rdr.read_char());
+  static constexpr result<void> validate(reader& format_rdr) noexcept {
+    EMIO_TRY(char c, format_rdr.read_char());
     if (c == 'n') {
-      EMIO_TRY(c, rdr.read_char());
+      EMIO_TRY(c, format_rdr.read_char());
     }
     if (c == '}') {
       return success;
     }
     if (c == ':') {
-      return validate_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), rdr);
+      return validate_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), format_rdr);
     } else {
       return err::invalid_format;
     }
   }
 
-  constexpr result<void> parse(reader& rdr) noexcept {
-    char c = rdr.peek().assume_value();
+  constexpr result<void> parse(reader& format_rdr) noexcept {
+    char c = format_rdr.peek().assume_value();
     if (c == 'n') {
       set_brackets({}, {});
-      rdr.pop();  // n
-      c = rdr.peek().assume_value();
+      format_rdr.pop();  // n
+      c = format_rdr.peek().assume_value();
     }
     bool set_debug = false;
     if (c == '}') {
       set_debug = true;
     } else {
-      rdr.pop();  // :
+      format_rdr.pop();  // :
     }
-    return parse_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), rdr, set_debug);
+    return parse_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), format_rdr, set_debug);
   }
 
-  constexpr result<void> format(writer& wtr, const T& args) const noexcept {
-    EMIO_TRYV(wtr.write_str(specs_.opening_bracket));
-    EMIO_TRYV(format_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), wtr, args));
-    EMIO_TRYV(wtr.write_str(specs_.closing_bracket));
+  constexpr result<void> format(writer& out, const T& args) const noexcept {
+    EMIO_TRYV(out.write_str(specs_.opening_bracket));
+    EMIO_TRYV(format_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), out, args));
+    EMIO_TRYV(out.write_str(specs_.closing_bracket));
     return success;
   }
 
  private:
   template <size_t... Ns>
-  static constexpr result<void> validate_for_each(std::index_sequence<Ns...> /*unused*/, reader& rdr) noexcept {
+  static constexpr result<void> validate_for_each(std::index_sequence<Ns...> /*unused*/, reader& format_rdr) noexcept {
     size_t reader_pos = 0;
     result<void> res = success;
     const auto validate = [&reader_pos, &res]<typename U>(std::type_identity<U> /*unused*/, reader r /*copy!*/) {
@@ -184,20 +184,21 @@ class formatter<T> {
       return res.has_value();
     };
     static_cast<void>(validate);  // Maybe unused warning.
-    if ((validate(std::type_identity<std::tuple_element_t<Ns, detail::format::tuple_formatters<T>>>{}, rdr) && ...) &&
+    if ((validate(std::type_identity<std::tuple_element_t<Ns, detail::format::tuple_formatters<T>>>{}, format_rdr) &&
+         ...) &&
         reader_pos != 0) {
-      rdr.pop(reader_pos);
+      format_rdr.pop(reader_pos);
       return success;
     }
     return res;
   }
 
-  static constexpr result<void> validate_for_each(std::index_sequence<> /*unused*/, reader& /*rdr*/) noexcept {
+  static constexpr result<void> validate_for_each(std::index_sequence<> /*unused*/, reader& /*format_rdr*/) noexcept {
     return err::invalid_format;
   }
 
   template <size_t... Ns>
-  constexpr result<void> parse_for_each(std::index_sequence<Ns...> /*unused*/, reader& rdr,
+  constexpr result<void> parse_for_each(std::index_sequence<Ns...> /*unused*/, reader& format_rdr,
                                         const bool set_debug) noexcept {
     using std::get;
 
@@ -210,34 +211,35 @@ class formatter<T> {
       return res.has_value();
     };
     static_cast<void>(parse);  // Maybe unused warning.
-    if ((parse(get<Ns>(formatters_), rdr) && ...)) {
-      rdr.pop(reader_pos);
+    if ((parse(get<Ns>(formatters_), format_rdr) && ...)) {
+      format_rdr.pop(reader_pos);
       return success;
     }
     return res;
   }
 
-  constexpr result<void> parse_for_each(std::index_sequence<> /*unused*/, reader& rdr, const bool set_debug) noexcept {
+  constexpr result<void> parse_for_each(std::index_sequence<> /*unused*/, reader& format_rdr,
+                                        const bool set_debug) noexcept {
     if (set_debug) {
-      rdr.pop();  // }
+      format_rdr.pop();  // }
       return success;
     }
     return err::invalid_format;
   }
 
   template <size_t N, size_t... Ns>
-  constexpr result<void> format_for_each(std::index_sequence<N, Ns...> /*unused*/, writer& wtr,
+  constexpr result<void> format_for_each(std::index_sequence<N, Ns...> /*unused*/, writer& out,
                                          const T& args) const noexcept {
     using std::get;
-    EMIO_TRYV(get<N>(formatters_).format(wtr, get<N>(args)));
+    EMIO_TRYV(get<N>(formatters_).format(out, get<N>(args)));
 
     result<void> res = success;
-    const auto format = [&res, &wtr, this](auto& f, const auto& arg) {
-      res = wtr.write_str(specs_.separator);
+    const auto format = [&res, &out, this](auto& f, const auto& arg) {
+      res = out.write_str(specs_.separator);
       if (res.has_error()) {
         return false;
       }
-      res = f.format(wtr, arg);
+      res = f.format(out, arg);
       return res.has_value();
     };
     static_cast<void>(format);  // Maybe unused warning.
@@ -247,7 +249,7 @@ class formatter<T> {
     return res;
   }
 
-  constexpr result<void> format_for_each(std::index_sequence<> /*unused*/, writer& /*wtr*/,
+  constexpr result<void> format_for_each(std::index_sequence<> /*unused*/, writer& /*out*/,
                                          const T& /*args*/) const noexcept {
     return success;
   }

@@ -13,8 +13,8 @@ namespace emio::detail::scan {
 
 class scan_parser final : public parser<scan_parser, input_validation::disabled> {
  public:
-  constexpr explicit scan_parser(reader& input, reader& format_rdr) noexcept
-      : parser<scan_parser, input_validation::disabled>{format_rdr}, input_{input} {}
+  constexpr explicit scan_parser(reader& in, reader& format_rdr) noexcept
+      : parser<scan_parser, input_validation::disabled>{format_rdr}, in_{in} {}
 
   scan_parser(const scan_parser&) = delete;
   scan_parser(scan_parser&&) = delete;
@@ -23,11 +23,11 @@ class scan_parser final : public parser<scan_parser, input_validation::disabled>
   constexpr ~scan_parser() noexcept override;  // NOLINT(performance-trivially-destructible): See definition.
 
   constexpr result<void> process(const char c) noexcept override {
-    return input_.read_if_match_char(c);
+    return in_.read_if_match_char(c);
   }
 
   result<void> process_arg(const scan_arg& arg) noexcept {
-    return arg.process_arg(input_, format_rdr_);
+    return arg.process_arg(in_, format_rdr_);
   }
 
   template <typename Arg>
@@ -35,7 +35,7 @@ class scan_parser final : public parser<scan_parser, input_validation::disabled>
     if constexpr (has_scanner_v<Arg>) {
       scanner<Arg> scanner;
       EMIO_TRYV(scanner.parse(this->format_rdr_));
-      return scanner.scan(input_, arg);
+      return scanner.scan(in_, arg);
     } else {
       static_assert(has_scanner_v<Arg>,
                     "Cannot scan an argument. To make type T scannable provide a scanner<T> specialization.");
@@ -43,7 +43,7 @@ class scan_parser final : public parser<scan_parser, input_validation::disabled>
   }
 
  private:
-  reader& input_;
+  reader& in_;
 };
 
 // Explicit out-of-class definition because of GCC bug: <destructor> used before its definition.
