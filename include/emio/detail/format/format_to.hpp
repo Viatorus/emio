@@ -16,12 +16,12 @@ namespace emio::detail::format {
 
 struct format_trait {
   template <typename... Args>
-  [[nodiscard]] static constexpr bool validate_string(std::string_view spec_str) noexcept {
+  [[nodiscard]] static constexpr bool validate_string(std::string_view format_str) noexcept {
     if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
-      return validate<format_specs_checker>(spec_str, sizeof...(Args), std::type_identity<Args>{}...);
+      return validate<format_specs_checker>(format_str, sizeof...(Args), std::type_identity<Args>{}...);
     } else {
-      return validate<format_specs_checker>(spec_str, sizeof...(Args),
-                                            make_validation_args<format_validation_arg, Args...>(spec_str));
+      return validate<format_specs_checker>(format_str, sizeof...(Args),
+                                            make_validation_args<format_validation_arg, Args...>(format_str));
     }
   }
 };

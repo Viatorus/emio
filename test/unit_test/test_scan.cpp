@@ -135,6 +135,21 @@ TEST_CASE("vscan_from API", "[scan]") {
   }
 }
 
+TEST_CASE("format scan string", "[scan]") {
+  SECTION("compile-time validation") {
+    emio::format_scan_string<int> str{"{}"};
+    CHECK(str.get() == "{}");
+  }
+  SECTION("runtime validation") {
+    emio::format_scan_string<int> str{emio::runtime("{}")};
+    CHECK(str.get() == "{}");
+  }
+  SECTION("failed runtime validation") {
+    emio::format_scan_string<int> str{emio::runtime("{")};
+    CHECK(str.get() == emio::err::invalid_format);
+  }
+}
+
 TEST_CASE("incomplete scan", "[scan]") {
   int a = 0;
   int b = 0;

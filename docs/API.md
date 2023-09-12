@@ -249,21 +249,21 @@ must be wrapped inside a `runtime_string` object. There is a simple helper funct
 Some functions (like `format` or `formatted_size`) are further optimized (simplified) in their return type if the format
 string is a valid-only format string that could be ensured at compile-time.
 
-`format(spec_str, ...args) -> string/result<string>`
+`format(format_str, ...args) -> string/result<string>`
 
 - Formats arguments according to the format string, and returns the result as a string.
 - The return value depends on the type of the format string (valid-only type or not).
 
-`format_to(out, spec_str, ...args) -> result<Output>`
+`format_to(out, format_str, ...args) -> result<Output>`
 
 - Formats arguments according to the format string, and writes the result to the output.
 
-`format_to_n(out, n, spec_str, ...args) -> result<format_to_n_result<Output>>`
+`format_to_n(out, n, format_str, ...args) -> result<format_to_n_result<Output>>`
 
 - Formats arguments according to the format string, and writes the result to the output iterator. At most *n* characters
   are written.
 
-`formatted_size(spec_str, ...args) -> size_t/result<size_t>`
+`formatted_size(format_str, ...args) -> size_t/result<size_t>`
 
 - Determines the total number of characters in the formatted string by formatting args according to the format string.
 - The return value depends on the type of the format string (valid-only type or not).
@@ -274,7 +274,7 @@ implementations and reduce the binary size. **Note:** These type erased function
 
 `format_args` can be created with:
 
-`make_format_args(spec_str, ...args) -> internal format_args_storage`
+`make_format_args(format_str, ...args) -> internal format_args_storage`
 
 - Returns an object that stores a format string with an array of all arguments to format.
 - Keep in mind that the storage uses reference semantics and does not extend the lifetime of args. It is the
@@ -400,22 +400,22 @@ constexpr auto format_as(const bar& w) noexcept {
 
 It is possible to directly print to the standard output or other file streams.
 
-`print(spec_str, ...args) -> void/result<void>`
+`print(format_str, ...args) -> void/result<void>`
 
 - Formats arguments according to the format string, and writes the result to the standard output stream.
 - The return value depends on the type of the format spec string (valid-only type or not).
 
-`print(file, spec_str, ...args) -> result<void>`
+`print(file, format_str, ...args) -> result<void>`
 
 - Formats arguments according to the format string, and writes the result to a file stream.
 
-`println(spec_str, ...args) -> void/result<void>`
+`println(format_str, ...args) -> void/result<void>`
 
 - Formats arguments according to the format string, and writes the result to the standard output stream with a new
   line at the end.
 - The return value depends on the type of the format string (valid-only type or not).
 
-`println(file, spec_str, ...args) -> result<void>`
+`println(file, format_str, ...args) -> result<void>`
 
 - Formats arguments according to the format string, and writes the result to a file stream with a new line at the
   end.
@@ -461,11 +461,11 @@ be wrapped inside a `runtime_string` object. There is a simple helper function f
 
 The API is structured as follows:
 
-`scan(input, spec_str, ...args) -> result<void>`
+`scan(input, format_str, ...args) -> result<void>`
 
 - Scans the input string for the given arguments according to the format string.
 
-`scan_from(reader, spec_str, ...args) -> result<void>`
+`scan_from(reader, format_str, ...args) -> result<void>`
 
 - Scans the content of the reader for the given arguments according to the format string.
 
@@ -475,7 +475,7 @@ implementations and reduce the binary size. **Note:** These type erased function
 
 `scan_args` can be created with:
 
-`make_scan_args(spec_str, ...args) -> internal scan_args_storage`
+`make_scan_args(format_str, ...args) -> internal scan_args_storage`
 
 - Returns an object that stores a format string with an array of all arguments to scan.
 - Keep in mind that the storage uses reference semantics and does not extend the lifetime of args. It is the
