@@ -130,8 +130,8 @@ class reader {
   }
 
   /**
-   * Returns a newly constructed reader of the not yet read char sequence of the range [pos, pos + len). If len is
-   * greater than the size of the remaining chars, the end of the char sequence is used.
+   * Returns a newly constructed reader over the not yet read char sequence of the range [pos, pos + len).
+   * If len is greater than the size of the remaining chars, the end of the char sequence is used.
    * @param pos The position of the first char to include.
    * @param len The length of the char sequence.
    * @return EOF if the position is outside the char sequence.

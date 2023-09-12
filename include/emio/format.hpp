@@ -45,8 +45,7 @@ template <typename... Args>
 }
 
 /**
- * Determines the total number of characters in the formatted string by formatting args according to the format spec
- * string.
+ * Determines the total number of characters in the formatted string by formatting args according to the format string.
  * @param args The format args with the format string.
  * @return The total number of characters in the formatted string or invalid_format if the format string validation
  * failed.
@@ -58,8 +57,7 @@ inline result<size_t> vformatted_size(format_args&& args) noexcept {
 }
 
 /**
- * Determines the total number of characters in the formatted string by formatting args according to the format spec
- * string.
+ * Determines the total number of characters in the formatted string by formatting args according to the format string.
  * @param format_str The format string
  * @param args The arguments to be formatted.
  * @return The total number of characters in the formatted string.
@@ -73,8 +71,7 @@ template <typename... Args>
 }
 
 /**
- * Determines the total number of characters in the formatted string by formatting args according to the format spec
- * string.
+ * Determines the total number of characters in the formatted string by formatting args according to the format string.
  * @param format_str The format string
  * @param args The arguments to be formatted.
  * @return The total number of characters in the formatted string on success or invalid_format if the format string
@@ -232,8 +229,8 @@ struct format_to_n_result {
 };
 
 /**
- * Formats arguments according to the format string, and writes the result to the output iterator. At most n
- * characters are written.
+ * Formats arguments according to the format string, and writes the result to the output iterator. At most n characters
+ * are written.
  * @param out The output iterator.
  * @param n The maximum number of characters to be written to the buffer.
  * @param args The format args with the format string.
@@ -251,8 +248,8 @@ result<format_to_n_result<OutputIt>> vformat_to_n(OutputIt out, std::iter_differ
 }
 
 /**
- * Formats arguments according to the format string, and writes the result to the output iterator. At most n
- * characters are written.
+ * Formats arguments according to the format string, and writes the result to the output iterator. At most n characters
+ * are written.
  * @param out The output iterator.
  * @param n The maximum number of characters to be written to the buffer.
  * @param format_str The format string.
@@ -279,8 +276,7 @@ constexpr result<format_to_n_result<OutputIt>> format_to_n(OutputIt out, std::it
  * Formats arguments according to the format string, and writes the result to a file stream.
  * @param file The file stream.
  * @param args The format args with the format string.
- * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation
- * failed.
+ * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
  */
 inline result<void> vprint(std::FILE* file, const format_args& args) noexcept {
   if (file == nullptr) {
@@ -306,8 +302,7 @@ void print(valid_format_string<Args...> format_str, const Args&... args) {
  * Formats arguments according to the format string, and writes the result to the standard output stream.
  * @param format_str The format string.
  * @param args The arguments to be formatted.
- * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation
- * failed.
+ * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
  */
 template <typename T, typename... Args>
   requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, format_string<Args...>>)
@@ -320,8 +315,7 @@ result<void> print(T format_str, const Args&... args) {
  * @param file The file stream.
  * @param format_str The format string.
  * @param args The arguments to be formatted.
- * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation
- * failed.
+ * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
  */
 template <typename... Args>
 result<void> print(std::FILE* file, format_string<Args...> format_str, const Args&... args) {
@@ -333,8 +327,7 @@ result<void> print(std::FILE* file, format_string<Args...> format_str, const Arg
  * end.
  * @param file The file stream.
  * @param args The format args with the format string.
- * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation
- * failed.
+ * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
  */
 inline result<void> vprintln(std::FILE* file, const format_args& args) noexcept {
   if (file == nullptr) {
@@ -349,8 +342,8 @@ inline result<void> vprintln(std::FILE* file, const format_args& args) noexcept 
 }
 
 /**
- * Formats arguments according to the format string, and writes the result to the standard output stream with a new
- * line at the end.
+ * Formats arguments according to the format string, and writes the result to the standard output stream with a new line
+ * at the end.
  * @param format_str The format string.
  * @param args The arguments to be formatted.
  */
@@ -360,8 +353,8 @@ void println(valid_format_string<Args...> format_str, const Args&... args) {
 }
 
 /**
- * Formats arguments according to the format string, and writes the result to the standard output stream with a new
- * line at the end.
+ * Formats arguments according to the format string, and writes the result to the standard output stream with a new line
+ * at the end.
  * @param format_str The format string.
  * @param args The arguments to be formatted.
  * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation
@@ -374,13 +367,11 @@ result<void> println(T format_str, const Args&... args) {
 }
 
 /**
- * Formats arguments according to the format string, and writes the result to a file stream with a new line
- * at the end.
+ * Formats arguments according to the format string, and writes the result to a file stream with a new line at the end.
  * @param file The file stream.
  * @param format_str The format string.
  * @param args The arguments to be formatted.
- * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation
- * failed.
+ * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
  */
 template <typename... Args>
 result<void> println(std::FILE* file, format_string<Args...> format_str, const Args&... args) {

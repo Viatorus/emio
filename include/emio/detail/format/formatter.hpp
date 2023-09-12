@@ -533,8 +533,8 @@ constexpr result<void> write_arg(writer& out, format_specs& specs, Arg arg) noex
 //
 
 // specs is passed by reference instead as return type to reduce copying of big value (and code bloat)
-inline constexpr result<void> validate_format_specs(reader& spec_rdr, format_specs& specs) noexcept {
-  EMIO_TRY(char c, spec_rdr.read_char());
+inline constexpr result<void> validate_format_specs(reader& format_rdr, format_specs& specs) noexcept {
+  EMIO_TRY(char c, format_rdr.read_char());
   if (c == '}') {  // Format end.
     return success;
   }
@@ -545,7 +545,7 @@ inline constexpr result<void> validate_format_specs(reader& spec_rdr, format_spe
   bool fill_aligned = false;
   {
     // Parse for alignment specifier.
-    EMIO_TRY(const char c2, spec_rdr.peek());
+    EMIO_TRY(const char c2, format_rdr.peek());
     if (c2 == '<' || c2 == '^' || c2 == '>') {
       if (c2 == '<') {
         specs.align = alignment::left;
@@ -556,8 +556,8 @@ inline constexpr result<void> validate_format_specs(reader& spec_rdr, format_spe
       }
       fill_aligned = true;
       specs.fill = c;
-      spec_rdr.pop();
-      EMIO_TRY(c, spec_rdr.read_char());
+      format_rdr.pop();
+      EMIO_TRY(c, format_rdr.read_char());
     } else if (c == '<' || c == '^' || c == '>') {
       if (c == '<') {
         specs.align = alignment::left;
@@ -567,16 +567,16 @@ inline constexpr result<void> validate_format_specs(reader& spec_rdr, format_spe
         specs.align = alignment::right;
       }
       fill_aligned = true;
-      EMIO_TRY(c, spec_rdr.read_char());
+      EMIO_TRY(c, format_rdr.read_char());
     }
   }
   if (c == '+' || c == '-' || c == ' ') {  // Sign.
     specs.sign = c;
-    EMIO_TRY(c, spec_rdr.read_char());
+    EMIO_TRY(c, format_rdr.read_char());
   }
   if (c == '#') {  // Alternate form.
     specs.alternate_form = true;
-    EMIO_TRY(c, spec_rdr.read_char());
+    EMIO_TRY(c, format_rdr.read_char());
   }
   if (c == '0') {         // Zero flag.
     if (!fill_aligned) {  // If fill/align is used, the zero flag is ignored.
@@ -584,28 +584,28 @@ inline constexpr result<void> validate_format_specs(reader& spec_rdr, format_spe
       specs.align = alignment::right;
       specs.zero_flag = true;
     }
-    EMIO_TRY(c, spec_rdr.read_char());
+    EMIO_TRY(c, format_rdr.read_char());
   }
   if (detail::isdigit(c)) {  // Width.
-    spec_rdr.unpop();
-    EMIO_TRY(const uint32_t width, spec_rdr.parse_int<uint32_t>());
+    format_rdr.unpop();
+    EMIO_TRY(const uint32_t width, format_rdr.parse_int<uint32_t>());
     if (width > (static_cast<uint32_t>(std::numeric_limits<int32_t>::max()))) {
       return err::invalid_format;
     }
     specs.width = static_cast<int32_t>(width);
-    EMIO_TRY(c, spec_rdr.read_char());
+    EMIO_TRY(c, format_rdr.read_char());
   }
   if (c == '.') {  // Precision.
-    EMIO_TRY(const uint32_t precision, spec_rdr.parse_int<uint32_t>());
+    EMIO_TRY(const uint32_t precision, format_rdr.parse_int<uint32_t>());
     if (precision > (static_cast<uint32_t>(std::numeric_limits<int32_t>::max()))) {
       return err::invalid_format;
     }
     specs.precision = static_cast<int32_t>(precision);
-    EMIO_TRY(c, spec_rdr.read_char());
+    EMIO_TRY(c, format_rdr.read_char());
   }
   if (detail::isalpha(c) || c == '?') {  // Type.
     specs.type = c;
-    EMIO_TRY(c, spec_rdr.read_char());
+    EMIO_TRY(c, format_rdr.read_char());
   }
   if (c == '}') {  // Format end.
     return success;
@@ -613,8 +613,8 @@ inline constexpr result<void> validate_format_specs(reader& spec_rdr, format_spe
   return err::invalid_format;
 }
 
-inline constexpr result<void> parse_format_specs(reader& spec_rdr, format_specs& specs) noexcept {
-  char c = spec_rdr.read_char().assume_value();
+inline constexpr result<void> parse_format_specs(reader& format_rdr, format_specs& specs) noexcept {
+  char c = format_rdr.read_char().assume_value();
   if (c == '}') {  // Format end.
     return success;
   }
@@ -622,7 +622,7 @@ inline constexpr result<void> parse_format_specs(reader& spec_rdr, format_specs&
   bool fill_aligned = false;
   {
     // Parse for alignment specifier.
-    const char c2 = spec_rdr.peek().assume_value();
+    const char c2 = format_rdr.peek().assume_value();
     if (c2 == '<' || c2 == '^' || c2 == '>') {
       if (c2 == '<') {
         specs.align = alignment::left;
@@ -633,8 +633,8 @@ inline constexpr result<void> parse_format_specs(reader& spec_rdr, format_specs&
       }
       fill_aligned = true;
       specs.fill = c;
-      spec_rdr.pop();
-      c = spec_rdr.read_char().assume_value();
+      format_rdr.pop();
+      c = format_rdr.read_char().assume_value();
     } else if (c == '<' || c == '^' || c == '>') {
       if (c == '<') {
         specs.align = alignment::left;
@@ -644,16 +644,16 @@ inline constexpr result<void> parse_format_specs(reader& spec_rdr, format_specs&
         specs.align = alignment::right;
       }
       fill_aligned = true;
-      c = spec_rdr.read_char().assume_value();
+      c = format_rdr.read_char().assume_value();
     }
   }
   if (c == '+' || c == '-' || c == ' ') {  // Sign.
     specs.sign = c;
-    c = spec_rdr.read_char().assume_value();
+    c = format_rdr.read_char().assume_value();
   }
   if (c == '#') {  // Alternate form.
     specs.alternate_form = true;
-    c = spec_rdr.read_char().assume_value();
+    c = format_rdr.read_char().assume_value();
   }
   if (c == '0') {         // Zero flag.
     if (!fill_aligned) {  // Ignoreable.
@@ -661,20 +661,20 @@ inline constexpr result<void> parse_format_specs(reader& spec_rdr, format_specs&
       specs.align = alignment::right;
       specs.zero_flag = true;
     }
-    c = spec_rdr.read_char().assume_value();
+    c = format_rdr.read_char().assume_value();
   }
   if (detail::isdigit(c)) {  // Width.
-    spec_rdr.unpop();
-    specs.width = static_cast<int32_t>(spec_rdr.parse_int<uint32_t>().assume_value());
-    c = spec_rdr.read_char().assume_value();
+    format_rdr.unpop();
+    specs.width = static_cast<int32_t>(format_rdr.parse_int<uint32_t>().assume_value());
+    c = format_rdr.read_char().assume_value();
   }
   if (c == '.') {  // Precision.
-    specs.precision = static_cast<int32_t>(spec_rdr.parse_int<uint32_t>().assume_value());
-    c = spec_rdr.read_char().assume_value();
+    specs.precision = static_cast<int32_t>(format_rdr.parse_int<uint32_t>().assume_value());
+    c = format_rdr.read_char().assume_value();
   }
   if (detail::isalpha(c) || c == '?') {  // Type.
     specs.type = c;
-    spec_rdr.pop();  // spec_rdr.read_char() in validate_format_specs;
+    format_rdr.pop();  // format_rdr.read_char() in validate_format_specs;
   }
   return success;
 }
@@ -755,7 +755,7 @@ inline constexpr result<void> check_floating_point_specs(const format_specs& spe
   return err::invalid_format;
 }
 
-inline constexpr result<void> check_string_specs_specs(const format_specs& specs) noexcept {
+inline constexpr result<void> check_string_specs(const format_specs& specs) noexcept {
   if (specs.alternate_form || specs.sign != no_sign || specs.zero_flag ||
       (specs.precision != no_precision && specs.type == '?') ||
       (specs.type != no_type && specs.type != 's' && specs.type != '?')) {

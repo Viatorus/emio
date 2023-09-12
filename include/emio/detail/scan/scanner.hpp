@@ -239,28 +239,28 @@ inline constexpr result<void> read_string(reader& in, format_specs& specs, reade
 //
 
 // specs is passed by reference instead as return type to reduce copying of big value (and code bloat)
-inline constexpr result<void> validate_format_specs(reader& spec_rdr, format_specs& specs) noexcept {
-  EMIO_TRY(char c, spec_rdr.read_char());
+inline constexpr result<void> validate_format_specs(reader& format_rdr, format_specs& specs) noexcept {
+  EMIO_TRY(char c, format_rdr.read_char());
   if (c == '}') {  // Scan end.
     return success;
   }
 
   if (c == '#') {  // Alternate form.
     specs.alternate_form = true;
-    EMIO_TRY(c, spec_rdr.read_char());
+    EMIO_TRY(c, format_rdr.read_char());
   }
   if (isdigit(c)) {  // Width.
-    spec_rdr.unpop();
-    EMIO_TRY(const uint32_t size, spec_rdr.parse_int<uint32_t>());
+    format_rdr.unpop();
+    EMIO_TRY(const uint32_t size, format_rdr.parse_int<uint32_t>());
     if (size == 0 || size > (static_cast<uint32_t>(std::numeric_limits<int32_t>::max()))) {
       return err::invalid_format;
     }
     specs.width = static_cast<int32_t>(size);
-    EMIO_TRY(c, spec_rdr.read_char());
+    EMIO_TRY(c, format_rdr.read_char());
   }
   if (detail::isalpha(c)) {
     specs.type = c;
-    EMIO_TRY(c, spec_rdr.read_char());
+    EMIO_TRY(c, format_rdr.read_char());
   }
   if (c == '}') {  // Scan end.
     return success;
@@ -268,24 +268,24 @@ inline constexpr result<void> validate_format_specs(reader& spec_rdr, format_spe
   return err::invalid_format;
 }
 
-inline constexpr result<void> parse_format_specs(reader& spec_rdr, format_specs& specs) noexcept {
-  char c = spec_rdr.read_char().assume_value();
+inline constexpr result<void> parse_format_specs(reader& format_rdr, format_specs& specs) noexcept {
+  char c = format_rdr.read_char().assume_value();
   if (c == '}') {  // Scan end.
     return success;
   }
 
   if (c == '#') {  // Alternate form.
     specs.alternate_form = true;
-    c = spec_rdr.read_char().assume_value();
+    c = format_rdr.read_char().assume_value();
   }
   if (isdigit(c)) {  // Width.
-    spec_rdr.unpop();
-    specs.width = static_cast<int32_t>(spec_rdr.parse_int<uint32_t>().assume_value());
-    c = spec_rdr.read_char().assume_value();
+    format_rdr.unpop();
+    specs.width = static_cast<int32_t>(format_rdr.parse_int<uint32_t>().assume_value());
+    c = format_rdr.read_char().assume_value();
   }
   if (detail::isalpha(c)) {
     specs.type = c;
-    spec_rdr.pop();  // spec_rdr.read_char() in validate_format_specs;
+    format_rdr.pop();  // format_rdr.read_char() in validate_format_specs;
   }
   return success;
 }

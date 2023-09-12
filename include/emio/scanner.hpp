@@ -32,7 +32,7 @@ class scanner {
   /**
    * Optional static function to validate the format string syntax for this type.
    * @note If not present, the parse function is invoked for validation.
-   * @param format_rdr The reader of the format string.
+   * @param format_rdr The reader over the format string.
    * @return Success if the format string is valid.
    */
   static constexpr result<void> validate(reader& format_rdr) noexcept {
@@ -41,7 +41,7 @@ class scanner {
 
   /**
    * Function to parse the format specs for this type.
-   * @param format_rdr The reader of the format string.
+   * @param format_rdr The reader over the format string.
    * @return Success if the format string is valid and could be parsed.
    */
   constexpr result<void> parse(reader& format_rdr) noexcept {

@@ -322,7 +322,7 @@ class emio::formatter<foo> {
   /**
    * Optional static function to validate the format string syntax for this type.
    * @note If not present, the parse function is invoked for validation.
-   * @param format_rdr The reader of the format string.
+   * @param format_rdr The reader over the format string.
    * @return Success if the format string is valid.
    */
   static constexpr result<void> validate(reader& format_rdr) noexcept {
@@ -331,7 +331,7 @@ class emio::formatter<foo> {
 
   /**
    * Function to parse the format specs for this type.
-   * @param format_rdr The reader of the format string.
+   * @param format_rdr The reader over the format string.
    * @return Success if the format string is valid and could be parsed.
    */
   constexpr result<void> parse(reader& format_rdr) noexcept {
@@ -403,7 +403,7 @@ It is possible to directly print to the standard output or other file streams.
 `print(format_str, ...args) -> void/result<void>`
 
 - Formats arguments according to the format string, and writes the result to the standard output stream.
-- The return value depends on the type of the format spec string (valid-only type or not).
+- The return value depends on the type of the format string (valid-only type or not).
 
 `print(file, format_str, ...args) -> result<void>`
 
@@ -411,14 +411,13 @@ It is possible to directly print to the standard output or other file streams.
 
 `println(format_str, ...args) -> void/result<void>`
 
-- Formats arguments according to the format string, and writes the result to the standard output stream with a new
-  line at the end.
+- Formats arguments according to the format string, and writes the result to the standard output stream with a new line
+  at the end.
 - The return value depends on the type of the format string (valid-only type or not).
 
 `println(file, format_str, ...args) -> result<void>`
 
-- Formats arguments according to the format string, and writes the result to a file stream with a new line at the
-  end.
+- Formats arguments according to the format string, and writes the result to a file stream with a new line at the end.
 
 For each function there exists a function prefixed with v (e.g. `vprint`) which allow the same functionality as
 e.g. `vformat(...)` does for `format(...)`.
@@ -504,7 +503,7 @@ class emio::scanner<foo> {
   /**
    * Optional static function to validate the format string syntax for this type.
    * @note If not present, the parse function is invoked for validation.
-   * @param format_rdr The reader of the format string.
+   * @param format_rdr The reader over the format string.
    * @return Success if the format string is valid.
    */
   static constexpr result<void> validate(reader& format_rdr) noexcept {
@@ -513,7 +512,7 @@ class emio::scanner<foo> {
 
   /**
    * Function to parse the format specs for this type.
-   * @param format_rdr The reader of the format string.
+   * @param format_rdr The reader over the format string.
    * @return Success if the format string is valid and could be parsed.
    */
   constexpr result<void> parse(reader& format_rdr) noexcept {

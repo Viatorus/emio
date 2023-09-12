@@ -31,7 +31,7 @@ class formatter {
   /**
    * Optional static function to validate the format string syntax for this type.
    * @note If not present, the parse function is invoked for validation.
-   * @param format_rdr The reader of the format string.
+   * @param format_rdr The reader over the format string.
    * @return Success if the format string is valid.
    */
   static constexpr result<void> validate(reader& format_rdr) noexcept {
@@ -40,7 +40,7 @@ class formatter {
 
   /**
    * Function to parse the format specs for this type.
-   * @param format_rdr The reader of the format string.
+   * @param format_rdr The reader over the format string.
    * @return Success if the format string is valid and could be parsed.
    */
   constexpr result<void> parse(reader& format_rdr) noexcept {
@@ -89,7 +89,7 @@ class formatter<T> {
     } else if constexpr (std::is_floating_point_v<T>) {
       EMIO_TRYV(check_floating_point_specs(specs));
     } else if constexpr (std::is_constructible_v<std::string_view, T>) {
-      EMIO_TRYV(check_string_specs_specs(specs));
+      EMIO_TRYV(check_string_specs(specs));
     } else {
       static_assert(detail::always_false_v<T>, "Unknown core type!");
     }
@@ -187,7 +187,7 @@ struct format_spec_with_value;
  * Struct to dynamically specify width and precision.
  */
 struct format_spec {
-  /// Constant which indicates that the spec should not overwrite existing spec defined in the format spec string.
+  /// Constant which indicates that the spec should not overwrite the parsed spec from the format string.
   static constexpr int32_t not_defined = -std::numeric_limits<int32_t>::max();
 
   /// The width.
