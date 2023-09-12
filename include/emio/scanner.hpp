@@ -30,27 +30,27 @@ class scanner {
   scanner() = delete;
 
   /**
-   * Optional static function to validate the scan specs for this type.
+   * Optional static function to validate the format string syntax for this type.
    * @note If not present, the parse function is invoked for validation.
-   * @param spec_rdr The reader of the scan spec.
-   * @return Success if the scan spec is valid.
+   * @param format_rdr The reader of the format string.
+   * @return Success if the format string is valid.
    */
-  static constexpr result<void> validate(reader& spec_rdr) noexcept {
-    return spec_rdr.read_if_match_char('}');
+  static constexpr result<void> validate(reader& format_rdr) noexcept {
+    return format_rdr.read_if_match_char('}');
   }
 
   /**
-   * Function to parse the scan specs for this type.
-   * @param spec_rdr The reader of the scan spec.
-   * @return Success if the scan spec is valid and could be parsed.
+   * Function to parse the format specs for this type.
+   * @param format_rdr The reader of the format string.
+   * @return Success if the format string is valid and could be parsed.
    */
-  constexpr result<void> parse(reader& spec_rdr) noexcept {
-    return spec_rdr.read_if_match_char('}');
+  constexpr result<void> parse(reader& format_rdr) noexcept {
+    return format_rdr.read_if_match_char('}');
   }
 
   /**
-   * Function to scan the object of this type according to the parsed scan specs.
-   * @param in The input reader.
+   * Function to scan the object of this type according to the parsed format specs.
+   * @param input The input reader.
    * @param arg The argument to scan.
    * @return Success if the scanning could be done.
    */
@@ -73,9 +73,9 @@ template <typename T>
   requires(detail::scan::is_core_type_v<T>)
 class scanner<T> {
  public:
-  static constexpr result<void> validate(reader& spec_rdr) noexcept {
-    detail::scan::scan_specs specs{};
-    EMIO_TRYV(detail::scan::validate_scan_specs(spec_rdr, specs));
+  static constexpr result<void> validate(reader& format_rdr) noexcept {
+    detail::scan::format_specs specs{};
+    EMIO_TRYV(detail::scan::validate_format_specs(format_rdr, specs));
     if constexpr (std::is_same_v<T, char>) {
       EMIO_TRYV(check_char_specs(specs));
     } else if constexpr (std::is_integral_v<T>) {
@@ -86,8 +86,8 @@ class scanner<T> {
     return success;
   }
 
-  constexpr result<void> parse(reader& spec_rdr) noexcept {
-    return detail::scan::parse_scan_specs(spec_rdr, specs_);
+  constexpr result<void> parse(reader& format_rdr) noexcept {
+    return detail::scan::parse_format_specs(format_rdr, specs_);
   }
 
   constexpr result<void> scan(reader& in, T& arg) const noexcept {
@@ -95,7 +95,7 @@ class scanner<T> {
   }
 
  private:
-  detail::scan::scan_specs specs_{};
+  detail::scan::format_specs specs_{};
 };
 
 /**
@@ -104,26 +104,26 @@ class scanner<T> {
 template <>
 class scanner<std::string_view> {
  public:
-  static constexpr result<void> validate(reader& spec_rdr) noexcept {
-    detail::scan::scan_specs specs{};
-    EMIO_TRYV(detail::scan::validate_scan_specs(spec_rdr, specs));
+  static constexpr result<void> validate(reader& format_rdr) noexcept {
+    detail::scan::format_specs specs{};
+    EMIO_TRYV(detail::scan::validate_format_specs(format_rdr, specs));
     EMIO_TRYV(detail::scan::check_string_specs(specs));
     return success;
   }
 
-  constexpr result<void> parse(reader& spec_rdr) noexcept {
-    EMIO_TRYV(detail::scan::parse_scan_specs(spec_rdr, specs_));
-    spec_rdr_ = spec_rdr;
+  constexpr result<void> parse(reader& format_rdr) noexcept {
+    EMIO_TRYV(detail::scan::parse_format_specs(format_rdr, specs_));
+    format_rdr_ = format_rdr;
     return success;
   }
 
   constexpr result<void> scan(reader& in, std::string_view& arg) noexcept {
-    return detail::scan::read_string(in, specs_, spec_rdr_, arg);
+    return detail::scan::read_string(in, specs_, format_rdr_, arg);
   }
 
  private:
-  detail::scan::scan_specs specs_;
-  reader spec_rdr_;
+  detail::scan::format_specs specs_;
+  reader format_rdr_;
 };
 
 /**

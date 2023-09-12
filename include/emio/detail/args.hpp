@@ -144,7 +144,7 @@ class args_span {
   ~args_span() = default;
 
   [[nodiscard]] result<std::string_view> get_str() const noexcept {
-    return spec_str_;
+    return format_str_;
   }
 
   [[nodiscard]] std::span<const T> get_args() const noexcept {
@@ -152,10 +152,10 @@ class args_span {
   }
 
  protected:
-  args_span(result<std::string_view> spec_str, std::span<const T> args) : spec_str_{spec_str}, args_{args} {}
+  args_span(result<std::string_view> format_str, std::span<const T> args) : format_str_{format_str}, args_{args} {}
 
  private:
-  result<std::string_view> spec_str_;
+  result<std::string_view> format_str_;
   std::span<const T> args_;
 };
 
@@ -180,8 +180,8 @@ class args_storage : public args_span<Arg> {
 };
 
 template <typename T, typename... Args>
-args_storage<T, sizeof...(Args)> make_validation_args(std::string_view spec_str) {
-  return {spec_str, std::type_identity<Args>{}...};
+args_storage<T, sizeof...(Args)> make_validation_args(std::string_view format_str) {
+  return {format_str, std::type_identity<Args>{}...};
 }
 
 }  // namespace emio::detail

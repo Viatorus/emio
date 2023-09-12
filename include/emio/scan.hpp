@@ -19,10 +19,10 @@ using scan_args = detail::args_span<detail::scan::scan_arg>;
 
 // Alias template types.
 template <typename... Args>
-using scan_string = detail::scan::scan_string<Args...>;
+using format_scan_string = detail::scan::format_string<Args...>;
 
 template <typename... Args>
-using valid_scan_string = detail::scan::valid_scan_string<Args...>;
+using valid_format_scan_string = detail::scan::valid_format_string<Args...>;
 
 /**
  * Returns an object that stores a scan spec string with an array of all arguments to scan.
@@ -37,7 +37,7 @@ using valid_scan_string = detail::scan::valid_scan_string<Args...>;
  */
 template <typename... Args>
 [[nodiscard]] detail::args_storage<detail::scan::scan_arg, sizeof...(Args)> make_scan_args(
-    scan_string<Args...> spec_str, Args&... args) noexcept {
+    format_scan_string<Args...> spec_str, Args&... args) noexcept {
   return {spec_str.get(), args...};
 }
 
@@ -74,7 +74,7 @@ inline result<void> vscan(std::string_view in, const scan_args& args) noexcept {
  * @return Success if the scanning was successfully for all arguments. The reader may not be empty.
  */
 template <typename... Args>
-constexpr result<void> scan_from(reader& in_rdr, scan_string<Args...> spec_str, Args&... args) {
+constexpr result<void> scan_from(reader& in_rdr, format_scan_string<Args...> spec_str, Args&... args) {
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::scan::scan_from(in_rdr, spec_str, args...));
   } else {
@@ -91,7 +91,7 @@ constexpr result<void> scan_from(reader& in_rdr, scan_string<Args...> spec_str, 
  * @return Success if the scanning was successfully for all arguments for the entire input string.
  */
 template <typename... Args>
-constexpr result<void> scan(std::string_view input, scan_string<Args...> spec_str, Args&... args) {
+constexpr result<void> scan(std::string_view input, format_scan_string<Args...> spec_str, Args&... args) {
   reader rdr{input};
   EMIO_TRYV(emio::scan_from(rdr, spec_str, args...));
   if (rdr.eof()) {

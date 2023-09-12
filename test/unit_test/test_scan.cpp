@@ -459,7 +459,7 @@ TEST_CASE("scan_hex", "[scan]") {
   }
 }
 
-TEST_CASE("scan_string", "[scan]") {
+TEST_CASE("format_string", "[scan]") {
   std::string s;
   SECTION("until eof") {
     REQUIRE(emio::scan("abc", "{}", s));

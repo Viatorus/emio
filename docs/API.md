@@ -45,7 +45,7 @@ Every function describes the possible errors which can occur. See the source cod
 
 `invalid_format`
 
-- The format/scan string is invalid (e.g. missing arguments, wrong syntax).
+- The format string is invalid (e.g. missing arguments, wrong syntax).
 
 `to_string(err) -> string_view`
 
@@ -241,13 +241,13 @@ width       ::=  integer
 type        ::=  "b" | "B" | "c" | "d" | "o" | "s" | "x" | "X" | "e" | "E" | "f" | "F" | "g" | "G"
 ```
 
-The syntax of the format spec string is validated at compile-time. If a validation at runtime is required, the string
+The syntax of the format string is validated at compile-time. If a validation at runtime is required, the string
 must be wrapped inside a `runtime_string` object. There is a simple helper function for that:
 
 `runtime(string_view) -> runtime_string`
 
 Some functions (like `format` or `formatted_size`) are further optimized (simplified) in their return type if the format
-spec string is a valid-only format string that could be ensured at compile-time.
+string is a valid-only format string that could be ensured at compile-time.
 
 `format(spec_str, ...args) -> string/result<string>`
 
@@ -276,7 +276,7 @@ implementations and reduce the binary size. **Note:** These type erased function
 
 `make_format_args(spec_str, ...args) -> internal format_args_storage`
 
-- Returns an object that stores a format spec string with an array of all arguments to format.
+- Returns an object that stores a format string with an array of all arguments to format.
 - Keep in mind that the storage uses reference semantics and does not extend the lifetime of args. It is the
   programmer's responsibility to ensure that args outlive the return value.
 
@@ -290,7 +290,7 @@ passed as an argument with the original value to the format function.
 
 `format_spec{.width = <width>, .precision = <precision>}`
 
-- If a spec is not defined inside the struct, the spec of the parsed format spec string will be applied.
+- If a spec is not defined inside the struct, the spec of the parsed format string will be applied.
 
 In the example shown below the precision is set dynamically to 1:
 
@@ -307,7 +307,7 @@ and tuple like types. Support for other standard types (e.g. chrono duration, op
 Use `is_formattable_v<Type>` to check if a type is formattable.
 
 A formatter exists of one optional function `validate` and two mandatory functions `parse` and `format`. If `validate`
-is not present, `parse` must validate the format spec string.
+is not present, `parse` must validate the format string.
 
 A custom formatter for the class `foo` could be implemented like this:
 
@@ -320,22 +320,22 @@ template <>
 class emio::formatter<foo> {
  public:
   /**
-   * Optional static function to validate the format spec for this type.
+   * Optional static function to validate the format string syntax for this type.
    * @note If not present, the parse function is invoked for validation.
-   * @param spec_rdr The format spec reader.
-   * @return Success if the format spec is valid.
+   * @param format_rdr The reader of the format string.
+   * @return Success if the format string is valid.
    */
-  static constexpr result<void> validate(reader& spec_rdr) noexcept {
-    return spec_rdr.read_if_match_char('}');
+  static constexpr result<void> validate(reader& format_rdr) noexcept {
+    return format_rdr.read_if_match_char('}');
   }
 
   /**
    * Function to parse the format specs for this type.
-   * @param spec_rdr The format spec reader.
-   * @return Success if the format spec is valid and could be parsed.
+   * @param format_rdr The reader of the format string.
+   * @return Success if the format string is valid and could be parsed.
    */
-  constexpr result<void> parse(reader& spec_rdr) noexcept {
-    return spec_rdr.read_if_match_char('}');
+  constexpr result<void> parse(reader& format_rdr) noexcept {
+    return format_rdr.read_if_match_char('}');
   }
 
   /**
@@ -402,22 +402,22 @@ It is possible to directly print to the standard output or other file streams.
 
 `print(spec_str, ...args) -> void/result<void>`
 
-- Formats arguments according to the format spec string, and writes the result to the standard output stream.
+- Formats arguments according to the format string, and writes the result to the standard output stream.
 - The return value depends on the type of the format spec string (valid-only type or not).
 
 `print(file, spec_str, ...args) -> result<void>`
 
-- Formats arguments according to the format spec string, and writes the result to a file stream.
+- Formats arguments according to the format string, and writes the result to a file stream.
 
 `println(spec_str, ...args) -> void/result<void>`
 
-- Formats arguments according to the format spec string, and writes the result to the standard output stream with a new
+- Formats arguments according to the format string, and writes the result to the standard output stream with a new
   line at the end.
-- The return value depends on the type of the format spec string (valid-only type or not).
+- The return value depends on the type of the format string (valid-only type or not).
 
 `println(file, spec_str, ...args) -> result<void>`
 
-- Formats arguments according to the format spec string, and writes the result to a file stream with a new line at the
+- Formats arguments according to the format string, and writes the result to a file stream with a new line at the
   end.
 
 For each function there exists a function prefixed with v (e.g. `vprint`) which allow the same functionality as
@@ -425,9 +425,9 @@ e.g. `vformat(...)` does for `format(...)`.
 
 ## Scan
 
-The following functions use a scan spec syntax which is similar to the format syntax.
+The following functions use a format string syntax which is similar to the format syntax of `format`.
 
-The grammar for the replacement field is the same. The grammar for the scan specification is as follows:
+The grammar for the replacement field is the same. The grammar for the scan specific syntax is as follows:
 
 ```sass
 format_spec ::=  ["#"][width][type]
@@ -454,7 +454,7 @@ type        ::=  "b" | "B" | "c" | "d" | "o" | "s" | "x" | "X"
     - x/X: `0x` (e.g 0x2fA3)
 - if `#` is present but not the `type`, the base is deduced from the scanned alternate form.
 
-The syntax of the scan spec string is validated at compile-time. If a validation at runtime is required, the string must
+The syntax of the format string is validated at compile-time. If a validation at runtime is required, the string must
 be wrapped inside a `runtime_string` object. There is a simple helper function for that:
 
 `runtime(string_view) -> runtime_string`
@@ -463,13 +463,13 @@ The API is structured as follows:
 
 `scan(input, spec_str, ...args) -> result<void>`
 
-- Scans the input string for the given arguments according to the scan spec string.
+- Scans the input string for the given arguments according to the format string.
 
 `scan_from(reader, spec_str, ...args) -> result<void>`
 
-- Scans the content of the reader for the given arguments according to the scan spec string.
+- Scans the content of the reader for the given arguments according to the format string.
 
-For each function there exists a function prefixed with v (e.g. `vscan`) which takes `scan_args` instead of a scan spec
+For each function there exists a function prefixed with v (e.g. `vscan`) which takes `scan_args` instead of a format
 string and arguments. The types are erased and can be used in non-template functions to reduce build-time, hide
 implementations and reduce the binary size. **Note:** These type erased functions cannot be used at compile-time.
 
@@ -477,7 +477,7 @@ implementations and reduce the binary size. **Note:** These type erased function
 
 `make_scan_args(spec_str, ...args) -> internal scan_args_storage`
 
-- Returns an object that stores a scan spec string with an array of all arguments to scan.
+- Returns an object that stores a format string with an array of all arguments to scan.
 - Keep in mind that the storage uses reference semantics and does not extend the lifetime of args. It is the
   programmer's responsibility to ensure that args outlive the return value.
 
@@ -489,7 +489,7 @@ planned.
 Use `is_scanner_v<Type>` to check if a type is scannable.
 
 A scanner exists of one optional function `validate` and two mandatory functions `parse` and `scan`. If `validate`
-is not present, `parse` must validate the scan spec string.
+is not present, `parse` must validate the format string.
 
 A custom scanner for the class `foo` could be implemented like this:
 
@@ -502,26 +502,26 @@ template <>
 class emio::scanner<foo> {
  public:
   /**
-   * Optional static function to validate the scan specs for this type.
+   * Optional static function to validate the format string syntax for this type.
    * @note If not present, the parse function is invoked for validation.
-   * @param scan_rdr The scan reader.
-   * @return Success if the scan spec is valid.
+   * @param format_rdr The reader of the format string.
+   * @return Success if the format string is valid.
    */
-  static constexpr result<void> validate(reader& scan_rdr) noexcept {
-    return scan_rdr.read_if_match_char('}');
+  static constexpr result<void> validate(reader& format_rdr) noexcept {
+    return format_rdr.read_if_match_char('}');
   }
 
   /**
-   * Function to parse the scan specs for this type.
-   * @param scan_rdr The scan reader.
-   * @return Success if the scan spec is valid and could be parsed.
+   * Function to parse the format specs for this type.
+   * @param format_rdr The reader of the format string.
+   * @return Success if the format string is valid and could be parsed.
    */
-  constexpr result<void> parse(reader& scan_rdr) noexcept {
-    return scan_rdr.read_if_match_char('}');
+  constexpr result<void> parse(reader& format_rdr) noexcept {
+    return format_rdr.read_if_match_char('}');
   }
 
   /**
-   * Function to scan the object of this type according to the parsed scan specs.
+   * Function to scan the object of this type according to the parsed format specs.
    * @param input The input reader.
    * @param arg The argument to scan.
    * @return Success if the scanning could be done.
@@ -559,5 +559,5 @@ int main() {
 }
 ```
 
-If the `validate` (or if absent the `parse`) function is not constexpr, a runtime scan strings must be used. The
-`scan` function don't need to be constexpr if the scanning shouldn't be done at compile-time.
+If the `validate` (or if absent the `parse`) function is not constexpr, a runtime strings must be used. The `scan`
+function don't need to be constexpr if the scanning shouldn't be done at compile-time.
