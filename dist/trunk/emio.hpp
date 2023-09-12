@@ -435,7 +435,7 @@ enum class err {
   invalid_argument,  ///< A parameter is incorrect (e.g. the output base is invalid).
   invalid_data,      ///< The data is malformed (e.g. no digit where a digit was expected).
   out_of_range,      ///< The parsed value is not in the range representable by the type (e.g. parsing 578 as uint8_t).
-  invalid_format,    ///< The format/scan string is invalid.
+  invalid_format,    ///< The format string is invalid.
 };
 
 /**
@@ -1058,6 +1058,21 @@ class reader {
     } else {
       pos_ = 0;
     }
+  }
+
+  /**
+   * Returns a newly constructed reader over the not yet read char sequence of the range [pos, pos + len).
+   * If len is greater than the size of the remaining chars, the end of the char sequence is used.
+   * @param pos The position of the first char to include.
+   * @param len The length of the char sequence.
+   * @return EOF if the position is outside the char sequence.
+   */
+  constexpr result<reader> subreader(const size_t pos, const size_t len = npos) const noexcept {
+    const size_t subpos = pos_ + pos;
+    if (subpos > input_.size()) {
+      return err::eof;
+    }
+    return reader{detail::unchecked_substr(input_, subpos, len)};
   }
 
   /**
@@ -3923,7 +3938,7 @@ inline constexpr std::string_view hex_upper{"0X"};
 // Write args.
 //
 
-inline constexpr result<void> write_padding_left(writer& wtr, format_specs& specs, size_t width) {
+inline constexpr result<void> write_padding_left(writer& out, format_specs& specs, size_t width) {
   if (specs.width == 0 || specs.width < static_cast<int>(width)) {
     specs.width = 0;
     return success;
@@ -3937,24 +3952,24 @@ inline constexpr result<void> write_padding_left(writer& wtr, format_specs& spec
     fill_width = fill_width / 2;
   }
   specs.width -= fill_width + static_cast<int>(width);
-  return wtr.write_char_n(specs.fill, static_cast<size_t>(fill_width));
+  return out.write_char_n(specs.fill, static_cast<size_t>(fill_width));
 }
 
-inline constexpr result<void> write_padding_right(writer& wtr, format_specs& specs) {
+inline constexpr result<void> write_padding_right(writer& out, format_specs& specs) {
   if (specs.width == 0 || (specs.align != alignment::left && specs.align != alignment::center)) {
     return success;
   }
-  return wtr.write_char_n(specs.fill, static_cast<size_t>(specs.width));
+  return out.write_char_n(specs.fill, static_cast<size_t>(specs.width));
 }
 
 template <alignment DefaultAlign, typename Func>
-constexpr result<void> write_padded(writer& wtr, format_specs& specs, size_t width, Func&& func) {
+constexpr result<void> write_padded(writer& out, format_specs& specs, size_t width, Func&& func) {
   if (specs.align == alignment::none) {
     specs.align = DefaultAlign;
   }
-  EMIO_TRYV(write_padding_left(wtr, specs, width));
+  EMIO_TRYV(write_padding_left(out, specs, width));
   EMIO_TRYV(func());
-  return write_padding_right(wtr, specs);
+  return write_padding_right(out, specs);
 }
 
 inline constexpr result<std::pair<std::string_view, writer::write_int_options>> make_write_int_options(
@@ -3995,7 +4010,7 @@ inline constexpr result<std::pair<std::string_view, writer::write_int_options>> 
   return std::pair{prefix, options};
 }
 
-inline constexpr result<char> try_write_sign(writer& wtr, const format_specs& specs, bool is_negative) {
+inline constexpr result<char> try_write_sign(writer& out, const format_specs& specs, bool is_negative) {
   char sign_to_write = no_sign;
   if (is_negative) {
     sign_to_write = '-';
@@ -4003,17 +4018,17 @@ inline constexpr result<char> try_write_sign(writer& wtr, const format_specs& sp
     sign_to_write = specs.sign;
   }
   if (sign_to_write != no_sign && specs.zero_flag) {
-    EMIO_TRYV(wtr.write_char(sign_to_write));
+    EMIO_TRYV(out.write_char(sign_to_write));
     return no_sign;
   }
   return sign_to_write;
 }
 
-inline constexpr result<std::string_view> try_write_prefix(writer& wtr, const format_specs& specs,
+inline constexpr result<std::string_view> try_write_prefix(writer& out, const format_specs& specs,
                                                            std::string_view prefix) {
   const bool write_prefix = specs.alternate_form && !prefix.empty();
   if (write_prefix && specs.zero_flag) {
-    EMIO_TRYV(wtr.write_str(prefix));
+    EMIO_TRYV(out.write_str(prefix));
     return "";
   }
   if (write_prefix) {
@@ -4024,10 +4039,10 @@ inline constexpr result<std::string_view> try_write_prefix(writer& wtr, const fo
 
 template <typename Arg>
   requires(std::is_integral_v<Arg> && !std::is_same_v<Arg, bool> && !std::is_same_v<Arg, char>)
-constexpr result<void> write_arg(writer& wtr, format_specs& specs, const Arg& arg) noexcept {
+constexpr result<void> write_arg(writer& out, format_specs& specs, const Arg& arg) noexcept {
   if (specs.type == 'c') {
-    return write_padded<alignment::left>(wtr, specs, 1, [&] {
-      return wtr.write_char(static_cast<char>(arg));
+    return write_padded<alignment::left>(out, specs, 1, [&] {
+      return out.write_char(static_cast<char>(arg));
     });
   }
   EMIO_TRY((auto [prefix, options]), make_write_int_options(specs.type));
@@ -4040,8 +4055,8 @@ constexpr result<void> write_arg(writer& wtr, format_specs& specs, const Arg& ar
   const bool is_negative = detail::is_negative(arg);
   const size_t num_digits = detail::get_number_of_digits(abs_number, options.base);
 
-  EMIO_TRY(const char sign_to_write, try_write_sign(wtr, specs, is_negative));
-  EMIO_TRY(const std::string_view prefix_to_write, try_write_prefix(wtr, specs, prefix));
+  EMIO_TRY(const char sign_to_write, try_write_sign(out, specs, is_negative));
+  EMIO_TRY(const std::string_view prefix_to_write, try_write_prefix(out, specs, prefix));
 
   size_t total_width = num_digits;
   if (specs.alternate_form) {
@@ -4051,10 +4066,10 @@ constexpr result<void> write_arg(writer& wtr, format_specs& specs, const Arg& ar
     total_width += 1;
   }
 
-  return write_padded<alignment::right>(wtr, specs, total_width, [&, &opt = options]() -> result<void> {
+  return write_padded<alignment::right>(out, specs, total_width, [&, &opt = options]() -> result<void> {
     const size_t area_size =
         num_digits + static_cast<size_t>(sign_to_write != no_sign) + static_cast<size_t>(prefix_to_write.size());
-    EMIO_TRY(auto area, wtr.get_buffer().get_write_area_of(area_size));
+    EMIO_TRY(auto area, out.get_buffer().get_write_area_of(area_size));
     auto* it = area.data();
     if (sign_to_write != no_sign) {
       *it++ = sign_to_write;
@@ -4067,11 +4082,11 @@ constexpr result<void> write_arg(writer& wtr, format_specs& specs, const Arg& ar
   });
 }
 
-inline constexpr result<void> write_non_finite(writer& wtr, bool upper_case, bool is_inf) {
+inline constexpr result<void> write_non_finite(writer& out, bool upper_case, bool is_inf) {
   if (is_inf) {
-    EMIO_TRYV(wtr.write_str(upper_case ? "INF" : "inf"));
+    EMIO_TRYV(out.write_str(upper_case ? "INF" : "inf"));
   } else {
-    EMIO_TRYV(wtr.write_str(upper_case ? "NAN" : "nan"));
+    EMIO_TRYV(out.write_str(upper_case ? "NAN" : "nan"));
   }
   return success;
 }
@@ -4148,7 +4163,7 @@ inline constexpr char* write_exponent(char* it, int exp) {
   return it;
 }
 
-inline constexpr result<void> write_decimal(writer& wtr, format_specs& specs, fp_format_specs& fp_specs,
+inline constexpr result<void> write_decimal(writer& out, format_specs& specs, fp_format_specs& fp_specs,
                                             bool is_negative, const format_fp_result_t& f) noexcept {
   const char* significand = f.digits.data();
   int significand_size = static_cast<int>(f.digits.size());
@@ -4178,7 +4193,7 @@ inline constexpr result<void> write_decimal(writer& wtr, format_specs& specs, fp
     return output_exp < exp_lower || output_exp >= (fp_specs.precision > 0 ? fp_specs.precision : exp_upper);
   };
 
-  EMIO_TRY(const char sign_to_write, try_write_sign(wtr, specs, is_negative));
+  EMIO_TRY(const char sign_to_write, try_write_sign(out, specs, is_negative));
 
   int num_zeros = 0;
   char decimal_point = '.';
@@ -4201,9 +4216,9 @@ inline constexpr result<void> write_decimal(writer& wtr, format_specs& specs, fp
     num_digits += to_unsigned((decimal_point != 0 ? 1 : 0) + 2 /* sign + e */ + exp_digits);
     total_width += num_digits;
 
-    return write_padded<alignment::right>(wtr, specs, total_width, [&]() -> result<void> {
+    return write_padded<alignment::right>(out, specs, total_width, [&]() -> result<void> {
       const size_t area_size = num_digits + static_cast<size_t>(sign_to_write != no_sign);
-      EMIO_TRY(auto area, wtr.get_buffer().get_write_area_of(area_size));
+      EMIO_TRY(auto area, out.get_buffer().get_write_area_of(area_size));
       auto* it = area.data();
       if (sign_to_write != no_sign) {
         *it++ = sign_to_write;
@@ -4261,9 +4276,9 @@ inline constexpr result<void> write_decimal(writer& wtr, format_specs& specs, fp
   num_digits += static_cast<size_t>(num_zeros + num_zeros_2);
   total_width += num_digits;
 
-  return write_padded<alignment::right>(wtr, specs, total_width, [&]() -> result<void> {
+  return write_padded<alignment::right>(out, specs, total_width, [&]() -> result<void> {
     const size_t area_size = num_digits + static_cast<size_t>(sign_to_write != no_sign);
-    EMIO_TRY(auto area, wtr.get_buffer().get_write_area_of(area_size));
+    EMIO_TRY(auto area, out.get_buffer().get_write_area_of(area_size));
     auto* it = area.data();
     if (sign_to_write != no_sign) {
       *it++ = sign_to_write;
@@ -4327,7 +4342,7 @@ inline constexpr format_fp_result_t format_decimal(buffer& buffer, const fp_form
   EMIO_Z_INTERNAL_UNREACHABLE;
 }
 
-inline constexpr result<void> format_and_write_decimal(writer& wtr, format_specs& specs,
+inline constexpr result<void> format_and_write_decimal(writer& out, format_specs& specs,
                                                        const decode_result_t& decoded) noexcept {
   fp_format_specs fp_specs = parse_fp_format_specs(specs);
 
@@ -4336,83 +4351,83 @@ inline constexpr result<void> format_and_write_decimal(writer& wtr, format_specs
       specs.fill = ' ';
       specs.zero_flag = false;
     }
-    EMIO_TRY(const char sign_to_write, try_write_sign(wtr, specs, decoded.negative));
+    EMIO_TRY(const char sign_to_write, try_write_sign(out, specs, decoded.negative));
 
     const size_t total_length = 3 + static_cast<uint32_t>(sign_to_write != no_sign);
-    return write_padded<alignment::left>(wtr, specs, total_length, [&]() -> result<void> {
+    return write_padded<alignment::left>(out, specs, total_length, [&]() -> result<void> {
       if (sign_to_write != no_sign) {
-        EMIO_TRYV(wtr.write_char(sign_to_write));
+        EMIO_TRYV(out.write_char(sign_to_write));
       }
-      return write_non_finite(wtr, fp_specs.upper_case, decoded.category == category::infinity);
+      return write_non_finite(out, fp_specs.upper_case, decoded.category == category::infinity);
     });
   }
 
   emio::memory_buffer buf;
   const format_fp_result_t res = format_decimal(buf, fp_specs, decoded);
-  return write_decimal(wtr, specs, fp_specs, decoded.negative, res);
+  return write_decimal(out, specs, fp_specs, decoded.negative, res);
 }
 
 template <typename Arg>
   requires(std::is_floating_point_v<Arg> && sizeof(Arg) <= sizeof(double))
-constexpr result<void> write_arg(writer& wtr, format_specs& specs, const Arg& arg) noexcept {
-  return format_and_write_decimal(wtr, specs, decode(arg));
+constexpr result<void> write_arg(writer& out, format_specs& specs, const Arg& arg) noexcept {
+  return format_and_write_decimal(out, specs, decode(arg));
 }
 
-inline constexpr result<void> write_arg(writer& wtr, format_specs& specs, std::string_view arg) noexcept {
+inline constexpr result<void> write_arg(writer& out, format_specs& specs, std::string_view arg) noexcept {
   if (specs.type != '?') {
     if (specs.precision >= 0) {
       arg = unchecked_substr(arg, 0, static_cast<size_t>(specs.precision));
     }
-    return write_padded<alignment::left>(wtr, specs, arg.size(), [&] {
-      return wtr.write_str(arg);
+    return write_padded<alignment::left>(out, specs, arg.size(), [&] {
+      return out.write_str(arg);
     });
   }
   const size_t escaped_size = detail::count_size_when_escaped(arg);
-  return write_padded<alignment::left>(wtr, specs, escaped_size + 2U /* quotes */, [&] {
-    return detail::write_str_escaped(wtr.get_buffer(), arg, escaped_size, '"');
+  return write_padded<alignment::left>(out, specs, escaped_size + 2U /* quotes */, [&] {
+    return detail::write_str_escaped(out.get_buffer(), arg, escaped_size, '"');
   });
 }
 
 template <typename Arg>
   requires(std::is_same_v<Arg, char>)
-constexpr result<void> write_arg(writer& wtr, format_specs& specs, const Arg arg) noexcept {
+constexpr result<void> write_arg(writer& out, format_specs& specs, const Arg arg) noexcept {
   // If a type other than None/c is specified, write out as integer instead of char.
   if (specs.type != no_type && specs.type != 'c' && specs.type != '?') {
-    return write_arg(wtr, specs, static_cast<uint8_t>(arg));
+    return write_arg(out, specs, static_cast<uint8_t>(arg));
   }
   if (specs.type != '?') {
-    return write_padded<alignment::left>(wtr, specs, 1, [&] {
-      return wtr.write_char(arg);
+    return write_padded<alignment::left>(out, specs, 1, [&] {
+      return out.write_char(arg);
     });
   }
-  return write_padded<alignment::left>(wtr, specs, 3, [&] {
-    return wtr.write_char_escaped(arg);
+  return write_padded<alignment::left>(out, specs, 3, [&] {
+    return out.write_char_escaped(arg);
   });
 }
 
 template <typename Arg>
   requires(std::is_same_v<Arg, void*> || std::is_same_v<Arg, std::nullptr_t>)
-constexpr result<void> write_arg(writer& wtr, format_specs& specs, Arg arg) noexcept {
+constexpr result<void> write_arg(writer& out, format_specs& specs, Arg arg) noexcept {
   specs.alternate_form = true;
   specs.type = 'x';
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): valid cast
-  return write_arg(wtr, specs, reinterpret_cast<uintptr_t>(arg));
+  return write_arg(out, specs, reinterpret_cast<uintptr_t>(arg));
 }
 
 template <typename Arg>
   requires(std::is_same_v<Arg, bool>)
-constexpr result<void> write_arg(writer& wtr, format_specs& specs, Arg arg) noexcept {
+constexpr result<void> write_arg(writer& out, format_specs& specs, Arg arg) noexcept {
   // If a type other than None/s is specified, write out as 1/0 instead of true/false.
   if (specs.type != no_type && specs.type != 's') {
-    return write_arg(wtr, specs, static_cast<uint8_t>(arg));
+    return write_arg(out, specs, static_cast<uint8_t>(arg));
   }
   if (arg) {
-    return write_padded<alignment::left>(wtr, specs, 4, [&] {
-      return wtr.write_str("true");
+    return write_padded<alignment::left>(out, specs, 4, [&] {
+      return out.write_str("true");
     });
   }
-  return write_padded<alignment::left>(wtr, specs, 5, [&] {
-    return wtr.write_str("false");
+  return write_padded<alignment::left>(out, specs, 5, [&] {
+    return out.write_str("false");
   });
 }
 
@@ -4421,8 +4436,8 @@ constexpr result<void> write_arg(writer& wtr, format_specs& specs, Arg arg) noex
 //
 
 // specs is passed by reference instead as return type to reduce copying of big value (and code bloat)
-inline constexpr result<void> validate_format_specs(reader& rdr, format_specs& specs) noexcept {
-  EMIO_TRY(char c, rdr.read_char());
+inline constexpr result<void> validate_format_specs(reader& format_rdr, format_specs& specs) noexcept {
+  EMIO_TRY(char c, format_rdr.read_char());
   if (c == '}') {  // Format end.
     return success;
   }
@@ -4433,7 +4448,7 @@ inline constexpr result<void> validate_format_specs(reader& rdr, format_specs& s
   bool fill_aligned = false;
   {
     // Parse for alignment specifier.
-    EMIO_TRY(const char c2, rdr.peek());
+    EMIO_TRY(const char c2, format_rdr.peek());
     if (c2 == '<' || c2 == '^' || c2 == '>') {
       if (c2 == '<') {
         specs.align = alignment::left;
@@ -4444,8 +4459,8 @@ inline constexpr result<void> validate_format_specs(reader& rdr, format_specs& s
       }
       fill_aligned = true;
       specs.fill = c;
-      rdr.pop();
-      EMIO_TRY(c, rdr.read_char());
+      format_rdr.pop();
+      EMIO_TRY(c, format_rdr.read_char());
     } else if (c == '<' || c == '^' || c == '>') {
       if (c == '<') {
         specs.align = alignment::left;
@@ -4455,16 +4470,16 @@ inline constexpr result<void> validate_format_specs(reader& rdr, format_specs& s
         specs.align = alignment::right;
       }
       fill_aligned = true;
-      EMIO_TRY(c, rdr.read_char());
+      EMIO_TRY(c, format_rdr.read_char());
     }
   }
   if (c == '+' || c == '-' || c == ' ') {  // Sign.
     specs.sign = c;
-    EMIO_TRY(c, rdr.read_char());
+    EMIO_TRY(c, format_rdr.read_char());
   }
   if (c == '#') {  // Alternate form.
     specs.alternate_form = true;
-    EMIO_TRY(c, rdr.read_char());
+    EMIO_TRY(c, format_rdr.read_char());
   }
   if (c == '0') {         // Zero flag.
     if (!fill_aligned) {  // If fill/align is used, the zero flag is ignored.
@@ -4472,28 +4487,28 @@ inline constexpr result<void> validate_format_specs(reader& rdr, format_specs& s
       specs.align = alignment::right;
       specs.zero_flag = true;
     }
-    EMIO_TRY(c, rdr.read_char());
+    EMIO_TRY(c, format_rdr.read_char());
   }
   if (detail::isdigit(c)) {  // Width.
-    rdr.unpop();
-    EMIO_TRY(const uint32_t width, rdr.parse_int<uint32_t>());
+    format_rdr.unpop();
+    EMIO_TRY(const uint32_t width, format_rdr.parse_int<uint32_t>());
     if (width > (static_cast<uint32_t>(std::numeric_limits<int32_t>::max()))) {
       return err::invalid_format;
     }
     specs.width = static_cast<int32_t>(width);
-    EMIO_TRY(c, rdr.read_char());
+    EMIO_TRY(c, format_rdr.read_char());
   }
   if (c == '.') {  // Precision.
-    EMIO_TRY(const uint32_t precision, rdr.parse_int<uint32_t>());
+    EMIO_TRY(const uint32_t precision, format_rdr.parse_int<uint32_t>());
     if (precision > (static_cast<uint32_t>(std::numeric_limits<int32_t>::max()))) {
       return err::invalid_format;
     }
     specs.precision = static_cast<int32_t>(precision);
-    EMIO_TRY(c, rdr.read_char());
+    EMIO_TRY(c, format_rdr.read_char());
   }
   if (detail::isalpha(c) || c == '?') {  // Type.
     specs.type = c;
-    EMIO_TRY(c, rdr.read_char());
+    EMIO_TRY(c, format_rdr.read_char());
   }
   if (c == '}') {  // Format end.
     return success;
@@ -4501,8 +4516,8 @@ inline constexpr result<void> validate_format_specs(reader& rdr, format_specs& s
   return err::invalid_format;
 }
 
-inline constexpr result<void> parse_format_specs(reader& rdr, format_specs& specs) noexcept {
-  char c = rdr.read_char().assume_value();
+inline constexpr result<void> parse_format_specs(reader& format_rdr, format_specs& specs) noexcept {
+  char c = format_rdr.read_char().assume_value();
   if (c == '}') {  // Format end.
     return success;
   }
@@ -4510,7 +4525,7 @@ inline constexpr result<void> parse_format_specs(reader& rdr, format_specs& spec
   bool fill_aligned = false;
   {
     // Parse for alignment specifier.
-    const char c2 = rdr.peek().assume_value();
+    const char c2 = format_rdr.peek().assume_value();
     if (c2 == '<' || c2 == '^' || c2 == '>') {
       if (c2 == '<') {
         specs.align = alignment::left;
@@ -4521,8 +4536,8 @@ inline constexpr result<void> parse_format_specs(reader& rdr, format_specs& spec
       }
       fill_aligned = true;
       specs.fill = c;
-      rdr.pop();
-      c = rdr.read_char().assume_value();
+      format_rdr.pop();
+      c = format_rdr.read_char().assume_value();
     } else if (c == '<' || c == '^' || c == '>') {
       if (c == '<') {
         specs.align = alignment::left;
@@ -4532,16 +4547,16 @@ inline constexpr result<void> parse_format_specs(reader& rdr, format_specs& spec
         specs.align = alignment::right;
       }
       fill_aligned = true;
-      c = rdr.read_char().assume_value();
+      c = format_rdr.read_char().assume_value();
     }
   }
   if (c == '+' || c == '-' || c == ' ') {  // Sign.
     specs.sign = c;
-    c = rdr.read_char().assume_value();
+    c = format_rdr.read_char().assume_value();
   }
   if (c == '#') {  // Alternate form.
     specs.alternate_form = true;
-    c = rdr.read_char().assume_value();
+    c = format_rdr.read_char().assume_value();
   }
   if (c == '0') {         // Zero flag.
     if (!fill_aligned) {  // Ignoreable.
@@ -4549,20 +4564,20 @@ inline constexpr result<void> parse_format_specs(reader& rdr, format_specs& spec
       specs.align = alignment::right;
       specs.zero_flag = true;
     }
-    c = rdr.read_char().assume_value();
+    c = format_rdr.read_char().assume_value();
   }
   if (detail::isdigit(c)) {  // Width.
-    rdr.unpop();
-    specs.width = static_cast<int32_t>(rdr.parse_int<uint32_t>().assume_value());
-    c = rdr.read_char().assume_value();
+    format_rdr.unpop();
+    specs.width = static_cast<int32_t>(format_rdr.parse_int<uint32_t>().assume_value());
+    c = format_rdr.read_char().assume_value();
   }
   if (c == '.') {  // Precision.
-    specs.precision = static_cast<int32_t>(rdr.parse_int<uint32_t>().assume_value());
-    c = rdr.read_char().assume_value();
+    specs.precision = static_cast<int32_t>(format_rdr.parse_int<uint32_t>().assume_value());
+    c = format_rdr.read_char().assume_value();
   }
   if (detail::isalpha(c) || c == '?') {  // Type.
     specs.type = c;
-    rdr.pop();  // rdr.read_char() in validate_format_spec;
+    format_rdr.pop();  // format_rdr.read_char() in validate_format_specs;
   }
   return success;
 }
@@ -4643,7 +4658,7 @@ inline constexpr result<void> check_floating_point_specs(const format_specs& spe
   return err::invalid_format;
 }
 
-inline constexpr result<void> check_string_view_specs(const format_specs& specs) noexcept {
+inline constexpr result<void> check_string_specs(const format_specs& specs) noexcept {
   if (specs.alternate_form || specs.sign != no_sign || specs.zero_flag ||
       (specs.precision != no_precision && specs.type == '?') ||
       (specs.type != no_type && specs.type != 's' && specs.type != '?')) {
@@ -4748,32 +4763,32 @@ class formatter {
   formatter() = delete;
 
   /**
-   * Optional static function to validate the format spec for this type.
+   * Optional static function to validate the format string syntax for this type.
    * @note If not present, the parse function is invoked for validation.
-   * @param rdr The format reader.
-   * @return Success if the format spec is valid.
+   * @param format_rdr The reader over the format string.
+   * @return Success if the format string is valid.
    */
-  static constexpr result<void> validate(reader& rdr) noexcept {
-    return rdr.read_if_match_char('}');
+  static constexpr result<void> validate(reader& format_rdr) noexcept {
+    return format_rdr.read_if_match_char('}');
   }
 
   /**
    * Function to parse the format specs for this type.
-   * @param rdr The format reader.
-   * @return Success if the format spec is valid and could be parsed.
+   * @param format_rdr The reader over the format string.
+   * @return Success if the format string is valid and could be parsed.
    */
-  constexpr result<void> parse(reader& rdr) noexcept {
-    return rdr.read_if_match_char('}');
+  constexpr result<void> parse(reader& format_rdr) noexcept {
+    return format_rdr.read_if_match_char('}');
   }
 
   /**
    * Function to format the object of this type according to the parsed format specs.
-   * @param wtr The output writer.
+   * @param out The output writer.
    * @param arg The argument to format.
    * @return Success if the formatting could be done.
    */
-  constexpr result<void> format(writer& wtr, const T& arg) const noexcept {
-    return wtr.write_int(sizeof(arg));
+  constexpr result<void> format(writer& out, const T& arg) const noexcept {
+    return out.write_int(sizeof(arg));
   }
 };
 
@@ -4791,9 +4806,9 @@ template <typename T>
   requires(detail::format::is_core_type_v<T>)
 class formatter<T> {
  public:
-  static constexpr result<void> validate(reader& rdr) noexcept {
+  static constexpr result<void> validate(reader& format_rdr) noexcept {
     detail::format::format_specs specs{};
-    EMIO_TRYV(validate_format_specs(rdr, specs));
+    EMIO_TRYV(validate_format_specs(format_rdr, specs));
     if constexpr (std::is_same_v<T, bool>) {
       EMIO_TRYV(check_bool_specs(specs));
     } else if constexpr (std::is_same_v<T, char>) {
@@ -4808,20 +4823,20 @@ class formatter<T> {
     } else if constexpr (std::is_floating_point_v<T>) {
       EMIO_TRYV(check_floating_point_specs(specs));
     } else if constexpr (std::is_constructible_v<std::string_view, T>) {
-      EMIO_TRYV(check_string_view_specs(specs));
+      EMIO_TRYV(check_string_specs(specs));
     } else {
       static_assert(detail::always_false_v<T>, "Unknown core type!");
     }
     return success;
   }
 
-  constexpr result<void> parse(reader& rdr) noexcept {
-    return detail::format::parse_format_specs(rdr, specs_);
+  constexpr result<void> parse(reader& format_rdr) noexcept {
+    return detail::format::parse_format_specs(format_rdr, specs_);
   }
 
-  constexpr result<void> format(writer& wtr, const T& arg) const noexcept {
+  constexpr result<void> format(writer& out, const T& arg) const noexcept {
     auto specs = specs_;  // Copy spec because format could be called multiple times (e.g. ranges).
-    return write_arg(wtr, specs, arg);
+    return write_arg(out, specs, arg);
   }
 
   /**
@@ -4877,8 +4892,8 @@ template <typename T>
   requires(std::is_enum_v<T> && std::is_convertible_v<T, std::underlying_type_t<T>>)
 class formatter<T> : public formatter<std::underlying_type_t<T>> {
  public:
-  constexpr result<void> format(writer& wtr, const T& arg) const noexcept {
-    return formatter<std::underlying_type_t<T>>::format(wtr, static_cast<std::underlying_type_t<T>>(arg));
+  constexpr result<void> format(writer& out, const T& arg) const noexcept {
+    return formatter<std::underlying_type_t<T>>::format(out, static_cast<std::underlying_type_t<T>>(arg));
   }
 };
 
@@ -4890,8 +4905,8 @@ template <typename T>
   requires(detail::format::has_format_as<T>)
 class formatter<T> : public formatter<detail::format::format_as_return_t<T>> {
  public:
-  constexpr result<void> format(writer& wtr, const T& arg) const noexcept {
-    return formatter<detail::format::format_as_return_t<T>>::format(wtr, format_as(arg));
+  constexpr result<void> format(writer& out, const T& arg) const noexcept {
+    return formatter<detail::format::format_as_return_t<T>>::format(out, format_as(arg));
   }
 };
 
@@ -4906,7 +4921,7 @@ struct format_spec_with_value;
  * Struct to dynamically specify width and precision.
  */
 struct format_spec {
-  /// Constant which indicates that the spec should not overwrite existing spec defined in the format string.
+  /// Constant which indicates that the spec should not overwrite the parsed spec from the format string.
   static constexpr int32_t not_defined = -std::numeric_limits<int32_t>::max();
 
   /// The width.
@@ -4953,17 +4968,17 @@ template <typename T>
 template <typename T>
 class formatter<detail::format_spec_with_value<T>> {
  public:
-  static constexpr result<void> validate(reader& rdr) noexcept {
-    return formatter<T>::validate(rdr);
+  static constexpr result<void> validate(reader& format_rdr) noexcept {
+    return formatter<T>::validate(format_rdr);
   }
 
-  constexpr result<void> parse(reader& rdr) noexcept {
-    return underlying_.parse(rdr);
+  constexpr result<void> parse(reader& format_rdr) noexcept {
+    return underlying_.parse(format_rdr);
   }
 
-  constexpr result<void> format(writer& wtr, const detail::format_spec_with_value<T>& arg) noexcept {
+  constexpr result<void> format(writer& out, const detail::format_spec_with_value<T>& arg) noexcept {
     overwrite_spec(arg.spec);
-    return underlying_.format(wtr, arg.value);
+    return underlying_.format(out, arg.value);
   }
 
  private:
@@ -5004,15 +5019,15 @@ template <typename Arg>
 struct format_arg_trait {
   using unified_type = format::unified_type_t<std::remove_const_t<Arg>>;
 
-  static constexpr result<void> validate(reader& format_is) noexcept {
+  static constexpr result<void> validate(reader& format_rdr) noexcept {
     // Check if a formatter exist and a correct validate method is implemented. If not, use the parse method.
     if constexpr (has_formatter_v<Arg>) {
       if constexpr (has_validate_function_v<Arg>) {
-        return formatter<Arg>::validate(format_is);
+        return formatter<Arg>::validate(format_rdr);
       } else {
         static_assert(!has_any_validate_function_v<Arg>,
                       "Formatter seems to have a validate property which doesn't fit the desired signature.");
-        return formatter<Arg>{}.parse(format_is);
+        return formatter<Arg>{}.parse(format_rdr);
       }
     } else {
       static_assert(has_formatter_v<Arg>,
@@ -5021,10 +5036,10 @@ struct format_arg_trait {
     }
   }
 
-  static constexpr result<void> process_arg(writer& wtr, reader& format_is, const Arg& arg) noexcept {
+  static constexpr result<void> process_arg(writer& out, reader& format_rdr, const Arg& arg) noexcept {
     formatter<Arg> formatter;
-    EMIO_TRYV(formatter.parse(format_is));
-    return formatter.format(wtr, arg);
+    EMIO_TRYV(formatter.parse(format_rdr));
+    return formatter.format(out, arg);
   }
 };
 
@@ -5046,8 +5061,8 @@ namespace emio::detail::format {
 
 class format_parser final : public parser<format_parser, input_validation::disabled> {
  public:
-  constexpr explicit format_parser(writer& output, reader& format_rdr) noexcept
-      : parser<format_parser, input_validation::disabled>{format_rdr}, output_{output} {}
+  constexpr explicit format_parser(writer& out, reader& format_rdr) noexcept
+      : parser<format_parser, input_validation::disabled>{format_rdr}, out_{out} {}
 
   format_parser(const format_parser&) = delete;
   format_parser(format_parser&&) = delete;
@@ -5056,11 +5071,11 @@ class format_parser final : public parser<format_parser, input_validation::disab
   constexpr ~format_parser() noexcept override;  // NOLINT(performance-trivially-destructible): See definition.
 
   constexpr result<void> process(char c) noexcept override {
-    return output_.write_char(c);
+    return out_.write_char(c);
   }
 
   result<void> process_arg(const format_arg& arg) noexcept {
-    return arg.process_arg(output_, format_rdr_);
+    return arg.process_arg(out_, format_rdr_);
   }
 
   template <typename Arg>
@@ -5068,7 +5083,7 @@ class format_parser final : public parser<format_parser, input_validation::disab
     if constexpr (has_formatter_v<Arg>) {
       formatter<Arg> formatter;
       EMIO_TRYV(formatter.parse(this->format_rdr_));
-      return formatter.format(output_, arg);
+      return formatter.format(out_, arg);
     } else {
       static_assert(has_formatter_v<Arg>,
                     "Cannot format an argument. To make type T formattable provide a formatter<T> specialization.");
@@ -5076,7 +5091,7 @@ class format_parser final : public parser<format_parser, input_validation::disab
   }
 
  private:
-  writer& output_;
+  writer& out_;
 };
 
 // Explicit out-of-class definition because of GCC bug: <destructor> used before its definition.
@@ -5140,8 +5155,8 @@ inline result<void> vformat_to(buffer& buf, const format_args& args) noexcept {
 
 // Constexpr version.
 template <typename... Args>
-constexpr result<void> format_to(buffer& buf, format_string<Args...> format_str, const Args&... args) noexcept {
-  EMIO_TRY(const std::string_view str, format_str.get());
+constexpr result<void> format_to(buffer& buf, format_string<Args...> format_string, const Args&... args) noexcept {
+  EMIO_TRY(const std::string_view str, format_string.get());
   writer wtr{buf};
   return parse<format_parser>(str, wtr, args...);
 }
@@ -5315,11 +5330,11 @@ using valid_format_string = detail::format::valid_format_string<Args...>;
 
 /**
  * Returns an object that stores a format string with an array of all arguments to format.
-
+ *
  * @note The storage uses reference semantics and does not extend the lifetime of args. It is the programmer's
  * responsibility to ensure that args outlive the return value. Usually, the result is only used as argument to a
  * formatting function taking format_args by reference.
-
+ *
  * @param format_str The format string.
  * @param args The arguments to be formatted.
  * @return Internal type. Implicit convertible to format_args.
@@ -5387,12 +5402,12 @@ result<void> vformat_to(Buffer& buf, const format_args& args) noexcept {
 
 /**
  * Formats arguments according to the format string, and writes the result to the writer's buffer.
- * @param wrt The writer.
+ * @param out The output writer.
  * @param args The format args with the format string.
  * @return Success or EOF if the buffer is to small or invalid_format if the format string validation failed.
  */
-inline result<void> vformat_to(writer& wrt, const format_args& args) noexcept {
-  EMIO_TRYV(detail::format::vformat_to(wrt.get_buffer(), args));
+inline result<void> vformat_to(writer& out, const format_args& args) noexcept {
+  EMIO_TRYV(detail::format::vformat_to(out.get_buffer(), args));
   return success;
 }
 
@@ -5431,17 +5446,17 @@ constexpr result<void> format_to(Buffer& buf, format_string<Args...> format_str,
 
 /**
  * Formats arguments according to the format string, and writes the result to the writer's buffer.
- * @param wrt The writer.
+ * @param out The writer.
  * @param format_str The format string.
  * @param args The arguments to be formatted.
  * @return Success or EOF if the buffer is to small or invalid_format if the format string validation failed.
  */
 template <typename... Args>
-constexpr result<void> format_to(writer& wrt, format_string<Args...> format_str, const Args&... args) noexcept {
+constexpr result<void> format_to(writer& out, format_string<Args...> format_str, const Args&... args) noexcept {
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
-    EMIO_TRYV(detail::format::format_to(wrt.get_buffer(), format_str, args...));
+    EMIO_TRYV(detail::format::format_to(out.get_buffer(), format_str, args...));
   } else {
-    EMIO_TRYV(detail::format::vformat_to(wrt.get_buffer(), make_format_args(format_str, args...)));
+    EMIO_TRYV(detail::format::vformat_to(out.get_buffer(), make_format_args(format_str, args...)));
   }
   return success;
 }
@@ -5643,7 +5658,8 @@ void println(valid_format_string<Args...> format_str, const Args&... args) {
  * at the end.
  * @param format_str The format string.
  * @param args The arguments to be formatted.
- * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
+ * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation
+ * failed.
  */
 template <typename T, typename... Args>
   requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, format_string<Args...>>)
@@ -5652,8 +5668,7 @@ result<void> println(T format_str, const Args&... args) {
 }
 
 /**
- * Formats arguments according to the format string, and writes the result to a file stream with a new line
- * at the end.
+ * Formats arguments according to the format string, and writes the result to a file stream with a new line at the end.
  * @param file The file stream.
  * @param format_str The format string.
  * @param args The arguments to be formatted.
@@ -5803,16 +5818,16 @@ template <typename T>
   requires(detail::format::is_valid_range<T> && !detail::format::is_contiguous_but_not_span<T>)
 class formatter<T> {
  public:
-  static constexpr result<void> validate(reader& rdr) noexcept {
-    EMIO_TRY(char c, rdr.read_char());
+  static constexpr result<void> validate(reader& format_rdr) noexcept {
+    EMIO_TRY(char c, format_rdr.read_char());
     if (c == 'n') {
-      EMIO_TRY(c, rdr.read_char());
+      EMIO_TRY(c, format_rdr.read_char());
     }
     if (c == '}') {
       return success;
     }
     if (c == ':') {
-      return formatter<detail::format::element_type_t<T>>::validate(rdr);
+      return formatter<detail::format::element_type_t<T>>::validate(format_rdr);
     } else {
       return err::invalid_format;
     }
@@ -5842,23 +5857,23 @@ class formatter<T> {
     specs_.closing_bracket = closing_bracket;
   }
 
-  constexpr result<void> parse(reader& rdr) noexcept {
-    char c = rdr.peek().assume_value();
+  constexpr result<void> parse(reader& format_rdr) noexcept {
+    char c = format_rdr.peek().assume_value();
     if (c == 'n') {
       set_brackets({}, {});
-      rdr.pop();  // n
-      c = rdr.peek().assume_value();
+      format_rdr.pop();  // n
+      c = format_rdr.peek().assume_value();
     }
     if (c == '}') {
       detail::format::maybe_set_debug_format(underlying_, true);
     } else {
-      rdr.pop();  // :
+      format_rdr.pop();  // :
     }
-    return underlying_.parse(rdr);
+    return underlying_.parse(format_rdr);
   }
 
-  constexpr result<void> format(writer& wtr, const T& arg) const noexcept {
-    EMIO_TRYV(wtr.write_str(specs_.opening_bracket));
+  constexpr result<void> format(writer& out, const T& arg) const noexcept {
+    EMIO_TRYV(out.write_str(specs_.opening_bracket));
 
     using std::begin;
     using std::end;
@@ -5866,11 +5881,11 @@ class formatter<T> {
     const auto last = end(arg);
     for (auto it = first; it != last; ++it) {
       if (it != first) {
-        EMIO_TRYV(wtr.write_str(specs_.separator));
+        EMIO_TRYV(out.write_str(specs_.separator));
       }
-      EMIO_TRYV(underlying_.format(wtr, *it));
+      EMIO_TRYV(underlying_.format(out, *it));
     }
-    EMIO_TRYV(wtr.write_str(specs_.closing_bracket));
+    EMIO_TRYV(out.write_str(specs_.closing_bracket));
     return success;
   }
 
@@ -5910,47 +5925,47 @@ class formatter<T> {
     specs_.closing_bracket = closing_bracket;
   }
 
-  static constexpr result<void> validate(reader& rdr) noexcept {
-    EMIO_TRY(char c, rdr.read_char());
+  static constexpr result<void> validate(reader& format_rdr) noexcept {
+    EMIO_TRY(char c, format_rdr.read_char());
     if (c == 'n') {
-      EMIO_TRY(c, rdr.read_char());
+      EMIO_TRY(c, format_rdr.read_char());
     }
     if (c == '}') {
       return success;
     }
     if (c == ':') {
-      return validate_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), rdr);
+      return validate_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), format_rdr);
     } else {
       return err::invalid_format;
     }
   }
 
-  constexpr result<void> parse(reader& rdr) noexcept {
-    char c = rdr.peek().assume_value();
+  constexpr result<void> parse(reader& format_rdr) noexcept {
+    char c = format_rdr.peek().assume_value();
     if (c == 'n') {
       set_brackets({}, {});
-      rdr.pop();  // n
-      c = rdr.peek().assume_value();
+      format_rdr.pop();  // n
+      c = format_rdr.peek().assume_value();
     }
     bool set_debug = false;
     if (c == '}') {
       set_debug = true;
     } else {
-      rdr.pop();  // :
+      format_rdr.pop();  // :
     }
-    return parse_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), rdr, set_debug);
+    return parse_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), format_rdr, set_debug);
   }
 
-  constexpr result<void> format(writer& wtr, const T& args) const noexcept {
-    EMIO_TRYV(wtr.write_str(specs_.opening_bracket));
-    EMIO_TRYV(format_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), wtr, args));
-    EMIO_TRYV(wtr.write_str(specs_.closing_bracket));
+  constexpr result<void> format(writer& out, const T& args) const noexcept {
+    EMIO_TRYV(out.write_str(specs_.opening_bracket));
+    EMIO_TRYV(format_for_each(std::make_index_sequence<std::tuple_size_v<T>>(), out, args));
+    EMIO_TRYV(out.write_str(specs_.closing_bracket));
     return success;
   }
 
  private:
   template <size_t... Ns>
-  static constexpr result<void> validate_for_each(std::index_sequence<Ns...> /*unused*/, reader& rdr) noexcept {
+  static constexpr result<void> validate_for_each(std::index_sequence<Ns...> /*unused*/, reader& format_rdr) noexcept {
     size_t reader_pos = 0;
     result<void> res = success;
     const auto validate = [&reader_pos, &res]<typename U>(std::type_identity<U> /*unused*/, reader r /*copy!*/) {
@@ -5966,20 +5981,21 @@ class formatter<T> {
       return res.has_value();
     };
     static_cast<void>(validate);  // Maybe unused warning.
-    if ((validate(std::type_identity<std::tuple_element_t<Ns, detail::format::tuple_formatters<T>>>{}, rdr) && ...) &&
+    if ((validate(std::type_identity<std::tuple_element_t<Ns, detail::format::tuple_formatters<T>>>{}, format_rdr) &&
+         ...) &&
         reader_pos != 0) {
-      rdr.pop(reader_pos);
+      format_rdr.pop(reader_pos);
       return success;
     }
     return res;
   }
 
-  static constexpr result<void> validate_for_each(std::index_sequence<> /*unused*/, reader& /*rdr*/) noexcept {
+  static constexpr result<void> validate_for_each(std::index_sequence<> /*unused*/, reader& /*format_rdr*/) noexcept {
     return err::invalid_format;
   }
 
   template <size_t... Ns>
-  constexpr result<void> parse_for_each(std::index_sequence<Ns...> /*unused*/, reader& rdr,
+  constexpr result<void> parse_for_each(std::index_sequence<Ns...> /*unused*/, reader& format_rdr,
                                         const bool set_debug) noexcept {
     using std::get;
 
@@ -5992,34 +6008,35 @@ class formatter<T> {
       return res.has_value();
     };
     static_cast<void>(parse);  // Maybe unused warning.
-    if ((parse(get<Ns>(formatters_), rdr) && ...)) {
-      rdr.pop(reader_pos);
+    if ((parse(get<Ns>(formatters_), format_rdr) && ...)) {
+      format_rdr.pop(reader_pos);
       return success;
     }
     return res;
   }
 
-  constexpr result<void> parse_for_each(std::index_sequence<> /*unused*/, reader& rdr, const bool set_debug) noexcept {
+  constexpr result<void> parse_for_each(std::index_sequence<> /*unused*/, reader& format_rdr,
+                                        const bool set_debug) noexcept {
     if (set_debug) {
-      rdr.pop();  // }
+      format_rdr.pop();  // }
       return success;
     }
     return err::invalid_format;
   }
 
   template <size_t N, size_t... Ns>
-  constexpr result<void> format_for_each(std::index_sequence<N, Ns...> /*unused*/, writer& wtr,
+  constexpr result<void> format_for_each(std::index_sequence<N, Ns...> /*unused*/, writer& out,
                                          const T& args) const noexcept {
     using std::get;
-    EMIO_TRYV(get<N>(formatters_).format(wtr, get<N>(args)));
+    EMIO_TRYV(get<N>(formatters_).format(out, get<N>(args)));
 
     result<void> res = success;
-    const auto format = [&res, &wtr, this](auto& f, const auto& arg) {
-      res = wtr.write_str(specs_.separator);
+    const auto format = [&res, &out, this](auto& f, const auto& arg) {
+      res = out.write_str(specs_.separator);
       if (res.has_error()) {
         return false;
       }
-      res = f.format(wtr, arg);
+      res = f.format(out, arg);
       return res.has_value();
     };
     static_cast<void>(format);  // Maybe unused warning.
@@ -6029,7 +6046,7 @@ class formatter<T> {
     return res;
   }
 
-  constexpr result<void> format_for_each(std::index_sequence<> /*unused*/, writer& /*wtr*/,
+  constexpr result<void> format_for_each(std::index_sequence<> /*unused*/, writer& /*out*/,
                                          const T& /*args*/) const noexcept {
     return success;
   }
@@ -6081,10 +6098,12 @@ class formatter<T> {
 namespace emio::detail::scan {
 
 inline constexpr char no_type = 0;
+inline constexpr int no_width = -1;
 
-struct scan_specs {
+struct format_specs {
   bool alternate_form{false};
   char type{no_type};
+  int32_t width{no_width};
 };
 
 }  // namespace emio::detail::scan
@@ -6169,7 +6188,15 @@ inline constexpr result<void> parse_alternate_form(reader& in, int base) noexcep
 
 template <typename Arg>
   requires(std::is_integral_v<Arg> && !std::is_same_v<Arg, bool> && !std::is_same_v<Arg, char>)
-constexpr result<void> read_arg(reader& in, const scan_specs& specs, Arg& arg) noexcept {
+constexpr result<void> read_arg(reader& original_in, const format_specs& specs, Arg& arg) noexcept {
+  reader in = original_in;
+  if (specs.width != no_width) {
+    if (in.cnt_remaining() < static_cast<size_t>(specs.width)) {
+      return err::eof;
+    }
+    EMIO_TRY(in, in.subreader(0, static_cast<size_t>(specs.width)));
+  }
+
   EMIO_TRY(const bool is_negative, parse_sign(in));
 
   int base = 0;
@@ -6191,16 +6218,119 @@ constexpr result<void> read_arg(reader& in, const scan_specs& specs, Arg& arg) n
       EMIO_TRYV(disallow_sign(in));
     }
   }
-
   EMIO_TRY(arg, parse_int<Arg>(in, base, is_negative));
+
+  if (specs.width != no_width) {
+    if (!in.eof()) {
+      return err::invalid_data;
+    }
+    original_in.pop(static_cast<size_t>(specs.width));
+  } else {
+    original_in = in;
+  }
   return success;
 }
 
 template <typename Arg>
   requires(std::is_same_v<Arg, char>)
-constexpr result<void> read_arg(reader& in, const scan_specs& /*unused*/, Arg& arg) noexcept {
+constexpr result<void> read_arg(reader& in, const format_specs& /*unused*/, Arg& arg) noexcept {
   EMIO_TRY(arg, in.read_char());
   return success;
+}
+
+inline constexpr result<void> read_string_complex(reader& in, const std::string_view format_str,
+                                                  std::string_view& arg) noexcept {
+  // The following algorithm compares the chars of the format string (`format`) against the chars of the input string
+  // (`in`).
+  // The chars are compared one by one (#1).
+  // The `format` contains at least one escape sequence of '{{' or '}}', therefor, at least one char in `format` must be
+  // skipped (#2).
+  // If there is a missmatch, the chars of `format` starts from the beginning but `in` remains unchanged (#3).
+  // The algorithm ends successfully if:
+  // - all chars of `format` are found inside `in` (#4)
+  // - chars in `format` are found inside `in` and the next chars in `format` is another replacement field (#5)
+  // The algorithm terminates without success if all chars of `in` has been compared (#6).
+
+  const char* const format_begin = format_str.begin();
+  const char* format_it = format_begin;
+  const char* const format_end = format_str.end();
+
+  const std::string_view in_remaining = in.view_remaining();
+  const char* const in_begin = in_remaining.begin();
+  const char* in_it = in_begin;
+  const char* const in_end = in_remaining.end();
+
+  size_t matches_cnt = 0;  // Count number matches.
+  while (true) {
+    if (format_it == format_end) {
+      break;  // Complete spec matches input. Succeed. #4
+    }
+    if (in_it == in_end) {
+      return err::invalid_data;  // Reached end of input. Fail. #6
+    }
+
+    // If there is an escape sequence, skip one spec char. #2
+    if (*format_it == '{') {
+      EMIO_Z_DEV_ASSERT((format_it + 1) != format_end);  // Spec is already validated.
+      if (*(format_it + 1) != '{') {                     // New replacement field.
+        break;                                           // Spec matches input. Succeed. #5
+      }
+      format_it += 1;                        // Skip escaped one.
+      EMIO_Z_DEV_ASSERT(*format_it == '{');  // Must be '{'.
+    } else if (*format_it == '}') {
+      EMIO_Z_DEV_ASSERT((format_it + 1) != format_end);  // Spec is already validated.
+      format_it += 1;                                    // Skip escaped one.
+      EMIO_Z_DEV_ASSERT(*format_it == '}');              // Must be '}'.
+    }
+
+    if (*in_it == *format_it) {  // If input and spec match, check next spec char. #1
+      ++format_it;
+      ++matches_cnt;
+    } else {  // Otherwise start from the beginning with the spec. #3
+      format_it = format_begin;
+      matches_cnt = 0;
+    }
+    ++in_it;
+  }
+  // `in` and `format` matches. Capture string.
+  arg = std::string_view{in_begin, in_it - matches_cnt};
+  in.pop(arg.size());
+  return success;
+}
+
+inline constexpr result<void> read_string(reader& in, format_specs& specs, reader& format_rdr,
+                                          std::string_view& arg) noexcept {
+  // There exists 5 cases on how to read a string.
+  // 1) The string spec has specified an exact width.
+  // 2) The remaining string spec is empty, read everything.
+  // 3) The remaining string spec does not contain any possible escape sequence ('{{' or '}}'), read until match.
+  // 4) The remaining string spec does contain a possible escape sequence, but it turns out, it is the replacement
+  //    field.
+  // 5) The remaining string spec does contain at least one escape sequence.
+
+  if (specs.width != no_width) {  // 1)
+    EMIO_TRY(arg, in.read_n_chars(static_cast<size_t>(specs.width)));
+    return success;
+  }
+  const result<std::string_view> until_next_res = format_rdr.read_until_any_of("{}", {.keep_delimiter = true});
+  if (until_next_res == err::eof) {  // Read everything. 2)
+    arg = in.read_remaining();
+    return success;
+  }
+
+  const result<char> next_char_res = format_rdr.read_char();
+  const auto is_replacement_field = [&] {  // 4)
+    const char next_char = next_char_res.assume_value();
+    const char over_next_char = format_rdr.read_char().assume_value();  // Spec is validated.
+    return next_char == '{' && over_next_char != '{';
+  };
+
+  if (next_char_res == err::eof /* 3) */ || is_replacement_field()) {
+    EMIO_TRY(arg, in.read_until_str(until_next_res.assume_value(), {.keep_delimiter = true}));
+    return success;
+  }
+  format_rdr.unpop(2);                                               // Undo replacement field check from 4).
+  return read_string_complex(in, format_rdr.view_remaining(), arg);  // 5)
 }
 
 //
@@ -6208,21 +6338,28 @@ constexpr result<void> read_arg(reader& in, const scan_specs& /*unused*/, Arg& a
 //
 
 // specs is passed by reference instead as return type to reduce copying of big value (and code bloat)
-inline constexpr result<void> validate_scan_specs(reader& rdr, scan_specs& specs) noexcept {
-  EMIO_TRY(char c, rdr.read_char());
+inline constexpr result<void> validate_format_specs(reader& format_rdr, format_specs& specs) noexcept {
+  EMIO_TRY(char c, format_rdr.read_char());
   if (c == '}') {  // Scan end.
     return success;
   }
-  if (c == '{') {  // No dynamic spec support.
-    return err::invalid_format;
-  }
+
   if (c == '#') {  // Alternate form.
     specs.alternate_form = true;
-    EMIO_TRY(c, rdr.read_char());
+    EMIO_TRY(c, format_rdr.read_char());
+  }
+  if (isdigit(c)) {  // Width.
+    format_rdr.unpop();
+    EMIO_TRY(const uint32_t size, format_rdr.parse_int<uint32_t>());
+    if (size == 0 || size > (static_cast<uint32_t>(std::numeric_limits<int32_t>::max()))) {
+      return err::invalid_format;
+    }
+    specs.width = static_cast<int32_t>(size);
+    EMIO_TRY(c, format_rdr.read_char());
   }
   if (detail::isalpha(c)) {
     specs.type = c;
-    EMIO_TRY(c, rdr.read_char());
+    EMIO_TRY(c, format_rdr.read_char());
   }
   if (c == '}') {  // Scan end.
     return success;
@@ -6230,31 +6367,36 @@ inline constexpr result<void> validate_scan_specs(reader& rdr, scan_specs& specs
   return err::invalid_format;
 }
 
-inline constexpr result<void> parse_scan_specs(reader& rdr, scan_specs& specs) noexcept {
-  char c = rdr.read_char().assume_value();
+inline constexpr result<void> parse_format_specs(reader& format_rdr, format_specs& specs) noexcept {
+  char c = format_rdr.read_char().assume_value();
   if (c == '}') {  // Scan end.
     return success;
   }
 
   if (c == '#') {  // Alternate form.
     specs.alternate_form = true;
-    c = rdr.read_char().assume_value();
+    c = format_rdr.read_char().assume_value();
+  }
+  if (isdigit(c)) {  // Width.
+    format_rdr.unpop();
+    specs.width = static_cast<int32_t>(format_rdr.parse_int<uint32_t>().assume_value());
+    c = format_rdr.read_char().assume_value();
   }
   if (detail::isalpha(c)) {
     specs.type = c;
-    rdr.pop();  // rdr.read_char() in validate_scan_spec;
+    format_rdr.pop();  // format_rdr.read_char() in validate_format_specs;
   }
   return success;
 }
 
-inline constexpr result<void> check_char_specs(const scan_specs& specs) noexcept {
-  if ((specs.type != no_type && specs.type != 'c') || (specs.alternate_form)) {
+inline constexpr result<void> check_char_specs(const format_specs& specs) noexcept {
+  if ((specs.type != no_type && specs.type != 'c') || specs.alternate_form || specs.width > 1) {
     return err::invalid_format;
   }
   return success;
 }
 
-inline constexpr result<void> check_integral_specs(const scan_specs& specs) noexcept {
+inline constexpr result<void> check_integral_specs(const format_specs& specs) noexcept {
   switch (specs.type) {
   case no_type:
   case 'b':
@@ -6264,6 +6406,13 @@ inline constexpr result<void> check_integral_specs(const scan_specs& specs) noex
     return success;
   }
   return err::invalid_format;
+}
+
+inline constexpr result<void> check_string_specs(const format_specs& specs) noexcept {
+  if ((specs.type != no_type && specs.type != 's') || specs.alternate_form) {
+    return err::invalid_format;
+  }
+  return success;
 }
 
 //
@@ -6285,7 +6434,7 @@ concept has_any_validate_function_v =
     requires { std::declval<scanner<T>>().validate(std::declval<reader&>()); };
 
 template <typename T>
-inline constexpr bool is_core_type_v = std::is_integral_v<T>;
+inline constexpr bool is_core_type_v = !std::is_same_v<T, bool> && std::is_integral_v<T>;
 
 }  // namespace detail::scan
 
@@ -6312,32 +6461,32 @@ class scanner {
   scanner() = delete;
 
   /**
-   * Optional static function to validate the scan specs for this type.
+   * Optional static function to validate the format string syntax for this type.
    * @note If not present, the parse function is invoked for validation.
-   * @param rdr The scan reader.
-   * @return Success if the scan spec is valid.
+   * @param format_rdr The reader over the format string.
+   * @return Success if the format string is valid.
    */
-  static constexpr result<void> validate(reader& rdr) noexcept {
-    return rdr.read_if_match_char('}');
+  static constexpr result<void> validate(reader& format_rdr) noexcept {
+    return format_rdr.read_if_match_char('}');
   }
 
   /**
-   * Function to parse the scan specs for this type.
-   * @param rdr The scan reader.
-   * @return Success if the scan spec is valid and could be parsed.
+   * Function to parse the format specs for this type.
+   * @param format_rdr The reader over the format string.
+   * @return Success if the format string is valid and could be parsed.
    */
-  constexpr result<void> parse(reader& rdr) noexcept {
-    return rdr.read_if_match_char('}');
+  constexpr result<void> parse(reader& format_rdr) noexcept {
+    return format_rdr.read_if_match_char('}');
   }
 
   /**
-   * Function to scan the object of this type according to the parsed scan specs.
+   * Function to scan the object of this type according to the parsed format specs.
    * @param input The input reader.
    * @param arg The argument to scan.
    * @return Success if the scanning could be done.
    */
-  constexpr result<void> scan(reader& input, T& arg) const noexcept {
-    EMIO_TRY(arg, input.parse_int<T>());
+  constexpr result<void> scan(reader& in, T& arg) const noexcept {
+    EMIO_TRY(arg, in.parse_int<T>());
     return success;
   }
 };
@@ -6355,9 +6504,9 @@ template <typename T>
   requires(detail::scan::is_core_type_v<T>)
 class scanner<T> {
  public:
-  static constexpr result<void> validate(reader& rdr) noexcept {
-    detail::scan::scan_specs specs{};
-    EMIO_TRYV(detail::scan::validate_scan_specs(rdr, specs));
+  static constexpr result<void> validate(reader& format_rdr) noexcept {
+    detail::scan::format_specs specs{};
+    EMIO_TRYV(detail::scan::validate_format_specs(format_rdr, specs));
     if constexpr (std::is_same_v<T, char>) {
       EMIO_TRYV(check_char_specs(specs));
     } else if constexpr (std::is_integral_v<T>) {
@@ -6368,16 +6517,58 @@ class scanner<T> {
     return success;
   }
 
-  constexpr result<void> parse(reader& rdr) noexcept {
-    return detail::scan::parse_scan_specs(rdr, specs_);
+  constexpr result<void> parse(reader& format_rdr) noexcept {
+    return detail::scan::parse_format_specs(format_rdr, specs_);
   }
 
-  constexpr result<void> scan(reader& input, T& arg) const noexcept {
-    return read_arg(input, specs_, arg);
+  constexpr result<void> scan(reader& in, T& arg) const noexcept {
+    return read_arg(in, specs_, arg);
   }
 
  private:
-  detail::scan::scan_specs specs_{};
+  detail::scan::format_specs specs_{};
+};
+
+/**
+ * Scanner for std::string_view.
+ */
+template <>
+class scanner<std::string_view> {
+ public:
+  static constexpr result<void> validate(reader& format_rdr) noexcept {
+    detail::scan::format_specs specs{};
+    EMIO_TRYV(detail::scan::validate_format_specs(format_rdr, specs));
+    EMIO_TRYV(detail::scan::check_string_specs(specs));
+    return success;
+  }
+
+  constexpr result<void> parse(reader& format_rdr) noexcept {
+    EMIO_TRYV(detail::scan::parse_format_specs(format_rdr, specs_));
+    format_rdr_ = format_rdr;
+    return success;
+  }
+
+  constexpr result<void> scan(reader& in, std::string_view& arg) noexcept {
+    return detail::scan::read_string(in, specs_, format_rdr_, arg);
+  }
+
+ private:
+  detail::scan::format_specs specs_;
+  reader format_rdr_;
+};
+
+/**
+ * Scanner for std::string.
+ */
+template <>
+class scanner<std::string> : public scanner<std::string_view> {
+ public:
+  constexpr result<void> scan(reader& in, std::string& arg) noexcept {
+    std::string_view s;
+    EMIO_TRYV(scanner<std::string_view>::scan(in, s));
+    arg = s;
+    return success;
+  }
 };
 
 }  // namespace emio
@@ -6388,27 +6579,27 @@ template <typename Arg>
 struct scan_arg_trait {
   using unified_type = Arg&;
 
-  static constexpr result<void> validate(reader& format_is) noexcept {
+  static constexpr result<void> validate(reader& format_rdr) noexcept {
     // Check if a scanner exist and a correct validate method is implemented. If not, use the parse method.
     if constexpr (has_scanner_v<Arg>) {
       if constexpr (has_validate_function_v<Arg>) {
-        return scanner<Arg>::validate(format_is);
+        return scanner<Arg>::validate(format_rdr);
       } else {
         static_assert(!has_any_validate_function_v<Arg>,
                       "Scanner seems to have a validate property which doesn't fit the desired signature.");
-        return scanner<Arg>{}.parse(format_is);
+        return scanner<Arg>{}.parse(format_rdr);
       }
     } else {
       static_assert(has_scanner_v<Arg>,
-                    "Cannot format an argument. To make type T scannable provide a scanner<T> specialization.");
+                    "Cannot scan an argument. To make type T scannable provide a scanner<T> specialization.");
       return err::invalid_format;
     }
   }
 
-  static constexpr result<void> process_arg(reader& input, reader& scan_is, Arg& arg) noexcept {
+  static constexpr result<void> process_arg(reader& in, reader& format_rdr, Arg& arg) noexcept {
     scanner<Arg> scanner;
-    EMIO_TRYV(scanner.parse(scan_is));
-    return scanner.scan(input, arg);
+    EMIO_TRYV(scanner.parse(format_rdr));
+    return scanner.scan(in, arg);
   }
 };
 
@@ -6430,8 +6621,8 @@ namespace emio::detail::scan {
 
 class scan_parser final : public parser<scan_parser, input_validation::disabled> {
  public:
-  constexpr explicit scan_parser(reader& input, reader& format_rdr) noexcept
-      : parser<scan_parser, input_validation::disabled>{format_rdr}, input_{input} {}
+  constexpr explicit scan_parser(reader& in, reader& format_rdr) noexcept
+      : parser<scan_parser, input_validation::disabled>{format_rdr}, in_{in} {}
 
   scan_parser(const scan_parser&) = delete;
   scan_parser(scan_parser&&) = delete;
@@ -6440,11 +6631,11 @@ class scan_parser final : public parser<scan_parser, input_validation::disabled>
   constexpr ~scan_parser() noexcept override;  // NOLINT(performance-trivially-destructible): See definition.
 
   constexpr result<void> process(const char c) noexcept override {
-    return input_.read_if_match_char(c);
+    return in_.read_if_match_char(c);
   }
 
   result<void> process_arg(const scan_arg& arg) noexcept {
-    return arg.process_arg(input_, format_rdr_);
+    return arg.process_arg(in_, format_rdr_);
   }
 
   template <typename Arg>
@@ -6452,7 +6643,7 @@ class scan_parser final : public parser<scan_parser, input_validation::disabled>
     if constexpr (has_scanner_v<Arg>) {
       scanner<Arg> scanner;
       EMIO_TRYV(scanner.parse(this->format_rdr_));
-      return scanner.scan(input_, arg);
+      return scanner.scan(in_, arg);
     } else {
       static_assert(has_scanner_v<Arg>,
                     "Cannot scan an argument. To make type T scannable provide a scanner<T> specialization.");
@@ -6460,7 +6651,7 @@ class scan_parser final : public parser<scan_parser, input_validation::disabled>
   }
 
  private:
-  reader& input_;
+  reader& in_;
 };
 
 // Explicit out-of-class definition because of GCC bug: <destructor> used before its definition.
@@ -6499,32 +6690,31 @@ namespace emio::detail::scan {
 
 struct scan_trait {
   template <typename... Args>
-  [[nodiscard]] static constexpr bool validate_string(std::string_view scan_str) {
+  [[nodiscard]] static constexpr bool validate_string(std::string_view format_str) {
     if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
-      return validate<scan_specs_checker>(scan_str, sizeof...(Args), std::type_identity<Args>{}...);
+      return validate<scan_specs_checker>(format_str, sizeof...(Args), std::type_identity<Args>{}...);
     } else {
-      return validate<scan_specs_checker>(scan_str, sizeof...(Args),
-                                          make_validation_args<scan_validation_arg, Args...>(scan_str));
+      return validate<scan_specs_checker>(format_str, sizeof...(Args),
+                                          make_validation_args<scan_validation_arg, Args...>(format_str));
     }
   }
 };
 
 template <typename... Args>
-using scan_string = validated_string<scan_trait, std::type_identity_t<Args>...>;
+using format_string = validated_string<scan_trait, std::type_identity_t<Args>...>;
 
 template <typename... Args>
-using valid_scan_string = valid_string<scan_trait, std::type_identity_t<Args>...>;
+using valid_format_string = valid_string<scan_trait, std::type_identity_t<Args>...>;
 
-inline result<void> vscan_from(reader& input, const scan_args& args) noexcept {
+inline result<void> vscan_from(reader& in, const scan_args& args) noexcept {
   EMIO_TRY(const std::string_view str, args.get_str());
-  return parse<scan_parser>(str, input, args);
+  return parse<scan_parser>(str, in, args);
 }
 
 template <typename... Args>
-constexpr result<void> scan_from(reader& input, validated_string<scan_trait, Args...> scan_string,
-                                 Args&... args) noexcept {
-  EMIO_TRY(const std::string_view str, scan_string.get());
-  return parse<scan_parser>(str, input, args...);
+constexpr result<void> scan_from(reader& in, format_string<Args...> format_str, Args&... args) noexcept {
+  EMIO_TRY(const std::string_view str, format_str.get());
+  return parse<scan_parser>(str, in, args...);
 }
 
 }  // namespace emio::detail::scan
@@ -6532,89 +6722,89 @@ constexpr result<void> scan_from(reader& input, validated_string<scan_trait, Arg
 namespace emio {
 
 /**
- * Provides access to the scan string and the arguments to scan.
- * @note This type should only be "constructed" via make_scan_args(scan_str, args...) and passed directly to a
+ * Provides access to the format string and the arguments to scan.
+ * @note This type should only be "constructed" via make_scan_args(format_str, args...) and passed directly to a
  * scanning function.
  */
 using scan_args = detail::args_span<detail::scan::scan_arg>;
 
 // Alias template types.
 template <typename... Args>
-using scan_string = detail::scan::scan_string<Args...>;
+using format_scan_string = detail::scan::format_string<Args...>;
 
 template <typename... Args>
-using valid_scan_string = detail::scan::valid_scan_string<Args...>;
+using valid_format_scan_string = detail::scan::valid_format_string<Args...>;
 
 /**
- * Returns an object that stores a scan string with an array of all arguments to scan.
-
+ * Returns an object that stores a format string with an array of all arguments to scan.
+ *
  * @note The storage uses reference semantics and does not extend the lifetime of args. It is the programmer's
  * responsibility to ensure that args outlive the return value. Usually, the result is only used as argument to a
  * scanning function taking scan_args by reference.
-
- * @param scan_str The scan string.
+ *
+ * @param format_str The format string.
  * @param args The arguments to be scanned.
  * @return Internal type. Implicit convertible to scan_args.
  */
 template <typename... Args>
 [[nodiscard]] detail::args_storage<detail::scan::scan_arg, sizeof...(Args)> make_scan_args(
-    scan_string<Args...> scan_str, Args&... args) noexcept {
-  return {scan_str.get(), args...};
+    format_scan_string<Args...> format_str, Args&... args) noexcept {
+  return {format_str.get(), args...};
 }
 
 /**
- * Scans the content of the reader for the given arguments according to the scan string.
- * @param rdr The reader to scan.
- * @param args The scan args with scan string.
+ * Scans the content of the reader for the given arguments according to the format string.
+ * @param in_rdr The reader to scan.
+ * @param args The scan args with format string.
  * @return Success if the scanning was successfully for all arguments. The reader may not be empty.
  */
-inline result<void> vscan_from(reader& rdr, const scan_args& args) noexcept {
-  return detail::scan::vscan_from(rdr, args);
+inline result<void> vscan_from(reader& in_rdr, const scan_args& args) noexcept {
+  return detail::scan::vscan_from(in_rdr, args);
 }
 
 /**
- * Scans the content of the input string for the given arguments according to the scan string.
- * @param input The input string to scan.
- * @param args The scan args with scan string.
+ * Scans the content of the input string for the given arguments according to the format string.
+ * @param in The input string to scan.
+ * @param args The scan args with format string.
  * @return Success if the scanning was successfully for all arguments for the entire input string.
  */
-inline result<void> vscan(std::string_view input, const scan_args& args) noexcept {
-  reader rdr{input};
-  EMIO_TRYV(detail::scan::vscan_from(rdr, args));
-  if (rdr.eof()) {
+inline result<void> vscan(std::string_view in, const scan_args& args) noexcept {
+  reader in_rdr{in};
+  EMIO_TRYV(detail::scan::vscan_from(in_rdr, args));
+  if (in_rdr.eof()) {
     return success;
   }
   return err::invalid_format;
 }
 
 /**
- * Scans the content of the reader for the given arguments according to the scan string.
- * @param rdr The reader.
- * @param scan_string The scan string.
+ * Scans the content of the reader for the given arguments according to the format string.
+ * @param in_rdr The reader to scan.
+ * @param format_str The format string.
  * @param args The arguments which are to be scanned.
  * @return Success if the scanning was successfully for all arguments. The reader may not be empty.
  */
 template <typename... Args>
-constexpr result<void> scan_from(reader& rdr, scan_string<Args...> scan_string, Args&... args) {
+constexpr result<void> scan_from(reader& in_rdr, format_scan_string<Args...> format_str, Args&... args) {
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
-    EMIO_TRYV(detail::scan::scan_from(rdr, scan_string, args...));
+    EMIO_TRYV(detail::scan::scan_from(in_rdr, format_str, args...));
   } else {
-    EMIO_TRYV(detail::scan::vscan_from(rdr, make_scan_args(scan_string, args...)));
+    EMIO_TRYV(detail::scan::vscan_from(in_rdr, make_scan_args(format_str, args...)));
   }
   return success;
 }
 
 /**
- * Scans the input string for the given arguments according to the scan string.
+ * Scans the input string for the given arguments according to the format string.
  * @param input The input string.
- * @param scan_string The scan string.
+ * @param format_str The format string.
  * @param args The arguments which are to be scanned.
  * @return Success if the scanning was successfully for all arguments for the entire input string.
  */
 template <typename... Args>
-constexpr result<void> scan(std::string_view input, scan_string<Args...> scan_string, Args&... args) {
+constexpr result<void> scan(std::string_view input, format_scan_string<Args...> format_str, Args&... args) {
   reader rdr{input};
-  EMIO_TRYV(scan_from(rdr, scan_string, args...));
+  EMIO_TRYV(emio::scan_from(rdr, format_str, args...));
   if (rdr.eof()) {
     return success;
   }
