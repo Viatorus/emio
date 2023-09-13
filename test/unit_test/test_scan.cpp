@@ -2,8 +2,9 @@
 #include <emio/scan.hpp>
 
 // Other includes.
-#include "integer_ranges.hpp"
 #include <catch2/catch_test_macros.hpp>
+
+#include "integer_ranges.hpp"
 
 namespace {
 

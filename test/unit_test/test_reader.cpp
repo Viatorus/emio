@@ -2,9 +2,10 @@
 #include <emio/reader.hpp>
 
 // Other includes.
-#include "integer_ranges.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
+
+#include "integer_ranges.hpp"
 
 using namespace std::string_view_literals;
 
