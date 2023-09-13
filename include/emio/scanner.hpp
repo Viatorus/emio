@@ -102,8 +102,7 @@ class scanner<T> {
  * Scanner for integral types which are not core types.
  */
 template <typename T>
-  requires(std::is_same_v<T, int8_t> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int16_t> ||
-           std::is_same_v<T, uint16_t>)
+  requires(std::is_integral_v<T> && !std::is_same_v<T, bool> && !detail::scan::is_core_type_v<T>)
 class scanner<T> : public scanner<detail::upcasted_int_t<T>> {
  private:
   using upcasted_t = detail::upcasted_int_t<T>;
