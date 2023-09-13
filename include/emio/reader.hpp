@@ -197,17 +197,17 @@ class reader {
     const size_t backup_pos = pos_;
 
     // Reduce code generation by upcasting the integer.
-    using upcast_int_t = decltype(detail::integer_upcast(T{}));
-    const result<upcast_int_t> res = parse_sign_and_int<upcast_int_t>(base);
+    using upcasted_t = detail::upcasted_int_t<T>;
+    const result<upcasted_t> res = parse_sign_and_int<upcasted_t>(base);
     if (!res) {
       pos_ = backup_pos;
       return res.assume_error();
     }
-    if constexpr (std::is_same_v<upcast_int_t, T>) {
+    if constexpr (std::is_same_v<upcasted_t, T>) {
       return res;
     } else {
       // Check if upcast int is within the integer type range.
-      const upcast_int_t val = res.assume_value();
+      const upcasted_t val = res.assume_value();
       if (val < std::numeric_limits<T>::min() || val > std::numeric_limits<T>::max()) {
         pos_ = backup_pos;
         return err::out_of_range;

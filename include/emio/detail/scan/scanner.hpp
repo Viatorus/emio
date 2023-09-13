@@ -326,8 +326,8 @@ inline constexpr bool has_scanner_v = std::is_constructible_v<scanner<Arg>>;
 
 template <typename T>
 concept has_validate_function_v = requires {
-  { scanner<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
-};
+                                    { scanner<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
+                                  };
 
 template <typename T>
 concept has_any_validate_function_v =
