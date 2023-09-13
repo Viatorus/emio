@@ -326,8 +326,8 @@ inline constexpr bool has_scanner_v = std::is_constructible_v<scanner<Arg>>;
 
 template <typename T>
 concept has_validate_function_v = requires {
-                                    { scanner<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
-                                  };
+  { scanner<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
+};
 
 template <typename T>
 concept has_any_validate_function_v =
@@ -335,7 +335,9 @@ concept has_any_validate_function_v =
     requires { std::declval<scanner<T>>().validate(std::declval<reader&>()); };
 
 template <typename T>
-inline constexpr bool is_core_type_v = !std::is_same_v<T, bool> && std::is_integral_v<T>;
+inline constexpr bool is_core_type_v =
+    std::is_same_v<T, char> || std::is_same_v<T, int32_t> || std::is_same_v<T, uint32_t> ||
+    std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t>;
 
 }  // namespace detail::scan
 

@@ -153,13 +153,12 @@ template <typename T>
 using uint32_or_64 = std::conditional_t<num_bits<T>() <= 32, uint32_t, uint64_t>;
 
 template <typename T>
+using upcasted_int_t = std::conditional_t<std::is_signed_v<T>, int32_or_64<T>, uint32_or_64<T>>;
+
+template <typename T>
   requires(std::is_integral_v<T>)
 constexpr auto integer_upcast(T integer) {
-  if constexpr (std::is_signed_v<T>) {
-    return static_cast<int32_or_64<T>>(integer);
-  } else {
-    return static_cast<uint32_or_64<T>>(integer);
-  }
+  return static_cast<upcasted_int_t<T>>(integer);
 }
 
 template <typename T>
