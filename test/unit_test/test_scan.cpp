@@ -286,7 +286,7 @@ TEST_CASE("integral with width", "[scan]") {
   REQUIRE(emio::scan("+0x5", "{:#3}5", val) == emio::err::eof);
 }
 
-TEST_CASE("integral with different types", "[scan]") {
+TEST_CASE("scan integral of different types", "[scan]") {
   const auto range_check = []<typename T>(std::type_identity<T> /*type*/, const auto& lower_input,
                                           const auto& upper_input) {
     if constexpr (!std::is_same_v<T, bool>) {
