@@ -2,6 +2,7 @@
 #include <emio/reader.hpp>
 
 // Other includes.
+#include "integer_ranges.hpp"
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
 
@@ -92,54 +93,6 @@ TEST_CASE("reader::parse_int", "[reader]") {
   // Expected: The method works as expected.
 
   SECTION("min/max cases") {
-    constexpr std::tuple ranges{
-        std::tuple{
-            std::type_identity<bool>{},
-            std::tuple{"1", "0", "-1", "-10"},
-            std::tuple{"0", "1", "2", "10"},
-        },
-        std::tuple{
-            std::type_identity<int8_t>{},
-            std::tuple{"-127", "-128", "-129", "-1280"},
-            std::tuple{"126", "127", "128", "1270"},
-        },
-        std::tuple{
-            std::type_identity<uint8_t>{},
-            std::tuple{"1", "0", "-1", "-10"},
-            std::tuple{"254", "255", "256", "2550"},
-        },
-        std::tuple{
-            std::type_identity<int16_t>{},
-            std::tuple{"-32767", "-32768", "-32769", "-327680"},
-            std::tuple{"32766", "32767", "327678", "327670"},
-        },
-        std::tuple{
-            std::type_identity<uint16_t>{},
-            std::tuple{"1", "0", "-1", "-10"},
-            std::tuple{"65534", "65535", "65536", "655350"},
-        },
-        std::tuple{
-            std::type_identity<int32_t>{},
-            std::tuple{"-2147483647", "-2147483648", "-2147483649", "-21474836480"},
-            std::tuple{"2147483646", "2147483647", "2147483648", "21474836470"},
-        },
-        std::tuple{
-            std::type_identity<uint32_t>{},
-            std::tuple{"1", "0", "-1", "-10"},
-            std::tuple{"4294967294", "4294967295", "4294967296", "42949672950"},
-        },
-        std::tuple{
-            std::type_identity<int64_t>{},
-            std::tuple{"-9223372036854775807", "-9223372036854775808", "-9223372036854775809", "-92233720368547758080"},
-            std::tuple{"9223372036854775806", "9223372036854775807", "9223372036854775808", "-92233720368547758070"},
-        },
-        std::tuple{
-            std::type_identity<uint64_t>{},
-            std::tuple{"1", "0", "-1", "-10"},
-            std::tuple{"18446744073709551614", "18446744073709551615", "18446744073709551616", "184467440737095516150"},
-        },
-    };
-
     const auto range_check = []<typename T>(std::type_identity<T> /*type*/, const auto& lower_input,
                                             const auto& upper_input) {
       CHECK(emio::reader{std::get<0>(lower_input)}.parse_int<T>() == std::numeric_limits<T>::min() + 1);
@@ -152,11 +105,7 @@ TEST_CASE("reader::parse_int", "[reader]") {
       CHECK(emio::reader{std::get<2>(upper_input)}.parse_int<T>() == emio::err::out_of_range);
       CHECK(emio::reader{std::get<3>(upper_input)}.parse_int<T>() == emio::err::out_of_range);
     };
-    std::apply(
-        [&](auto... inputs) {
-          (std::apply(range_check, inputs), ...);
-        },
-        ranges);
+    emio::test::apply_integer_ranges(range_check);
   }
 
   SECTION("sign is correctly parsed") {

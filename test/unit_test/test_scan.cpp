@@ -2,6 +2,7 @@
 #include <emio/scan.hpp>
 
 // Other includes.
+#include "integer_ranges.hpp"
 #include <catch2/catch_test_macros.hpp>
 
 namespace {
@@ -285,20 +286,26 @@ TEST_CASE("integral with width", "[scan]") {
 }
 
 TEST_CASE("integral with different types", "[scan]") {
-  int8_t i8{};
-  uint8_t u8{};
-  int16_t i16{};
-  uint16_t u16{};
-  int32_t i32{};
-  uint32_t u32{};
-  int64_t i64{};
-  uint64_t u64{};
-  REQUIRE(emio::scan("1 2 3 4 5 6 7 8", "{} {} {} {} {} {} {} {}", i8, u8, i16, u16, i32, u32, i64, u64));
-  CHECK(i8 == 1);
-  CHECK(u8 == 2);
-  CHECK(i16 == 3);
-  CHECK(u16 == 4);
-  CHECK(u64 == 8);
+  const auto range_check = []<typename T>(std::type_identity<T> /*type*/, const auto& lower_input,
+                                          const auto& upper_input) {
+    if constexpr (!std::is_same_v<T, bool>) {
+      T val{};
+      REQUIRE(emio::scan(std::get<0>(lower_input), "{}", val));
+      CHECK(val == std::numeric_limits<T>::min() + 1);
+      REQUIRE(emio::scan(std::get<1>(lower_input), "{}", val));
+      CHECK(val == std::numeric_limits<T>::min());
+      REQUIRE(emio::scan(std::get<2>(lower_input), "{}", val) == emio::err::out_of_range);
+      REQUIRE(emio::scan(std::get<3>(lower_input), "{}", val) == emio::err::out_of_range);
+
+      REQUIRE(emio::scan(std::get<0>(upper_input), "{}", val));
+      CHECK(val == std::numeric_limits<T>::max() - 1);
+      REQUIRE(emio::scan(std::get<1>(upper_input), "{}", val));
+      CHECK(val == std::numeric_limits<T>::max());
+      REQUIRE(emio::scan(std::get<2>(upper_input), "{}", val) == emio::err::out_of_range);
+      REQUIRE(emio::scan(std::get<3>(upper_input), "{}", val) == emio::err::out_of_range);
+    }
+  };
+  emio::test::apply_integer_ranges(range_check);
 }
 
 TEST_CASE("scan_binary", "[scan]") {
