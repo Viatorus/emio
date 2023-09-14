@@ -80,7 +80,7 @@ TEST_CASE("format big hex") {
   };
   BENCHMARK("snprintf") {
     std::array<char, 42> buf{};
-    return snprintf(buf.data(), buf.size(), PRIx64, arg);
+    return snprintf(buf.data(), buf.size(), "%" PRIx64, arg);
   };
 }
 
