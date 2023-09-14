@@ -249,6 +249,12 @@ constexpr OutputIt write_number(T abs_number, int base, bool upper, OutputIt nex
   if (base == 16) {
     return write_uint<4>(abs_number, upper, next);
   }
+  if (base == 8) {
+    return write_uint<3>(abs_number, upper, next);
+  }
+  if (base == 2) {
+    return write_uint<1>(abs_number, upper, next);
+  }
   if (abs_number == 0) {
     *(--next) = '0';
     return next;
