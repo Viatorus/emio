@@ -74,7 +74,7 @@ inline result<void> vscan(std::string_view in, const scan_args& args) noexcept {
  * @return Success if the scanning was successfully for all arguments. The reader may not be empty.
  */
 template <typename... Args>
-constexpr result<void> scan_from(reader& in_rdr, format_scan_string<Args...> format_str, Args&... args) {
+constexpr result<void> scan_from(reader& in_rdr, format_scan_string<Args...> format_str, Args&... args) noexcept {
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::scan::scan_from(in_rdr, format_str, args...));
   } else {
@@ -91,7 +91,7 @@ constexpr result<void> scan_from(reader& in_rdr, format_scan_string<Args...> for
  * @return Success if the scanning was successfully for all arguments for the entire input string.
  */
 template <typename... Args>
-constexpr result<void> scan(std::string_view input, format_scan_string<Args...> format_str, Args&... args) {
+constexpr result<void> scan(std::string_view input, format_scan_string<Args...> format_str, Args&... args) noexcept {
   reader rdr{input};
   EMIO_TRYV(emio::scan_from(rdr, format_str, args...));
   if (rdr.eof()) {

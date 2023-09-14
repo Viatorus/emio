@@ -220,7 +220,7 @@ inline constexpr result<void> read_string(reader& in, format_specs& specs, reade
   }
 
   const result<char> next_char_res = format_rdr.read_char();
-  const auto is_replacement_field = [&] {  // 4)
+  const auto is_replacement_field = [&] noexcept {  // 4)
     const char next_char = next_char_res.assume_value();
     const char over_next_char = format_rdr.read_char().assume_value();  // Spec is validated.
     return next_char == '{' && over_next_char != '{';

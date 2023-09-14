@@ -64,7 +64,7 @@ inline result<size_t> vformatted_size(format_args&& args) noexcept {
  */
 template <typename... Args>
 [[nodiscard]] constexpr size_t formatted_size(valid_format_string<Args...> format_str,
-                                              const Args&... args) noexcept(detail::exceptions_disabled) {
+                                              const Args&... args) noexcept(detail::exceptions_disabled) noexcept {
   detail::counting_buffer buf{};
   detail::format::format_to(buf, format_str, args...).value();
   return buf.count();
@@ -294,7 +294,7 @@ inline result<void> vprint(std::FILE* file, const format_args& args) noexcept {
  * @param args The format args with the format string.
  */
 template <typename... Args>
-void print(valid_format_string<Args...> format_str, const Args&... args) {
+void print(valid_format_string<Args...> format_str, const Args&... args) noexcept {
   vprint(stdout, make_format_args(format_str, args...)).value();  // Should never fail.
 }
 
@@ -306,7 +306,7 @@ void print(valid_format_string<Args...> format_str, const Args&... args) {
  */
 template <typename T, typename... Args>
   requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, format_string<Args...>>)
-result<void> print(T format_str, const Args&... args) {
+result<void> print(T format_str, const Args&... args) noexcept {
   return vprint(stdout, make_format_args(format_str, args...));
 }
 
@@ -318,7 +318,7 @@ result<void> print(T format_str, const Args&... args) {
  * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
  */
 template <typename... Args>
-result<void> print(std::FILE* file, format_string<Args...> format_str, const Args&... args) {
+result<void> print(std::FILE* file, format_string<Args...> format_str, const Args&... args) noexcept {
   return vprint(file, make_format_args(format_str, args...));
 }
 
@@ -348,7 +348,7 @@ inline result<void> vprintln(std::FILE* file, const format_args& args) noexcept 
  * @param args The arguments to be formatted.
  */
 template <typename... Args>
-void println(valid_format_string<Args...> format_str, const Args&... args) {
+void println(valid_format_string<Args...> format_str, const Args&... args) noexcept {
   vprintln(stdout, make_format_args(format_str, args...)).value();  // Should never fail.
 }
 
@@ -362,7 +362,7 @@ void println(valid_format_string<Args...> format_str, const Args&... args) {
  */
 template <typename T, typename... Args>
   requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, format_string<Args...>>)
-result<void> println(T format_str, const Args&... args) {
+result<void> println(T format_str, const Args&... args) noexcept {
   return vprintln(stdout, make_format_args(format_str, args...));
 }
 
@@ -374,7 +374,7 @@ result<void> println(T format_str, const Args&... args) {
  * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
  */
 template <typename... Args>
-result<void> println(std::FILE* file, format_string<Args...> format_str, const Args&... args) {
+result<void> println(std::FILE* file, format_string<Args...> format_str, const Args&... args) noexcept {
   return vprintln(file, make_format_args(format_str, args...));
 }
 

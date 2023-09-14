@@ -16,7 +16,7 @@ namespace emio::detail::scan {
 
 struct scan_trait {
   template <typename... Args>
-  [[nodiscard]] static constexpr bool validate_string(std::string_view format_str) {
+  [[nodiscard]] static constexpr bool validate_string(std::string_view format_str) noexcept {
     if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
       return validate<scan_specs_checker>(format_str, sizeof...(Args), std::type_identity<Args>{}...);
     } else {

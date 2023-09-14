@@ -157,7 +157,7 @@ using upcasted_int_t = std::conditional_t<std::is_signed_v<T>, int32_or_64<T>, u
 
 template <typename T>
   requires(std::is_integral_v<T>)
-constexpr auto integer_upcast(T integer) {
+constexpr auto integer_upcast(T integer) noexcept {
   return static_cast<upcasted_int_t<T>>(integer);
 }
 
@@ -186,7 +186,7 @@ constexpr std::make_signed_t<T> to_signed(T number) noexcept {
 }
 
 // Converts value in the range [0, 100) to a string.
-inline constexpr const char* digits2(size_t value) {
+inline constexpr const char* digits2(size_t value) noexcept {
   // GCC generates slightly better code when value is pointer-size.
   return &"0001020304050607080910111213141516171819"
       "2021222324252627282930313233343536373839"
@@ -197,18 +197,18 @@ inline constexpr const char* digits2(size_t value) {
 
 // Copies two characters from src to dst.
 template <typename Char>
-inline constexpr void copy2(Char* dst, const char* src) {
-  if (!EMIO_Z_INTERNAL_IS_CONST_EVAL) {
-    memcpy(dst, src, 2);
-  } else {
+inline constexpr void copy2(Char* dst, const char* src) noexcept {
+  if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     *dst++ = static_cast<Char>(*src++);
     *dst = static_cast<Char>(*src);
+  } else {
+    memcpy(dst, src, 2);
   }
 }
 
 template <typename T, typename OutputIt>
   requires(std::is_unsigned_v<T>)
-constexpr OutputIt write_decimal(T abs_number, OutputIt next) {
+constexpr OutputIt write_decimal(T abs_number, OutputIt next) noexcept {
   if (abs_number == 0) {
     *(--next) = '0';
     return next;
@@ -230,7 +230,7 @@ constexpr OutputIt write_decimal(T abs_number, OutputIt next) {
 
 template <typename T, typename OutputIt>
   requires(std::is_unsigned_v<T>)
-constexpr OutputIt write_number(T abs_number, int base, bool upper, OutputIt next) {
+constexpr OutputIt write_number(T abs_number, int base, bool upper, OutputIt next) noexcept {
   if (base == 10) {
     return write_decimal(abs_number, next);
   }
@@ -254,7 +254,7 @@ constexpr std::string_view unchecked_substr(const std::string_view& str, size_t 
 }
 
 template <typename Size>
-constexpr char* fill_n(char* out, Size count, char value) {
+constexpr char* fill_n(char* out, Size count, char value) noexcept {
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     for (Size i = 0; i < count; i++) {
       *out++ = value;
@@ -267,7 +267,7 @@ constexpr char* fill_n(char* out, Size count, char value) {
 }
 
 template <typename Size>
-constexpr char* copy_n(const char* in, Size count, char* out) {
+constexpr char* copy_n(const char* in, Size count, char* out) noexcept {
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     for (Size i = 0; i < count; i++) {
       *out++ = *in++;

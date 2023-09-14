@@ -222,7 +222,7 @@ inline constexpr format_fp_result_t format_shortest(const finite_result_t& dec, 
   //  EMIO_Z_DEV_ASSERT(buf.() >= MAX_SIG_DIGITS);
 
   // `a.cmp(&b) < rounding` is `if d.inclusive {a <= b} else {a < b}`
-  const auto rounding = [&](std::strong_ordering ordering) {
+  const auto rounding = [&](std::strong_ordering ordering) noexcept {
     if (dec.inclusive) {
       return ordering <= 0;  // NOLINT(modernize-use-nullptr): false positive
     }

@@ -24,7 +24,7 @@ namespace emio::detail {
 template <typename Char, size_t StorageSize = 32>
 class ct_vector {
  public:
-  constexpr ct_vector() {
+  constexpr ct_vector() noexcept {
     if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
       fill_n(storage_.data(), storage_.size(), 0);
     }

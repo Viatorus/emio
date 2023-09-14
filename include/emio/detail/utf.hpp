@@ -17,11 +17,11 @@
 
 namespace emio::detail {
 
-inline constexpr bool needs_escape(uint32_t cp) {
+inline constexpr bool needs_escape(uint32_t cp) noexcept {
   return cp < 0x20 || cp >= 0x7f || cp == '\'' || cp == '"' || cp == '\\';
 }
 
-inline constexpr size_t count_size_when_escaped(std::string_view sv) {
+inline constexpr size_t count_size_when_escaped(std::string_view sv) noexcept {
   size_t count = 0;
   for (const char c : sv) {
     if (!needs_escape(static_cast<uint32_t>(c))) {
@@ -47,7 +47,7 @@ class write_escaped_helper {
     const char* const dst_end = area.data() + area.size();
 
     // Write remainder from temporary buffer.
-    const auto write_remainder = [&, this] {
+    const auto write_remainder = [&, this] noexcept {
       while (remainder_it_ != remainder_end_ && dst_it != dst_end) {
         *(dst_it++) = *(remainder_it_++);
       }

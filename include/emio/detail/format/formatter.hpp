@@ -35,7 +35,7 @@ inline constexpr std::string_view hex_upper{"0X"};
 // Write args.
 //
 
-inline constexpr result<void> write_padding_left(writer& out, format_specs& specs, size_t width) {
+inline constexpr result<void> write_padding_left(writer& out, format_specs& specs, size_t width) noexcept {
   if (specs.width == 0 || specs.width < static_cast<int>(width)) {
     specs.width = 0;
     return success;
@@ -52,7 +52,7 @@ inline constexpr result<void> write_padding_left(writer& out, format_specs& spec
   return out.write_char_n(specs.fill, static_cast<size_t>(fill_width));
 }
 
-inline constexpr result<void> write_padding_right(writer& out, format_specs& specs) {
+inline constexpr result<void> write_padding_right(writer& out, format_specs& specs) noexcept {
   if (specs.width == 0 || (specs.align != alignment::left && specs.align != alignment::center)) {
     return success;
   }
@@ -60,7 +60,7 @@ inline constexpr result<void> write_padding_right(writer& out, format_specs& spe
 }
 
 template <alignment DefaultAlign, typename Func>
-constexpr result<void> write_padded(writer& out, format_specs& specs, size_t width, Func&& func) {
+constexpr result<void> write_padded(writer& out, format_specs& specs, size_t width, Func&& func) noexcept {
   if (specs.align == alignment::none) {
     specs.align = DefaultAlign;
   }
@@ -107,7 +107,7 @@ inline constexpr result<std::pair<std::string_view, writer::write_int_options>> 
   return std::pair{prefix, options};
 }
 
-inline constexpr result<char> try_write_sign(writer& out, const format_specs& specs, bool is_negative) {
+inline constexpr result<char> try_write_sign(writer& out, const format_specs& specs, bool is_negative) noexcept {
   char sign_to_write = no_sign;
   if (is_negative) {
     sign_to_write = '-';
@@ -122,7 +122,7 @@ inline constexpr result<char> try_write_sign(writer& out, const format_specs& sp
 }
 
 inline constexpr result<std::string_view> try_write_prefix(writer& out, const format_specs& specs,
-                                                           std::string_view prefix) {
+                                                           std::string_view prefix) noexcept {
   const bool write_prefix = specs.alternate_form && !prefix.empty();
   if (write_prefix && specs.zero_flag) {
     EMIO_TRYV(out.write_str(prefix));
@@ -138,7 +138,7 @@ template <typename Arg>
   requires(std::is_integral_v<Arg> && !std::is_same_v<Arg, bool> && !std::is_same_v<Arg, char>)
 constexpr result<void> write_arg(writer& out, format_specs& specs, const Arg& arg) noexcept {
   if (specs.type == 'c') {
-    return write_padded<alignment::left>(out, specs, 1, [&] {
+    return write_padded<alignment::left>(out, specs, 1, [&] noexcept {
       return out.write_char(static_cast<char>(arg));
     });
   }
@@ -163,7 +163,7 @@ constexpr result<void> write_arg(writer& out, format_specs& specs, const Arg& ar
     total_width += 1;
   }
 
-  return write_padded<alignment::right>(out, specs, total_width, [&, &opt = options]() -> result<void> {
+  return write_padded<alignment::right>(out, specs, total_width, [&, &opt = options]() noexcept -> result<void> {
     const size_t area_size =
         num_digits + static_cast<size_t>(sign_to_write != no_sign) + static_cast<size_t>(prefix_to_write.size());
     EMIO_TRY(auto area, out.get_buffer().get_write_area_of(area_size));
@@ -179,7 +179,7 @@ constexpr result<void> write_arg(writer& out, format_specs& specs, const Arg& ar
   });
 }
 
-inline constexpr result<void> write_non_finite(writer& out, bool upper_case, bool is_inf) {
+inline constexpr result<void> write_non_finite(writer& out, bool upper_case, bool is_inf) noexcept {
   if (is_inf) {
     EMIO_TRYV(out.write_str(upper_case ? "INF" : "inf"));
   } else {
@@ -203,7 +203,7 @@ struct fp_format_specs {
   bool showpoint;
 };
 
-inline constexpr fp_format_specs parse_fp_format_specs(const format_specs& specs) {
+inline constexpr fp_format_specs parse_fp_format_specs(const format_specs& specs) noexcept {
   constexpr int16_t default_precision = 6;
 
   // This spec is typically for general format.
@@ -232,7 +232,7 @@ inline constexpr fp_format_specs parse_fp_format_specs(const format_specs& specs
 }
 
 inline constexpr char* write_significand(char* out, const char* significand, int significand_size, int integral_size,
-                                         char decimal_point) {
+                                         char decimal_point) noexcept {
   out = copy_n(significand, integral_size, out);
   if (decimal_point == 0) {
     return out;
@@ -241,7 +241,7 @@ inline constexpr char* write_significand(char* out, const char* significand, int
   return copy_n(significand + integral_size, significand_size - integral_size, out);
 }
 
-inline constexpr char* write_exponent(char* it, int exp) {
+inline constexpr char* write_exponent(char* it, int exp) noexcept {
   if (exp < 0) {
     *it++ = '-';
     exp = -exp;
@@ -276,7 +276,7 @@ inline constexpr result<void> write_decimal(writer& out, format_specs& specs, fp
     significand_size -= static_cast<int>(it - f.digits.rbegin());
   }
 
-  const auto use_exp_format = [=]() {
+  const auto use_exp_format = [=]() noexcept {
     if (fp_specs.format == fp_format::exp) {
       return true;
     }
@@ -313,7 +313,7 @@ inline constexpr result<void> write_decimal(writer& out, format_specs& specs, fp
     num_digits += to_unsigned((decimal_point != 0 ? 1 : 0) + 2 /* sign + e */ + exp_digits);
     total_width += num_digits;
 
-    return write_padded<alignment::right>(out, specs, total_width, [&]() -> result<void> {
+    return write_padded<alignment::right>(out, specs, total_width, [&] noexcept -> result<void> {
       const size_t area_size = num_digits + static_cast<size_t>(sign_to_write != no_sign);
       EMIO_TRY(auto area, out.get_buffer().get_write_area_of(area_size));
       auto* it = area.data();
@@ -373,7 +373,7 @@ inline constexpr result<void> write_decimal(writer& out, format_specs& specs, fp
   num_digits += static_cast<size_t>(num_zeros + num_zeros_2);
   total_width += num_digits;
 
-  return write_padded<alignment::right>(out, specs, total_width, [&]() -> result<void> {
+  return write_padded<alignment::right>(out, specs, total_width, [&] noexcept -> result<void> {
     const size_t area_size = num_digits + static_cast<size_t>(sign_to_write != no_sign);
     EMIO_TRY(auto area, out.get_buffer().get_write_area_of(area_size));
     auto* it = area.data();
@@ -414,7 +414,7 @@ inline constexpr result<void> write_decimal(writer& out, format_specs& specs, fp
 inline constexpr std::array<char, 1> zero_digit{'0'};
 
 inline constexpr format_fp_result_t format_decimal(buffer& buffer, const fp_format_specs& fp_specs,
-                                                   const decode_result_t& decoded) {
+                                                   const decode_result_t& decoded) noexcept {
   if (decoded.category == category::zero) {
     return format_fp_result_t{zero_digit, 1};
   }
@@ -451,7 +451,7 @@ inline constexpr result<void> format_and_write_decimal(writer& out, format_specs
     EMIO_TRY(const char sign_to_write, try_write_sign(out, specs, decoded.negative));
 
     const size_t total_length = 3 + static_cast<uint32_t>(sign_to_write != no_sign);
-    return write_padded<alignment::left>(out, specs, total_length, [&]() -> result<void> {
+    return write_padded<alignment::left>(out, specs, total_length, [&] noexcept -> result<void> {
       if (sign_to_write != no_sign) {
         EMIO_TRYV(out.write_char(sign_to_write));
       }
@@ -475,12 +475,12 @@ inline constexpr result<void> write_arg(writer& out, format_specs& specs, std::s
     if (specs.precision >= 0) {
       arg = unchecked_substr(arg, 0, static_cast<size_t>(specs.precision));
     }
-    return write_padded<alignment::left>(out, specs, arg.size(), [&] {
+    return write_padded<alignment::left>(out, specs, arg.size(), [&] noexcept {
       return out.write_str(arg);
     });
   }
   const size_t escaped_size = detail::count_size_when_escaped(arg);
-  return write_padded<alignment::left>(out, specs, escaped_size + 2U /* quotes */, [&] {
+  return write_padded<alignment::left>(out, specs, escaped_size + 2U /* quotes */, [&] noexcept {
     return detail::write_str_escaped(out.get_buffer(), arg, escaped_size, '"');
   });
 }
@@ -493,11 +493,11 @@ constexpr result<void> write_arg(writer& out, format_specs& specs, const Arg arg
     return write_arg(out, specs, static_cast<uint8_t>(arg));
   }
   if (specs.type != '?') {
-    return write_padded<alignment::left>(out, specs, 1, [&] {
+    return write_padded<alignment::left>(out, specs, 1, [&] noexcept {
       return out.write_char(arg);
     });
   }
-  return write_padded<alignment::left>(out, specs, 3, [&] {
+  return write_padded<alignment::left>(out, specs, 3, [&] noexcept {
     return out.write_char_escaped(arg);
   });
 }
@@ -519,11 +519,11 @@ constexpr result<void> write_arg(writer& out, format_specs& specs, Arg arg) noex
     return write_arg(out, specs, static_cast<uint8_t>(arg));
   }
   if (arg) {
-    return write_padded<alignment::left>(out, specs, 4, [&] {
+    return write_padded<alignment::left>(out, specs, 4, [&] noexcept {
       return out.write_str("true");
     });
   }
-  return write_padded<alignment::left>(out, specs, 5, [&] {
+  return write_padded<alignment::left>(out, specs, 5, [&] noexcept {
     return out.write_str("false");
   });
 }
