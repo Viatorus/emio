@@ -228,11 +228,26 @@ constexpr OutputIt write_decimal(T abs_number, OutputIt next) noexcept {
   return next;
 }
 
+template <size_t BASE_BITS, typename T, typename OutputIt>
+  requires(std::is_unsigned_v<T>)
+constexpr OutputIt write_uint(T abs_number, const bool upper, OutputIt next) noexcept {
+  const char* digits = upper ? "0123456789ABCDEF" : "0123456789abcdef";
+  do {
+    unsigned digit = static_cast<unsigned>(abs_number & ((1 << BASE_BITS) - 1));
+    *--next = static_cast<char>(BASE_BITS < 4 ? static_cast<char>('0' + digit)
+                                                : digits[digit]);
+  } while ((abs_number >>= BASE_BITS) != 0);
+  return next;
+}
+
 template <typename T, typename OutputIt>
   requires(std::is_unsigned_v<T>)
 constexpr OutputIt write_number(T abs_number, int base, bool upper, OutputIt next) noexcept {
   if (base == 10) {
     return write_decimal(abs_number, next);
+  }
+  if (base == 16) {
+    return write_uint<4>(abs_number, upper, next);
   }
   if (abs_number == 0) {
     *(--next) = '0';
