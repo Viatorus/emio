@@ -272,7 +272,7 @@ using upcasted_int_t = std::conditional_t<std::is_signed_v<T>, int32_or_64<T>, u
 
 template <typename T>
   requires(std::is_integral_v<T>)
-constexpr auto integer_upcast(T integer) {
+constexpr auto integer_upcast(T integer) noexcept {
   return static_cast<upcasted_int_t<T>>(integer);
 }
 
@@ -301,7 +301,7 @@ constexpr std::make_signed_t<T> to_signed(T number) noexcept {
 }
 
 // Converts value in the range [0, 100) to a string.
-inline constexpr const char* digits2(size_t value) {
+inline constexpr const char* digits2(size_t value) noexcept {
   // GCC generates slightly better code when value is pointer-size.
   return &"0001020304050607080910111213141516171819"
       "2021222324252627282930313233343536373839"
@@ -312,18 +312,18 @@ inline constexpr const char* digits2(size_t value) {
 
 // Copies two characters from src to dst.
 template <typename Char>
-inline constexpr void copy2(Char* dst, const char* src) {
-  if (!EMIO_Z_INTERNAL_IS_CONST_EVAL) {
-    memcpy(dst, src, 2);
-  } else {
+inline constexpr void copy2(Char* dst, const char* src) noexcept {
+  if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     *dst++ = static_cast<Char>(*src++);
     *dst = static_cast<Char>(*src);
+  } else {
+    memcpy(dst, src, 2);
   }
 }
 
 template <typename T, typename OutputIt>
   requires(std::is_unsigned_v<T>)
-constexpr OutputIt write_decimal(T abs_number, OutputIt next) {
+constexpr OutputIt write_decimal(T abs_number, OutputIt next) noexcept {
   if (abs_number == 0) {
     *(--next) = '0';
     return next;
@@ -345,7 +345,7 @@ constexpr OutputIt write_decimal(T abs_number, OutputIt next) {
 
 template <typename T, typename OutputIt>
   requires(std::is_unsigned_v<T>)
-constexpr OutputIt write_number(T abs_number, int base, bool upper, OutputIt next) {
+constexpr OutputIt write_number(T abs_number, int base, bool upper, OutputIt next) noexcept {
   if (base == 10) {
     return write_decimal(abs_number, next);
   }
@@ -369,7 +369,7 @@ constexpr std::string_view unchecked_substr(const std::string_view& str, size_t 
 }
 
 template <typename Size>
-constexpr char* fill_n(char* out, Size count, char value) {
+constexpr char* fill_n(char* out, Size count, char value) noexcept {
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     for (Size i = 0; i < count; i++) {
       *out++ = value;
@@ -382,7 +382,7 @@ constexpr char* fill_n(char* out, Size count, char value) {
 }
 
 template <typename Size>
-constexpr char* copy_n(const char* in, Size count, char* out) {
+constexpr char* copy_n(const char* in, Size count, char* out) noexcept {
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     for (Size i = 0; i < count; i++) {
       *out++ = *in++;
@@ -896,7 +896,7 @@ inline constexpr bool is_result_v = is_result<T>::value;
  */
 template <typename T, typename U>
   requires((std::is_void_v<T> && std::is_void_v<U>) || std::equality_comparable_with<T, U>)
-constexpr bool operator==(const result<T>& left, const result<U>& right) {
+constexpr bool operator==(const result<T>& left, const result<U>& right) noexcept {
   if (left.has_value() != right.has_value()) {
     return false;
   }
@@ -921,7 +921,7 @@ constexpr bool operator==(const result<T>& left, const result<U>& right) {
  */
 template <typename T, typename U>
   requires(!detail::is_result_v<U> && std::equality_comparable_with<T, U>)
-constexpr bool operator==(const result<T>& left, const U& right) {
+constexpr bool operator==(const result<T>& left, const U& right) noexcept {
   if (left.has_value()) {
     return left.value() == right;
   }
@@ -938,7 +938,7 @@ constexpr bool operator==(const result<T>& left, const U& right) {
  * - left.has_error() && left.error() == right
  */
 template <typename T>
-constexpr bool operator==(const result<T>& left, const err right) {
+constexpr bool operator==(const result<T>& left, const err right) noexcept {
   return left.has_error() && left.error() == right;
 }
 
@@ -1415,7 +1415,7 @@ namespace emio::detail {
 template <typename Char, size_t StorageSize = 32>
 class ct_vector {
  public:
-  constexpr ct_vector() {
+  constexpr ct_vector() noexcept {
     if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
       fill_n(storage_.data(), storage_.size(), 0);
     }
@@ -1596,13 +1596,13 @@ class memory_buffer final : public buffer {
   /**
    * Constructs and initializes the buffer with the internal storage size.
    */
-  constexpr memory_buffer() : memory_buffer{0} {}
+  constexpr memory_buffer() noexcept : memory_buffer{0} {}
 
   /**
    * Constructs and initializes the buffer with the given capacity.
    * @param capacity The initial capacity.
    */
-  constexpr explicit memory_buffer(const size_t capacity) {
+  constexpr explicit memory_buffer(const size_t capacity) noexcept {
     // Request at least the internal storage size.
     static_cast<void>(request_write_area(0, std::max(vec_.capacity(), capacity)));
   }
@@ -1658,7 +1658,7 @@ class span_buffer : public buffer {
    * Constructs and initializes the buffer with the given span.
    * @param span The span.
    */
-  constexpr explicit span_buffer(const std::span<char> span) : buffer{fixed_size::yes}, span_{span} {
+  constexpr explicit span_buffer(const std::span<char> span) noexcept : buffer{fixed_size::yes}, span_{span} {
     this->set_write_area(span_);
   }
 
@@ -1716,7 +1716,7 @@ inline constexpr size_t internal_buffer_size{256};
 
 // Extracts a reference to the container from back_insert_iterator.
 template <typename Container>
-Container& get_container(std::back_insert_iterator<Container> it) {
+Container& get_container(std::back_insert_iterator<Container> it) noexcept {
   using bi_iterator = std::back_insert_iterator<Container>;
   struct accessor : bi_iterator {
     accessor(bi_iterator iter) : bi_iterator(iter) {}
@@ -1774,7 +1774,7 @@ class iterator_buffer<Iterator> final : public buffer {
    * @param it The output iterator.
    */
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): cache_ can be left uninitialized
-  constexpr explicit iterator_buffer(Iterator it) : it_{it} {
+  constexpr explicit iterator_buffer(Iterator it) noexcept : it_{it} {
     this->set_write_area(cache_);
   }
 
@@ -1836,7 +1836,7 @@ class iterator_buffer<OutputPtr*> final : public buffer {
    * Constructs and initializes the buffer with the given output pointer.
    * @param ptr The output pointer.
    */
-  constexpr explicit iterator_buffer(OutputPtr* ptr) : ptr_{ptr} {
+  constexpr explicit iterator_buffer(OutputPtr* ptr) noexcept : ptr_{ptr} {
     this->set_write_area({ptr, std::numeric_limits<size_t>::max()});
   }
 
@@ -1857,7 +1857,7 @@ class iterator_buffer<OutputPtr*> final : public buffer {
    * Returns the output pointer at the next write position.
    * @return The output pointer.
    */
-  constexpr OutputPtr* out() {
+  constexpr OutputPtr* out() noexcept {
     return ptr_ + this->get_used_count();
   }
 
@@ -1877,7 +1877,8 @@ class iterator_buffer<std::back_insert_iterator<Container>> final : public buffe
    * Constructs and initializes the buffer with the given back-insert iterator.
    * @param it The output iterator.
    */
-  constexpr explicit iterator_buffer(std::back_insert_iterator<Container> it) : container_{detail::get_container(it)} {
+  constexpr explicit iterator_buffer(std::back_insert_iterator<Container> it) noexcept
+      : container_{detail::get_container(it)} {
     static_cast<void>(request_write_area(0, std::min(container_.capacity(), detail::internal_buffer_size)));
   }
 
@@ -1904,7 +1905,7 @@ class iterator_buffer<std::back_insert_iterator<Container>> final : public buffe
    * Flushes and returns the back-insert iterator.
    * @return The back-insert iterator.
    */
-  constexpr std::back_insert_iterator<Container> out() {
+  constexpr std::back_insert_iterator<Container> out() noexcept {
     flush();
     return std::back_inserter(container_);
   }
@@ -1937,7 +1938,7 @@ class file_buffer : public buffer {
    * @param file The file stream.
    */
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): cache_ can be left uninitialized
-  constexpr explicit file_buffer(std::FILE* file) : file_{file} {
+  constexpr explicit file_buffer(std::FILE* file) noexcept : file_{file} {
     this->set_write_area(cache_);
   }
 
@@ -2036,11 +2037,11 @@ constexpr counting_buffer::~counting_buffer() = default;
 
 namespace emio::detail {
 
-inline constexpr bool needs_escape(uint32_t cp) {
+inline constexpr bool needs_escape(uint32_t cp) noexcept {
   return cp < 0x20 || cp >= 0x7f || cp == '\'' || cp == '"' || cp == '\\';
 }
 
-inline constexpr size_t count_size_when_escaped(std::string_view sv) {
+inline constexpr size_t count_size_when_escaped(std::string_view sv) noexcept {
   size_t count = 0;
   for (const char c : sv) {
     if (!needs_escape(static_cast<uint32_t>(c))) {
@@ -2066,7 +2067,7 @@ class write_escaped_helper {
     const char* const dst_end = area.data() + area.size();
 
     // Write remainder from temporary buffer.
-    const auto write_remainder = [&, this] {
+    const auto write_remainder = [&, this]() noexcept {
       while (remainder_it_ != remainder_end_ && dst_it != dst_end) {
         *(dst_it++) = *(remainder_it_++);
       }
@@ -2494,7 +2495,7 @@ template <typename Arg, size_t NbrOfArgs>
 class args_storage : public args_span<Arg> {
  public:
   template <typename... Args>
-  args_storage(result<std::string_view> str, Args&&... args)
+  args_storage(result<std::string_view> str, Args&&... args) noexcept
       : args_span<Arg>{str, args_storage_}, args_storage_{Arg{std::forward<Args>(args)}...} {}
 
   args_storage(const args_storage&) = delete;
@@ -2508,7 +2509,7 @@ class args_storage : public args_span<Arg> {
 };
 
 template <typename T, typename... Args>
-args_storage<T, sizeof...(Args)> make_validation_args(std::string_view format_str) {
+args_storage<T, sizeof...(Args)> make_validation_args(std::string_view format_str) noexcept {
   return {format_str, std::type_identity<Args>{}...};
 }
 
@@ -2823,7 +2824,7 @@ template <typename CRTP, input_validation Validation>
 constexpr parser<CRTP, Validation>::~parser() noexcept = default;
 
 template <typename Parser, typename... Args>
-constexpr bool validate(std::string_view str, const size_t arg_cnt, const Args&... args) {
+constexpr bool validate(std::string_view str, const size_t arg_cnt, const Args&... args) noexcept {
   reader format_rdr{str};
   Parser parser{format_rdr};
   bitset<128> matched{};
@@ -2848,7 +2849,7 @@ constexpr bool validate(std::string_view str, const size_t arg_cnt, const Args&.
 }
 
 template <typename Parser, typename T, typename... Args>
-constexpr result<void> parse(std::string_view str, T& input, Args&&... args) {
+constexpr result<void> parse(std::string_view str, T& input, Args&&... args) noexcept {
   reader format_rdr{str};
   Parser parser{input, format_rdr};
   while (true) {
@@ -3111,7 +3112,7 @@ struct carrying_add_result_t {
                                    const carrying_add_result_t& rhs) noexcept = default;
 };
 
-inline constexpr carrying_add_result_t carrying_add(uint32_t a, uint32_t b, bool carry) {
+inline constexpr carrying_add_result_t carrying_add(uint32_t a, uint32_t b, bool carry) noexcept {
   const uint32_t v1 = a + b;
   const bool carry1 = v1 < a;
   const uint32_t v2 = v1 + static_cast<uint32_t>(carry);
@@ -3127,7 +3128,7 @@ struct borrowing_sub_result_t {
                                    const borrowing_sub_result_t& rhs) noexcept = default;
 };
 
-inline constexpr borrowing_sub_result_t borrowing_sub(uint32_t a, uint32_t b, bool borrow) {
+inline constexpr borrowing_sub_result_t borrowing_sub(uint32_t a, uint32_t b, bool borrow) noexcept {
   const uint32_t v1 = a - b;
   const bool borrow1 = v1 > a;
   const uint32_t v2 = v1 - static_cast<uint32_t>(borrow);
@@ -3143,7 +3144,7 @@ struct carrying_mul_result_t {
                                    const carrying_mul_result_t& rhs) noexcept = default;
 };
 
-inline constexpr carrying_mul_result_t carrying_mul(uint32_t a, uint32_t b, uint32_t carry) {
+inline constexpr carrying_mul_result_t carrying_mul(uint32_t a, uint32_t b, uint32_t carry) noexcept {
   const uint64_t v1 = static_cast<uint64_t>(a) * b + carry;
   const auto v2 = static_cast<uint32_t>(v1);
   const auto carry1 = static_cast<uint32_t>(v1 >> 32U);
@@ -3155,7 +3156,7 @@ class bignum {
  public:
   static constexpr size_t max_blocks = 34;
 
-  static constexpr bignum from(size_t sz, const std::array<uint32_t, max_blocks>& b) {
+  static constexpr bignum from(size_t sz, const std::array<uint32_t, max_blocks>& b) noexcept {
     bignum bn{};
     bn.size_ = sz;
     bn.base_ = b;
@@ -3346,7 +3347,7 @@ class bignum {
 
   /// Divides itself by a digit-sized `other` and returns its own
   /// mutable reference *and* the remainder.
-  constexpr uint32_t div_rem_small(uint32_t other) {
+  constexpr uint32_t div_rem_small(uint32_t other) noexcept {
     uint64_t borrow = 0;
     for (size_t i = size_; i > 0; i--) {
       const uint64_t v = (base_[i - 1] + (borrow << 32U));
@@ -3695,7 +3696,7 @@ inline constexpr format_fp_result_t format_shortest(const finite_result_t& dec, 
   //  EMIO_Z_DEV_ASSERT(buf.() >= MAX_SIG_DIGITS);
 
   // `a.cmp(&b) < rounding` is `if d.inclusive {a <= b} else {a < b}`
-  const auto rounding = [&](std::strong_ordering ordering) {
+  const auto rounding = [&](std::strong_ordering ordering) noexcept {
     if (dec.inclusive) {
       return ordering <= 0;  // NOLINT(modernize-use-nullptr): false positive
     }
@@ -3937,7 +3938,7 @@ inline constexpr std::string_view hex_upper{"0X"};
 // Write args.
 //
 
-inline constexpr result<void> write_padding_left(writer& out, format_specs& specs, size_t width) {
+inline constexpr result<void> write_padding_left(writer& out, format_specs& specs, size_t width) noexcept {
   if (specs.width == 0 || specs.width < static_cast<int>(width)) {
     specs.width = 0;
     return success;
@@ -3954,7 +3955,7 @@ inline constexpr result<void> write_padding_left(writer& out, format_specs& spec
   return out.write_char_n(specs.fill, static_cast<size_t>(fill_width));
 }
 
-inline constexpr result<void> write_padding_right(writer& out, format_specs& specs) {
+inline constexpr result<void> write_padding_right(writer& out, format_specs& specs) noexcept {
   if (specs.width == 0 || (specs.align != alignment::left && specs.align != alignment::center)) {
     return success;
   }
@@ -3962,7 +3963,7 @@ inline constexpr result<void> write_padding_right(writer& out, format_specs& spe
 }
 
 template <alignment DefaultAlign, typename Func>
-constexpr result<void> write_padded(writer& out, format_specs& specs, size_t width, Func&& func) {
+constexpr result<void> write_padded(writer& out, format_specs& specs, size_t width, Func&& func) noexcept {
   if (specs.align == alignment::none) {
     specs.align = DefaultAlign;
   }
@@ -4009,7 +4010,7 @@ inline constexpr result<std::pair<std::string_view, writer::write_int_options>> 
   return std::pair{prefix, options};
 }
 
-inline constexpr result<char> try_write_sign(writer& out, const format_specs& specs, bool is_negative) {
+inline constexpr result<char> try_write_sign(writer& out, const format_specs& specs, bool is_negative) noexcept {
   char sign_to_write = no_sign;
   if (is_negative) {
     sign_to_write = '-';
@@ -4024,7 +4025,7 @@ inline constexpr result<char> try_write_sign(writer& out, const format_specs& sp
 }
 
 inline constexpr result<std::string_view> try_write_prefix(writer& out, const format_specs& specs,
-                                                           std::string_view prefix) {
+                                                           std::string_view prefix) noexcept {
   const bool write_prefix = specs.alternate_form && !prefix.empty();
   if (write_prefix && specs.zero_flag) {
     EMIO_TRYV(out.write_str(prefix));
@@ -4040,7 +4041,7 @@ template <typename Arg>
   requires(std::is_integral_v<Arg> && !std::is_same_v<Arg, bool> && !std::is_same_v<Arg, char>)
 constexpr result<void> write_arg(writer& out, format_specs& specs, const Arg& arg) noexcept {
   if (specs.type == 'c') {
-    return write_padded<alignment::left>(out, specs, 1, [&] {
+    return write_padded<alignment::left>(out, specs, 1, [&]() noexcept {
       return out.write_char(static_cast<char>(arg));
     });
   }
@@ -4065,7 +4066,7 @@ constexpr result<void> write_arg(writer& out, format_specs& specs, const Arg& ar
     total_width += 1;
   }
 
-  return write_padded<alignment::right>(out, specs, total_width, [&, &opt = options]() -> result<void> {
+  return write_padded<alignment::right>(out, specs, total_width, [&, &opt = options]() noexcept -> result<void> {
     const size_t area_size =
         num_digits + static_cast<size_t>(sign_to_write != no_sign) + static_cast<size_t>(prefix_to_write.size());
     EMIO_TRY(auto area, out.get_buffer().get_write_area_of(area_size));
@@ -4081,7 +4082,7 @@ constexpr result<void> write_arg(writer& out, format_specs& specs, const Arg& ar
   });
 }
 
-inline constexpr result<void> write_non_finite(writer& out, bool upper_case, bool is_inf) {
+inline constexpr result<void> write_non_finite(writer& out, bool upper_case, bool is_inf) noexcept {
   if (is_inf) {
     EMIO_TRYV(out.write_str(upper_case ? "INF" : "inf"));
   } else {
@@ -4105,7 +4106,7 @@ struct fp_format_specs {
   bool showpoint;
 };
 
-inline constexpr fp_format_specs parse_fp_format_specs(const format_specs& specs) {
+inline constexpr fp_format_specs parse_fp_format_specs(const format_specs& specs) noexcept {
   constexpr int16_t default_precision = 6;
 
   // This spec is typically for general format.
@@ -4134,7 +4135,7 @@ inline constexpr fp_format_specs parse_fp_format_specs(const format_specs& specs
 }
 
 inline constexpr char* write_significand(char* out, const char* significand, int significand_size, int integral_size,
-                                         char decimal_point) {
+                                         char decimal_point) noexcept {
   out = copy_n(significand, integral_size, out);
   if (decimal_point == 0) {
     return out;
@@ -4143,7 +4144,7 @@ inline constexpr char* write_significand(char* out, const char* significand, int
   return copy_n(significand + integral_size, significand_size - integral_size, out);
 }
 
-inline constexpr char* write_exponent(char* it, int exp) {
+inline constexpr char* write_exponent(char* it, int exp) noexcept {
   if (exp < 0) {
     *it++ = '-';
     exp = -exp;
@@ -4178,7 +4179,7 @@ inline constexpr result<void> write_decimal(writer& out, format_specs& specs, fp
     significand_size -= static_cast<int>(it - f.digits.rbegin());
   }
 
-  const auto use_exp_format = [=]() {
+  const auto use_exp_format = [=]() noexcept {
     if (fp_specs.format == fp_format::exp) {
       return true;
     }
@@ -4215,7 +4216,7 @@ inline constexpr result<void> write_decimal(writer& out, format_specs& specs, fp
     num_digits += to_unsigned((decimal_point != 0 ? 1 : 0) + 2 /* sign + e */ + exp_digits);
     total_width += num_digits;
 
-    return write_padded<alignment::right>(out, specs, total_width, [&]() -> result<void> {
+    return write_padded<alignment::right>(out, specs, total_width, [&]() noexcept -> result<void> {
       const size_t area_size = num_digits + static_cast<size_t>(sign_to_write != no_sign);
       EMIO_TRY(auto area, out.get_buffer().get_write_area_of(area_size));
       auto* it = area.data();
@@ -4275,7 +4276,7 @@ inline constexpr result<void> write_decimal(writer& out, format_specs& specs, fp
   num_digits += static_cast<size_t>(num_zeros + num_zeros_2);
   total_width += num_digits;
 
-  return write_padded<alignment::right>(out, specs, total_width, [&]() -> result<void> {
+  return write_padded<alignment::right>(out, specs, total_width, [&]() noexcept -> result<void> {
     const size_t area_size = num_digits + static_cast<size_t>(sign_to_write != no_sign);
     EMIO_TRY(auto area, out.get_buffer().get_write_area_of(area_size));
     auto* it = area.data();
@@ -4316,7 +4317,7 @@ inline constexpr result<void> write_decimal(writer& out, format_specs& specs, fp
 inline constexpr std::array<char, 1> zero_digit{'0'};
 
 inline constexpr format_fp_result_t format_decimal(buffer& buffer, const fp_format_specs& fp_specs,
-                                                   const decode_result_t& decoded) {
+                                                   const decode_result_t& decoded) noexcept {
   if (decoded.category == category::zero) {
     return format_fp_result_t{zero_digit, 1};
   }
@@ -4353,7 +4354,7 @@ inline constexpr result<void> format_and_write_decimal(writer& out, format_specs
     EMIO_TRY(const char sign_to_write, try_write_sign(out, specs, decoded.negative));
 
     const size_t total_length = 3 + static_cast<uint32_t>(sign_to_write != no_sign);
-    return write_padded<alignment::left>(out, specs, total_length, [&]() -> result<void> {
+    return write_padded<alignment::left>(out, specs, total_length, [&]() noexcept -> result<void> {
       if (sign_to_write != no_sign) {
         EMIO_TRYV(out.write_char(sign_to_write));
       }
@@ -4377,12 +4378,12 @@ inline constexpr result<void> write_arg(writer& out, format_specs& specs, std::s
     if (specs.precision >= 0) {
       arg = unchecked_substr(arg, 0, static_cast<size_t>(specs.precision));
     }
-    return write_padded<alignment::left>(out, specs, arg.size(), [&] {
+    return write_padded<alignment::left>(out, specs, arg.size(), [&]() noexcept {
       return out.write_str(arg);
     });
   }
   const size_t escaped_size = detail::count_size_when_escaped(arg);
-  return write_padded<alignment::left>(out, specs, escaped_size + 2U /* quotes */, [&] {
+  return write_padded<alignment::left>(out, specs, escaped_size + 2U /* quotes */, [&]() noexcept {
     return detail::write_str_escaped(out.get_buffer(), arg, escaped_size, '"');
   });
 }
@@ -4395,11 +4396,11 @@ constexpr result<void> write_arg(writer& out, format_specs& specs, const Arg arg
     return write_arg(out, specs, static_cast<uint8_t>(arg));
   }
   if (specs.type != '?') {
-    return write_padded<alignment::left>(out, specs, 1, [&] {
+    return write_padded<alignment::left>(out, specs, 1, [&]() noexcept {
       return out.write_char(arg);
     });
   }
-  return write_padded<alignment::left>(out, specs, 3, [&] {
+  return write_padded<alignment::left>(out, specs, 3, [&]() noexcept {
     return out.write_char_escaped(arg);
   });
 }
@@ -4421,11 +4422,11 @@ constexpr result<void> write_arg(writer& out, format_specs& specs, Arg arg) noex
     return write_arg(out, specs, static_cast<uint8_t>(arg));
   }
   if (arg) {
-    return write_padded<alignment::left>(out, specs, 4, [&] {
+    return write_padded<alignment::left>(out, specs, 4, [&]() noexcept {
       return out.write_str("true");
     });
   }
-  return write_padded<alignment::left>(out, specs, 5, [&] {
+  return write_padded<alignment::left>(out, specs, 5, [&]() noexcept {
     return out.write_str("false");
   });
 }
@@ -5595,7 +5596,7 @@ inline result<void> vprint(std::FILE* file, const format_args& args) noexcept {
  * @param args The format args with the format string.
  */
 template <typename... Args>
-void print(valid_format_string<Args...> format_str, const Args&... args) {
+void print(valid_format_string<Args...> format_str, const Args&... args) noexcept {
   vprint(stdout, make_format_args(format_str, args...)).value();  // Should never fail.
 }
 
@@ -5607,7 +5608,7 @@ void print(valid_format_string<Args...> format_str, const Args&... args) {
  */
 template <typename T, typename... Args>
   requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, format_string<Args...>>)
-result<void> print(T format_str, const Args&... args) {
+result<void> print(T format_str, const Args&... args) noexcept {
   return vprint(stdout, make_format_args(format_str, args...));
 }
 
@@ -5619,7 +5620,7 @@ result<void> print(T format_str, const Args&... args) {
  * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
  */
 template <typename... Args>
-result<void> print(std::FILE* file, format_string<Args...> format_str, const Args&... args) {
+result<void> print(std::FILE* file, format_string<Args...> format_str, const Args&... args) noexcept {
   return vprint(file, make_format_args(format_str, args...));
 }
 
@@ -5649,7 +5650,7 @@ inline result<void> vprintln(std::FILE* file, const format_args& args) noexcept 
  * @param args The arguments to be formatted.
  */
 template <typename... Args>
-void println(valid_format_string<Args...> format_str, const Args&... args) {
+void println(valid_format_string<Args...> format_str, const Args&... args) noexcept {
   vprintln(stdout, make_format_args(format_str, args...)).value();  // Should never fail.
 }
 
@@ -5663,7 +5664,7 @@ void println(valid_format_string<Args...> format_str, const Args&... args) {
  */
 template <typename T, typename... Args>
   requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, format_string<Args...>>)
-result<void> println(T format_str, const Args&... args) {
+result<void> println(T format_str, const Args&... args) noexcept {
   return vprintln(stdout, make_format_args(format_str, args...));
 }
 
@@ -5675,7 +5676,7 @@ result<void> println(T format_str, const Args&... args) {
  * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
  */
 template <typename... Args>
-result<void> println(std::FILE* file, format_string<Args...> format_str, const Args&... args) {
+result<void> println(std::FILE* file, format_string<Args...> format_str, const Args&... args) noexcept {
   return vprintln(file, make_format_args(format_str, args...));
 }
 
@@ -5778,7 +5779,7 @@ concept has_tuple_element = requires(T t) {
                             };
 
 template <typename T, size_t... Ns>
-constexpr auto has_tuple_element_unpack(std::index_sequence<Ns...> /*unused*/) {
+constexpr auto has_tuple_element_unpack(std::index_sequence<Ns...> /*unused*/) noexcept {
   return (has_tuple_element<T, Ns> && ...);
 }
 
@@ -5791,7 +5792,7 @@ std::is_reference_v<T>&& requires(T t) {
                          } && has_tuple_element_unpack<T>(std::make_index_sequence<std::tuple_size_v<T>>());
 
 template <typename T, size_t... Ns>
-constexpr auto is_formattable_unpack(std::index_sequence<Ns...> /*unused*/) {
+constexpr auto is_formattable_unpack(std::index_sequence<Ns...> /*unused*/) noexcept {
   return (is_formattable_v<decltype(get<Ns>(std::declval<T&>()))> && ...);
 }
 
@@ -5968,7 +5969,8 @@ class formatter<T> {
   static constexpr result<void> validate_for_each(std::index_sequence<Ns...> /*unused*/, reader& format_rdr) noexcept {
     size_t reader_pos = 0;
     result<void> res = success;
-    const auto validate = [&reader_pos, &res]<typename U>(std::type_identity<U> /*unused*/, reader r /*copy!*/) {
+    const auto validate = [&reader_pos, &res]<typename U>(std::type_identity<U> /*unused*/,
+                                                          reader r /*copy!*/) noexcept {
       res = U::validate(r);
       if (res.has_error()) {
         return false;
@@ -6001,7 +6003,7 @@ class formatter<T> {
 
     size_t reader_pos = 0;
     result<void> res = success;
-    const auto parse = [&reader_pos, &res, set_debug](auto& f, reader r /*copy!*/) {
+    const auto parse = [&reader_pos, &res, set_debug](auto& f, reader r /*copy!*/) noexcept {
       detail::format::maybe_set_debug_format(f, set_debug);
       res = f.parse(r);
       reader_pos = r.pos();
@@ -6031,7 +6033,7 @@ class formatter<T> {
     EMIO_TRYV(get<N>(formatters_).format(out, get<N>(args)));
 
     result<void> res = success;
-    const auto format = [&res, &out, this](auto& f, const auto& arg) {
+    const auto format = [&res, &out, this](auto& f, const auto& arg) noexcept {
       res = out.write_str(specs_.separator);
       if (res.has_error()) {
         return false;
@@ -6319,7 +6321,7 @@ inline constexpr result<void> read_string(reader& in, format_specs& specs, reade
   }
 
   const result<char> next_char_res = format_rdr.read_char();
-  const auto is_replacement_field = [&] {  // 4)
+  const auto is_replacement_field = [&]() noexcept {  // 4)
     const char next_char = next_char_res.assume_value();
     const char over_next_char = format_rdr.read_char().assume_value();  // Spec is validated.
     return next_char == '{' && over_next_char != '{';
@@ -6713,7 +6715,7 @@ namespace emio::detail::scan {
 
 struct scan_trait {
   template <typename... Args>
-  [[nodiscard]] static constexpr bool validate_string(std::string_view format_str) {
+  [[nodiscard]] static constexpr bool validate_string(std::string_view format_str) noexcept {
     if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
       return validate<scan_specs_checker>(format_str, sizeof...(Args), std::type_identity<Args>{}...);
     } else {
@@ -6808,7 +6810,7 @@ inline result<void> vscan(std::string_view in, const scan_args& args) noexcept {
  * @return Success if the scanning was successfully for all arguments. The reader may not be empty.
  */
 template <typename... Args>
-constexpr result<void> scan_from(reader& in_rdr, format_scan_string<Args...> format_str, Args&... args) {
+constexpr result<void> scan_from(reader& in_rdr, format_scan_string<Args...> format_str, Args&... args) noexcept {
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::scan::scan_from(in_rdr, format_str, args...));
   } else {
@@ -6825,7 +6827,7 @@ constexpr result<void> scan_from(reader& in_rdr, format_scan_string<Args...> for
  * @return Success if the scanning was successfully for all arguments for the entire input string.
  */
 template <typename... Args>
-constexpr result<void> scan(std::string_view input, format_scan_string<Args...> format_str, Args&... args) {
+constexpr result<void> scan(std::string_view input, format_scan_string<Args...> format_str, Args&... args) noexcept {
   reader rdr{input};
   EMIO_TRYV(emio::scan_from(rdr, format_str, args...));
   if (rdr.eof()) {
