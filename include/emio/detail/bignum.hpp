@@ -27,7 +27,7 @@ struct carrying_add_result_t {
                                    const carrying_add_result_t& rhs) noexcept = default;
 };
 
-inline constexpr carrying_add_result_t carrying_add(uint32_t a, uint32_t b, bool carry) {
+inline constexpr carrying_add_result_t carrying_add(uint32_t a, uint32_t b, bool carry) noexcept {
   const uint32_t v1 = a + b;
   const bool carry1 = v1 < a;
   const uint32_t v2 = v1 + static_cast<uint32_t>(carry);
@@ -43,7 +43,7 @@ struct borrowing_sub_result_t {
                                    const borrowing_sub_result_t& rhs) noexcept = default;
 };
 
-inline constexpr borrowing_sub_result_t borrowing_sub(uint32_t a, uint32_t b, bool borrow) {
+inline constexpr borrowing_sub_result_t borrowing_sub(uint32_t a, uint32_t b, bool borrow) noexcept {
   const uint32_t v1 = a - b;
   const bool borrow1 = v1 > a;
   const uint32_t v2 = v1 - static_cast<uint32_t>(borrow);
@@ -59,7 +59,7 @@ struct carrying_mul_result_t {
                                    const carrying_mul_result_t& rhs) noexcept = default;
 };
 
-inline constexpr carrying_mul_result_t carrying_mul(uint32_t a, uint32_t b, uint32_t carry) {
+inline constexpr carrying_mul_result_t carrying_mul(uint32_t a, uint32_t b, uint32_t carry) noexcept {
   const uint64_t v1 = static_cast<uint64_t>(a) * b + carry;
   const auto v2 = static_cast<uint32_t>(v1);
   const auto carry1 = static_cast<uint32_t>(v1 >> 32U);
@@ -71,7 +71,7 @@ class bignum {
  public:
   static constexpr size_t max_blocks = 34;
 
-  static constexpr bignum from(size_t sz, const std::array<uint32_t, max_blocks>& b) {
+  static constexpr bignum from(size_t sz, const std::array<uint32_t, max_blocks>& b) noexcept {
     bignum bn{};
     bn.size_ = sz;
     bn.base_ = b;
@@ -262,7 +262,7 @@ class bignum {
 
   /// Divides itself by a digit-sized `other` and returns its own
   /// mutable reference *and* the remainder.
-  constexpr uint32_t div_rem_small(uint32_t other) {
+  constexpr uint32_t div_rem_small(uint32_t other) noexcept {
     uint64_t borrow = 0;
     for (size_t i = size_; i > 0; i--) {
       const uint64_t v = (base_[i - 1] + (borrow << 32U));

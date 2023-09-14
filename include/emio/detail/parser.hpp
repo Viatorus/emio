@@ -216,7 +216,7 @@ template <typename CRTP, input_validation Validation>
 constexpr parser<CRTP, Validation>::~parser() noexcept = default;
 
 template <typename Parser, typename... Args>
-constexpr bool validate(std::string_view str, const size_t arg_cnt, const Args&... args) {
+constexpr bool validate(std::string_view str, const size_t arg_cnt, const Args&... args) noexcept {
   reader format_rdr{str};
   Parser parser{format_rdr};
   bitset<128> matched{};
@@ -241,7 +241,7 @@ constexpr bool validate(std::string_view str, const size_t arg_cnt, const Args&.
 }
 
 template <typename Parser, typename T, typename... Args>
-constexpr result<void> parse(std::string_view str, T& input, Args&&... args) {
+constexpr result<void> parse(std::string_view str, T& input, Args&&... args) noexcept {
   reader format_rdr{str};
   Parser parser{input, format_rdr};
   while (true) {

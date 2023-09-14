@@ -502,7 +502,7 @@ inline constexpr bool is_result_v = is_result<T>::value;
  */
 template <typename T, typename U>
   requires((std::is_void_v<T> && std::is_void_v<U>) || std::equality_comparable_with<T, U>)
-constexpr bool operator==(const result<T>& left, const result<U>& right) {
+constexpr bool operator==(const result<T>& left, const result<U>& right) noexcept {
   if (left.has_value() != right.has_value()) {
     return false;
   }
@@ -527,7 +527,7 @@ constexpr bool operator==(const result<T>& left, const result<U>& right) {
  */
 template <typename T, typename U>
   requires(!detail::is_result_v<U> && std::equality_comparable_with<T, U>)
-constexpr bool operator==(const result<T>& left, const U& right) {
+constexpr bool operator==(const result<T>& left, const U& right) noexcept {
   if (left.has_value()) {
     return left.value() == right;
   }
@@ -544,7 +544,7 @@ constexpr bool operator==(const result<T>& left, const U& right) {
  * - left.has_error() && left.error() == right
  */
 template <typename T>
-constexpr bool operator==(const result<T>& left, const err right) {
+constexpr bool operator==(const result<T>& left, const err right) noexcept {
   return left.has_error() && left.error() == right;
 }
 

@@ -127,13 +127,13 @@ class memory_buffer final : public buffer {
   /**
    * Constructs and initializes the buffer with the internal storage size.
    */
-  constexpr memory_buffer() : memory_buffer{0} {}
+  constexpr memory_buffer() noexcept : memory_buffer{0} {}
 
   /**
    * Constructs and initializes the buffer with the given capacity.
    * @param capacity The initial capacity.
    */
-  constexpr explicit memory_buffer(const size_t capacity) {
+  constexpr explicit memory_buffer(const size_t capacity) noexcept {
     // Request at least the internal storage size.
     static_cast<void>(request_write_area(0, std::max(vec_.capacity(), capacity)));
   }
@@ -189,7 +189,7 @@ class span_buffer : public buffer {
    * Constructs and initializes the buffer with the given span.
    * @param span The span.
    */
-  constexpr explicit span_buffer(const std::span<char> span) : buffer{fixed_size::yes}, span_{span} {
+  constexpr explicit span_buffer(const std::span<char> span) noexcept : buffer{fixed_size::yes}, span_{span} {
     this->set_write_area(span_);
   }
 
@@ -247,7 +247,7 @@ inline constexpr size_t internal_buffer_size{256};
 
 // Extracts a reference to the container from back_insert_iterator.
 template <typename Container>
-Container& get_container(std::back_insert_iterator<Container> it) {
+Container& get_container(std::back_insert_iterator<Container> it) noexcept {
   using bi_iterator = std::back_insert_iterator<Container>;
   struct accessor : bi_iterator {
     accessor(bi_iterator iter) : bi_iterator(iter) {}
@@ -305,7 +305,7 @@ class iterator_buffer<Iterator> final : public buffer {
    * @param it The output iterator.
    */
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): cache_ can be left uninitialized
-  constexpr explicit iterator_buffer(Iterator it) : it_{it} {
+  constexpr explicit iterator_buffer(Iterator it) noexcept : it_{it} {
     this->set_write_area(cache_);
   }
 
@@ -367,7 +367,7 @@ class iterator_buffer<OutputPtr*> final : public buffer {
    * Constructs and initializes the buffer with the given output pointer.
    * @param ptr The output pointer.
    */
-  constexpr explicit iterator_buffer(OutputPtr* ptr) : ptr_{ptr} {
+  constexpr explicit iterator_buffer(OutputPtr* ptr) noexcept : ptr_{ptr} {
     this->set_write_area({ptr, std::numeric_limits<size_t>::max()});
   }
 
@@ -388,7 +388,7 @@ class iterator_buffer<OutputPtr*> final : public buffer {
    * Returns the output pointer at the next write position.
    * @return The output pointer.
    */
-  constexpr OutputPtr* out() {
+  constexpr OutputPtr* out() noexcept {
     return ptr_ + this->get_used_count();
   }
 
@@ -408,7 +408,8 @@ class iterator_buffer<std::back_insert_iterator<Container>> final : public buffe
    * Constructs and initializes the buffer with the given back-insert iterator.
    * @param it The output iterator.
    */
-  constexpr explicit iterator_buffer(std::back_insert_iterator<Container> it) : container_{detail::get_container(it)} {
+  constexpr explicit iterator_buffer(std::back_insert_iterator<Container> it) noexcept
+      : container_{detail::get_container(it)} {
     static_cast<void>(request_write_area(0, std::min(container_.capacity(), detail::internal_buffer_size)));
   }
 
@@ -435,7 +436,7 @@ class iterator_buffer<std::back_insert_iterator<Container>> final : public buffe
    * Flushes and returns the back-insert iterator.
    * @return The back-insert iterator.
    */
-  constexpr std::back_insert_iterator<Container> out() {
+  constexpr std::back_insert_iterator<Container> out() noexcept {
     flush();
     return std::back_inserter(container_);
   }
@@ -468,7 +469,7 @@ class file_buffer : public buffer {
    * @param file The file stream.
    */
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): cache_ can be left uninitialized
-  constexpr explicit file_buffer(std::FILE* file) : file_{file} {
+  constexpr explicit file_buffer(std::FILE* file) noexcept : file_{file} {
     this->set_write_area(cache_);
   }
 

@@ -171,7 +171,8 @@ class formatter<T> {
   static constexpr result<void> validate_for_each(std::index_sequence<Ns...> /*unused*/, reader& format_rdr) noexcept {
     size_t reader_pos = 0;
     result<void> res = success;
-    const auto validate = [&reader_pos, &res]<typename U>(std::type_identity<U> /*unused*/, reader r /*copy!*/) {
+    const auto validate = [&reader_pos, &res]<typename U>(std::type_identity<U> /*unused*/,
+                                                          reader r /*copy!*/) noexcept {
       res = U::validate(r);
       if (res.has_error()) {
         return false;
@@ -204,7 +205,7 @@ class formatter<T> {
 
     size_t reader_pos = 0;
     result<void> res = success;
-    const auto parse = [&reader_pos, &res, set_debug](auto& f, reader r /*copy!*/) {
+    const auto parse = [&reader_pos, &res, set_debug](auto& f, reader r /*copy!*/) noexcept {
       detail::format::maybe_set_debug_format(f, set_debug);
       res = f.parse(r);
       reader_pos = r.pos();
@@ -234,7 +235,7 @@ class formatter<T> {
     EMIO_TRYV(get<N>(formatters_).format(out, get<N>(args)));
 
     result<void> res = success;
-    const auto format = [&res, &out, this](auto& f, const auto& arg) {
+    const auto format = [&res, &out, this](auto& f, const auto& arg) noexcept {
       res = out.write_str(specs_.separator);
       if (res.has_error()) {
         return false;

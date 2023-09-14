@@ -90,7 +90,7 @@ concept has_tuple_element = requires(T t) {
                             };
 
 template <typename T, size_t... Ns>
-constexpr auto has_tuple_element_unpack(std::index_sequence<Ns...> /*unused*/) {
+constexpr auto has_tuple_element_unpack(std::index_sequence<Ns...> /*unused*/) noexcept {
   return (has_tuple_element<T, Ns> && ...);
 }
 
@@ -103,7 +103,7 @@ std::is_reference_v<T>&& requires(T t) {
                          } && has_tuple_element_unpack<T>(std::make_index_sequence<std::tuple_size_v<T>>());
 
 template <typename T, size_t... Ns>
-constexpr auto is_formattable_unpack(std::index_sequence<Ns...> /*unused*/) {
+constexpr auto is_formattable_unpack(std::index_sequence<Ns...> /*unused*/) noexcept {
   return (is_formattable_v<decltype(get<Ns>(std::declval<T&>()))> && ...);
 }
 

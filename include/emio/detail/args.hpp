@@ -166,7 +166,7 @@ template <typename Arg, size_t NbrOfArgs>
 class args_storage : public args_span<Arg> {
  public:
   template <typename... Args>
-  args_storage(result<std::string_view> str, Args&&... args)
+  args_storage(result<std::string_view> str, Args&&... args) noexcept
       : args_span<Arg>{str, args_storage_}, args_storage_{Arg{std::forward<Args>(args)}...} {}
 
   args_storage(const args_storage&) = delete;
@@ -180,7 +180,7 @@ class args_storage : public args_span<Arg> {
 };
 
 template <typename T, typename... Args>
-args_storage<T, sizeof...(Args)> make_validation_args(std::string_view format_str) {
+args_storage<T, sizeof...(Args)> make_validation_args(std::string_view format_str) noexcept {
   return {format_str, std::type_identity<Args>{}...};
 }
 
