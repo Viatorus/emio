@@ -784,8 +784,9 @@ concept has_any_validate_function_v =
 
 template <typename T>
 inline constexpr bool is_core_type_v =
-    std::is_integral_v<T> || std::is_floating_point_v<T> || std::is_same_v<T, std::nullptr_t> ||
-    std::is_same_v<T, void*> || std::is_same_v<T, std::string_view>;
+    std::is_same_v<T, bool> || std::is_same_v<T, char> || std::is_same_v<T, int32_t> || std::is_same_v<T, uint32_t> ||
+    std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t> || std::is_same_v<T, double> ||
+    std::is_same_v<T, std::nullptr_t> || std::is_same_v<T, void*> || std::is_same_v<T, std::string_view>;
 
 template <typename T>
 concept has_format_as = requires(T arg) { format_as(arg); };

@@ -99,6 +99,27 @@ class scanner<T> {
 };
 
 /**
+ * Scanner for integral types which are not core types.
+ */
+template <typename T>
+  requires(std::is_integral_v<T> && !std::is_same_v<T, bool> && !detail::scan::is_core_type_v<T>)
+class scanner<T> : public scanner<detail::upcasted_int_t<T>> {
+ private:
+  using upcasted_t = detail::upcasted_int_t<T>;
+
+ public:
+  constexpr result<void> scan(reader& in, T& arg) noexcept {
+    upcasted_t val{};
+    EMIO_TRYV(scanner<upcasted_t>::scan(in, val));
+    if (val < std::numeric_limits<T>::min() || val > std::numeric_limits<T>::max()) {
+      return err::out_of_range;
+    }
+    arg = static_cast<T>(val);
+    return success;
+  }
+};
+
+/**
  * Scanner for std::string_view.
  */
 template <>
