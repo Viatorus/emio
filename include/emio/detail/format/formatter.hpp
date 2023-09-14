@@ -138,7 +138,7 @@ template <typename Arg>
   requires(std::is_integral_v<Arg> && !std::is_same_v<Arg, bool> && !std::is_same_v<Arg, char>)
 constexpr result<void> write_arg(writer& out, format_specs& specs, const Arg& arg) noexcept {
   if (specs.type == 'c') {
-    return write_padded<alignment::left>(out, specs, 1, [&] noexcept {
+    return write_padded<alignment::left>(out, specs, 1, [&]() noexcept {
       return out.write_char(static_cast<char>(arg));
     });
   }
@@ -313,7 +313,7 @@ inline constexpr result<void> write_decimal(writer& out, format_specs& specs, fp
     num_digits += to_unsigned((decimal_point != 0 ? 1 : 0) + 2 /* sign + e */ + exp_digits);
     total_width += num_digits;
 
-    return write_padded<alignment::right>(out, specs, total_width, [&] noexcept -> result<void> {
+    return write_padded<alignment::right>(out, specs, total_width, [&]() noexcept -> result<void> {
       const size_t area_size = num_digits + static_cast<size_t>(sign_to_write != no_sign);
       EMIO_TRY(auto area, out.get_buffer().get_write_area_of(area_size));
       auto* it = area.data();
@@ -373,7 +373,7 @@ inline constexpr result<void> write_decimal(writer& out, format_specs& specs, fp
   num_digits += static_cast<size_t>(num_zeros + num_zeros_2);
   total_width += num_digits;
 
-  return write_padded<alignment::right>(out, specs, total_width, [&] noexcept -> result<void> {
+  return write_padded<alignment::right>(out, specs, total_width, [&]() noexcept -> result<void> {
     const size_t area_size = num_digits + static_cast<size_t>(sign_to_write != no_sign);
     EMIO_TRY(auto area, out.get_buffer().get_write_area_of(area_size));
     auto* it = area.data();
@@ -451,7 +451,7 @@ inline constexpr result<void> format_and_write_decimal(writer& out, format_specs
     EMIO_TRY(const char sign_to_write, try_write_sign(out, specs, decoded.negative));
 
     const size_t total_length = 3 + static_cast<uint32_t>(sign_to_write != no_sign);
-    return write_padded<alignment::left>(out, specs, total_length, [&] noexcept -> result<void> {
+    return write_padded<alignment::left>(out, specs, total_length, [&]() noexcept -> result<void> {
       if (sign_to_write != no_sign) {
         EMIO_TRYV(out.write_char(sign_to_write));
       }
@@ -475,12 +475,12 @@ inline constexpr result<void> write_arg(writer& out, format_specs& specs, std::s
     if (specs.precision >= 0) {
       arg = unchecked_substr(arg, 0, static_cast<size_t>(specs.precision));
     }
-    return write_padded<alignment::left>(out, specs, arg.size(), [&] noexcept {
+    return write_padded<alignment::left>(out, specs, arg.size(), [&]() noexcept {
       return out.write_str(arg);
     });
   }
   const size_t escaped_size = detail::count_size_when_escaped(arg);
-  return write_padded<alignment::left>(out, specs, escaped_size + 2U /* quotes */, [&] noexcept {
+  return write_padded<alignment::left>(out, specs, escaped_size + 2U /* quotes */, [&]() noexcept {
     return detail::write_str_escaped(out.get_buffer(), arg, escaped_size, '"');
   });
 }
@@ -493,11 +493,11 @@ constexpr result<void> write_arg(writer& out, format_specs& specs, const Arg arg
     return write_arg(out, specs, static_cast<uint8_t>(arg));
   }
   if (specs.type != '?') {
-    return write_padded<alignment::left>(out, specs, 1, [&] noexcept {
+    return write_padded<alignment::left>(out, specs, 1, [&]() noexcept {
       return out.write_char(arg);
     });
   }
-  return write_padded<alignment::left>(out, specs, 3, [&] noexcept {
+  return write_padded<alignment::left>(out, specs, 3, [&]() noexcept {
     return out.write_char_escaped(arg);
   });
 }
@@ -519,11 +519,11 @@ constexpr result<void> write_arg(writer& out, format_specs& specs, Arg arg) noex
     return write_arg(out, specs, static_cast<uint8_t>(arg));
   }
   if (arg) {
-    return write_padded<alignment::left>(out, specs, 4, [&] noexcept {
+    return write_padded<alignment::left>(out, specs, 4, [&]() noexcept {
       return out.write_str("true");
     });
   }
-  return write_padded<alignment::left>(out, specs, 5, [&] noexcept {
+  return write_padded<alignment::left>(out, specs, 5, [&]() noexcept {
     return out.write_str("false");
   });
 }

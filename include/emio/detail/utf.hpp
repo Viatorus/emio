@@ -47,7 +47,7 @@ class write_escaped_helper {
     const char* const dst_end = area.data() + area.size();
 
     // Write remainder from temporary buffer.
-    const auto write_remainder = [&, this] noexcept {
+    const auto write_remainder = [&, this]() noexcept {
       while (remainder_it_ != remainder_end_ && dst_it != dst_end) {
         *(dst_it++) = *(remainder_it_++);
       }
