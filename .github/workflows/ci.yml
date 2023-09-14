@@ -15,7 +15,7 @@ jobs:
 
       - name: Install GCC
         run: |
-          sudo apt-get install -y gcc-11 g++-11
+          sudo apt update && apt install -y gcc-11 g++-11
           echo "CC=gcc-11" >> $GITHUB_ENV
           echo "CXX=g++-11" >> $GITHUB_ENV
 
@@ -23,7 +23,7 @@ jobs:
         run: |
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
           sudo add-apt-repository 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-15 main'
-          sudo apt-get install -y clang-format-15 clang-tidy-15
+          sudo apt update && apt install -y clang-format-15 clang-tidy-15
           sudo update-alternatives --remove-all clang-format || true
           sudo update-alternatives --remove-all clang-tidy || true
           sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-15 1000
@@ -54,13 +54,13 @@ jobs:
       - name: Install Compiler
         run: |
           if [[ "$compiler" == "gcc" ]]; then
-            sudo apt-get install -y gcc-11 g++-11
+            sudo apt update && apt install -y gcc-11 g++-11
             echo "CC=gcc-11" >> $GITHUB_ENV
             echo "CXX=g++-11" >> $GITHUB_ENV
           else
             wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
             sudo add-apt-repository 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-15 main'
-            sudo apt-get install -y clang-15
+            sudo apt update && apt install -y clang-15
             echo "CC=clang-15" >> $GITHUB_ENV
             echo "CXX=clang++-15" >> $GITHUB_ENV
           fi
@@ -91,12 +91,12 @@ jobs:
 
       - name: Install GCC
         run: |
-          sudo apt-get install -y gcc-11 g++-11
+          sudo apt update && apt install -y gcc-11 g++-11
           echo "CC=gcc-11" >> $GITHUB_ENV
           echo "CXX=g++-11" >> $GITHUB_ENV
 
       - name: Install LCov
-        run: sudo apt-get install lcov -q -y
+        run: sudo apt update && apt install lcov -q -y
 
       - name: Configure
         run: cmake --preset=ci-coverage
@@ -127,12 +127,12 @@ jobs:
 
       - name: Install GCC
         run: |
-          sudo apt-get install -y gcc-11 g++-11
+          sudo apt update && apt install -y gcc-11 g++-11
           echo "CC=gcc-11" >> $GITHUB_ENV
           echo "CXX=g++-11" >> $GITHUB_ENV
 
       - name: Install valgrind
-        run: sudo apt-get install -y valgrind
+        run: sudo apt update && apt install -y valgrind
 
       - name: Configure
         run: cmake --preset=ci-memcheck
@@ -162,7 +162,7 @@ jobs:
 
       - name: Install GCC
         run: |
-          sudo apt-get install -y gcc-11 g++-11
+          sudo apt update && apt install -y gcc-11 g++-11
           echo "CC=gcc-11" >> $GITHUB_ENV
           echo "CXX=g++-11" >> $GITHUB_ENV
 
@@ -194,7 +194,7 @@ jobs:
 
       - name: Install GCC
         run: |
-          sudo apt-get install -y gcc-11 g++-11
+          sudo apt update && apt install -y gcc-11 g++-11
           echo "CC=gcc-11" >> $GITHUB_ENV
           echo "CXX=g++-11" >> $GITHUB_ENV
 
