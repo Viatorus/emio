@@ -55,7 +55,7 @@ TEST_CASE("format big integer") {
   };
   BENCHMARK("snprintf") {
     std::array<char, 42> buf{};
-    return snprintf(buf.data(), buf.size(), " %d", 1);
+    return snprintf(buf.data(), buf.size(), " %" PRIi64, arg);
   };
 }
 
