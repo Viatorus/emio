@@ -9,7 +9,7 @@
 #include <cinttypes>
 #include <cmath>
 
-TEST_CASE("format simple integer") {
+TEST_CASE("format small integer") {
   static constexpr std::string_view format_str(" {}");
   static constexpr int arg = 1;
 
@@ -34,8 +34,8 @@ TEST_CASE("format simple integer") {
   };
 }
 
-TEST_CASE("format complex integer") {
-  static constexpr std::string_view format_str("{0:x^+#10X}");
+TEST_CASE("format big integer") {
+  static constexpr std::string_view format_str(" {}");
   static constexpr int64_t arg = -8978612134175239201;
 
   BENCHMARK("base") {
@@ -55,8 +55,55 @@ TEST_CASE("format complex integer") {
   };
   BENCHMARK("snprintf") {
     std::array<char, 42> buf{};
-    return snprintf(buf.data(), buf.size(), "%10" PRIi64 "X", arg);
+    return snprintf(buf.data(), buf.size(), " %d", 1);
   };
+}
+
+TEST_CASE("format big hex") {
+  static constexpr std::string_view format_str("{:x}");
+  static constexpr int64_t arg = 8978612134175239201;
+
+  BENCHMARK("base") {
+    return "1";
+  };
+  BENCHMARK("emio") {
+    return emio::format(format_str, arg);
+  };
+  BENCHMARK("emio runtime") {
+    return emio::format(emio::runtime(format_str), arg).value();
+  };
+  BENCHMARK("fmt") {
+    return fmt::format(format_str, arg);
+  };
+  BENCHMARK("fmt runtime") {
+    return fmt::format(fmt::runtime(format_str), arg);
+  };
+  BENCHMARK("snprintf") {
+    std::array<char, 42> buf{};
+    return snprintf(buf.data(), buf.size(), PRIx64, arg);
+  };
+}
+
+TEST_CASE("format complex format spec") {
+  static constexpr std::string_view format_str("{0:x^+#20X}");
+  static constexpr int64_t arg = 8978612134175239201;
+
+  BENCHMARK("base") {
+    return "1";
+  };
+  BENCHMARK("emio") {
+    return emio::format(format_str, arg);
+  };
+  BENCHMARK("emio runtime") {
+    return emio::format(emio::runtime(format_str), arg).value();
+  };
+  BENCHMARK("fmt") {
+    return fmt::format(format_str, arg);
+  };
+  BENCHMARK("fmt runtime") {
+    return fmt::format(fmt::runtime(format_str), arg);
+  };
+  // No snprintf equivalent.
 }
 
 TEST_CASE("format zero as double") {
