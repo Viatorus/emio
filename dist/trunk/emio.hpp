@@ -268,13 +268,12 @@ template <typename T>
 using uint32_or_64 = std::conditional_t<num_bits<T>() <= 32, uint32_t, uint64_t>;
 
 template <typename T>
+using upcasted_int_t = std::conditional_t<std::is_signed_v<T>, int32_or_64<T>, uint32_or_64<T>>;
+
+template <typename T>
   requires(std::is_integral_v<T>)
 constexpr auto integer_upcast(T integer) {
-  if constexpr (std::is_signed_v<T>) {
-    return static_cast<int32_or_64<T>>(integer);
-  } else {
-    return static_cast<uint32_or_64<T>>(integer);
-  }
+  return static_cast<upcasted_int_t<T>>(integer);
 }
 
 template <typename T>
@@ -1128,17 +1127,17 @@ class reader {
     const size_t backup_pos = pos_;
 
     // Reduce code generation by upcasting the integer.
-    using upcast_int_t = decltype(detail::integer_upcast(T{}));
-    const result<upcast_int_t> res = parse_sign_and_int<upcast_int_t>(base);
+    using upcasted_t = detail::upcasted_int_t<T>;
+    const result<upcasted_t> res = parse_sign_and_int<upcasted_t>(base);
     if (!res) {
       pos_ = backup_pos;
       return res.assume_error();
     }
-    if constexpr (std::is_same_v<upcast_int_t, T>) {
+    if constexpr (std::is_same_v<upcasted_t, T>) {
       return res;
     } else {
       // Check if upcast int is within the integer type range.
-      const upcast_int_t val = res.assume_value();
+      const upcasted_t val = res.assume_value();
       if (val < std::numeric_limits<T>::min() || val > std::numeric_limits<T>::max()) {
         pos_ = backup_pos;
         return err::out_of_range;
@@ -2357,9 +2356,9 @@ class validation_arg {
   // No destructor & delete call to concept_t because model_t holds only a reference.
   ~validation_arg() = default;
 
-  result<void> validate(reader& scan_is) const noexcept {
+  result<void> validate(reader& format_rdr) const noexcept {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): only way to get the object back
-    return reinterpret_cast<const concept_t*>(&storage_)->validate(scan_is);
+    return reinterpret_cast<const concept_t*>(&storage_)->validate(format_rdr);
   }
 
  private:
@@ -2371,7 +2370,7 @@ class validation_arg {
     concept_t& operator=(const concept_t&) = delete;
     concept_t& operator=(concept_t&&) = delete;
 
-    virtual result<void> validate(reader& scan_is) const noexcept = 0;
+    virtual result<void> validate(reader& format_rdr) const noexcept = 0;
 
    protected:
     ~concept_t() = default;
@@ -2386,8 +2385,8 @@ class validation_arg {
     model_t& operator=(const model_t&) = delete;
     model_t& operator=(model_t&&) = delete;
 
-    result<void> validate(reader& scan_is) const noexcept override {
-      return Trait<std::remove_cvref_t<T>>::validate(scan_is);
+    result<void> validate(reader& format_rdr) const noexcept override {
+      return Trait<std::remove_cvref_t<T>>::validate(format_rdr);
     }
 
    protected:
@@ -2416,9 +2415,9 @@ class arg {
   arg& operator=(arg&&) = delete;
   ~arg() = default;  // No destructor & delete call to concept_t because model_t holds only a reference.
 
-  result<void> process_arg(Input& input, reader& scan_is) const noexcept {
+  result<void> process_arg(Input& input, reader& format_rdr) const noexcept {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): only way to get the object back
-    return reinterpret_cast<const concept_t*>(&storage_)->process_arg(input, scan_is);
+    return reinterpret_cast<const concept_t*>(&storage_)->process_arg(input, format_rdr);
   }
 
  private:
@@ -2430,7 +2429,7 @@ class arg {
     concept_t& operator=(const concept_t&) = delete;
     concept_t& operator=(concept_t&&) = delete;
 
-    virtual result<void> process_arg(Input& input, reader& scan_is) const noexcept = 0;
+    virtual result<void> process_arg(Input& input, reader& format_rdr) const noexcept = 0;
 
    protected:
     ~concept_t() = default;
@@ -2446,8 +2445,8 @@ class arg {
     model_t& operator=(const model_t&) = delete;
     model_t& operator=(model_t&&) = delete;
 
-    result<void> process_arg(Input& input, reader& scan_is) const noexcept override {
-      return Trait<std::remove_cvref_t<T>>::process_arg(input, scan_is, value_);
+    result<void> process_arg(Input& input, reader& format_rdr) const noexcept override {
+      return Trait<std::remove_cvref_t<T>>::process_arg(input, format_rdr, value_);
     }
 
    protected:
@@ -4687,8 +4686,9 @@ concept has_any_validate_function_v =
 
 template <typename T>
 inline constexpr bool is_core_type_v =
-    std::is_integral_v<T> || std::is_floating_point_v<T> || std::is_same_v<T, std::nullptr_t> ||
-    std::is_same_v<T, void*> || std::is_same_v<T, std::string_view>;
+    std::is_same_v<T, bool> || std::is_same_v<T, char> || std::is_same_v<T, int32_t> || std::is_same_v<T, uint32_t> ||
+    std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t> || std::is_same_v<T, double> ||
+    std::is_same_v<T, std::nullptr_t> || std::is_same_v<T, void*> || std::is_same_v<T, std::string_view>;
 
 template <typename T>
 concept has_format_as = requires(T arg) { format_as(arg); };
@@ -6434,7 +6434,9 @@ concept has_any_validate_function_v =
     requires { std::declval<scanner<T>>().validate(std::declval<reader&>()); };
 
 template <typename T>
-inline constexpr bool is_core_type_v = !std::is_same_v<T, bool> && std::is_integral_v<T>;
+inline constexpr bool is_core_type_v =
+    std::is_same_v<T, char> || std::is_same_v<T, int32_t> || std::is_same_v<T, uint32_t> ||
+    std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t>;
 
 }  // namespace detail::scan
 
@@ -6527,6 +6529,27 @@ class scanner<T> {
 
  private:
   detail::scan::format_specs specs_{};
+};
+
+/**
+ * Scanner for integral types which are not core types.
+ */
+template <typename T>
+  requires(std::is_integral_v<T> && !std::is_same_v<T, bool> && !detail::scan::is_core_type_v<T>)
+class scanner<T> : public scanner<detail::upcasted_int_t<T>> {
+ private:
+  using upcasted_t = detail::upcasted_int_t<T>;
+
+ public:
+  constexpr result<void> scan(reader& in, T& arg) noexcept {
+    upcasted_t val{};
+    EMIO_TRYV(scanner<upcasted_t>::scan(in, val));
+    if (val < std::numeric_limits<T>::min() || val > std::numeric_limits<T>::max()) {
+      return err::out_of_range;
+    }
+    arg = static_cast<T>(val);
+    return success;
+  }
 };
 
 /**
