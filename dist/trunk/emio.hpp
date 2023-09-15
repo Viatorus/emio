@@ -4521,6 +4521,10 @@ inline constexpr result<void> validate_format_specs(reader& format_rdr, format_s
     EMIO_TRY(c, format_rdr.read_char());
   }
   if (c == '.') {  // Precision.
+    if (const result<char> next = format_rdr.peek();
+        next && !isdigit(next.assume_value())) {  // Not followed by a digit.
+      return err::invalid_format;
+    }
     EMIO_TRY(const uint32_t precision, format_rdr.parse_int<uint32_t>());
     if (precision > (static_cast<uint32_t>(std::numeric_limits<int32_t>::max()))) {
       return err::invalid_format;
