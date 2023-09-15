@@ -91,6 +91,12 @@ TEST_CASE("writer", "[writer]") {
     CHECK(writer.write_int(3, {.base = 1}) == emio::err::invalid_argument);
     CHECK(writer.write_int(3, {.base = 37}) == emio::err::invalid_argument);
     CHECK(buf.view() == "1fA-11");
+
+    CHECK(writer.write_int(9999));
+    CHECK(buf.view() == "1fA-119999");
+
+    CHECK(writer.write_int(414, {.base = 15}));
+    CHECK(buf.view() == "1fA-1199991c9");
   }
   SECTION("write_int zeros") {
     CHECK(writer.write_int(0));
