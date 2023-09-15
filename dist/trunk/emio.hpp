@@ -141,11 +141,11 @@ constexpr bool isdigit(char c) {
   return (c >= '0' && c <= '9');
 }
 
-constexpr bool is_valid_number_base(int base) noexcept {
+constexpr bool is_valid_number_base(const int base) noexcept {
   return base >= 2 && base <= 36;
 }
 
-constexpr std::optional<int> char_to_digit(char c, int base) noexcept {
+constexpr std::optional<int> char_to_digit(const char c, const int base) noexcept {
   if (c < '0') {
     return std::nullopt;
   }
@@ -163,13 +163,15 @@ constexpr std::optional<int> char_to_digit(char c, int base) noexcept {
   return std::nullopt;
 }
 
-constexpr char digit_to_char(int digit, int base, bool upper) noexcept {
-  if (base >= 1 && digit >= 10) {
+constexpr char digit_to_char(const int digit, bool upper) noexcept {
+  if (digit >= 10) {
+    EMIO_Z_DEV_ASSERT(digit < 36);
     if (upper) {
       return static_cast<char>(static_cast<int>('A') + (digit - 10));
     }
     return static_cast<char>(static_cast<int>('a') + (digit - 10));
   }
+  EMIO_Z_DEV_ASSERT(digit < 10);
   return static_cast<char>(static_cast<int>('0') + digit);
 }
 
@@ -377,7 +379,7 @@ constexpr char* write_number(T abs_number, const int base, const bool upper, cha
   }
   // Write number from right to left.
   for (; abs_number; abs_number /= static_cast<T>(base)) {
-    const char c = digit_to_char(static_cast<int>(abs_number % static_cast<T>(base)), base, upper);
+    const char c = digit_to_char(static_cast<int>(abs_number % static_cast<T>(base)), upper);
     *(--next) = c;
   }
   return next;
