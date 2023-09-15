@@ -16,6 +16,9 @@ bool validate_scan_string(std::string_view str) {
 }  // namespace
 
 TEST_CASE("scan API", "[scan]") {
+  SECTION("no args") {
+    CHECK(emio::scan("abc{", "abc{{"));
+  }
   SECTION("normal") {
     unsigned int a = 0;
     int b = 0;
@@ -49,6 +52,9 @@ TEST_CASE("scan API", "[scan]") {
 }
 
 TEST_CASE("vscan API", "[scan]") {
+  SECTION("no args") {
+    CHECK(emio::vscan("abc{", emio::make_scan_args("abc{{")));
+  }
   SECTION("normal") {
     unsigned int a = 0;
     int b = 0;
@@ -72,6 +78,11 @@ TEST_CASE("vscan API", "[scan]") {
 }
 
 TEST_CASE("scan_from API", "[scan]") {
+  SECTION("no args") {
+    emio::reader rdr("abc{");
+    CHECK(emio::scan_from(rdr, "abc{{"));
+    CHECK(rdr.eof());
+  }
   SECTION("normal") {
     unsigned int a = 0;
     int b = 0;
@@ -158,6 +169,9 @@ TEST_CASE("incomplete scan", "[scan]") {
 
   SECTION("without reader") {
     CHECK(!emio::scan("1,-2rest", "{},{}", a, b));
+  }
+  SECTION("vscan") {
+    CHECK(!emio::vscan("1,-2rest", emio::make_scan_args("{},{}", a, b)));
   }
   SECTION("with reader") {
     emio::reader rdr("1,-2rest");

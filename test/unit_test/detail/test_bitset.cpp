@@ -85,7 +85,14 @@ TEST_CASE("bitset") {
     CHECK(bitset.size() == 123);
     CHECK(!bitset.all());
 
-    for (size_t i = 0; i < 122; i++) {
+    for (size_t i = 0; i < 55; i++) {
+      bitset.set(i);
+    }
+    CHECK(!bitset.all());
+    CHECK(bitset.all_first(55));
+    CHECK(!bitset.all_first(56));
+
+    for (size_t i = 55; i < 122; i++) {
       bitset.set(i);
     }
     CHECK(!bitset.all());
