@@ -206,13 +206,9 @@ inline constexpr void copy2(Char* dst, const char* src) noexcept {
   }
 }
 
-template <typename T, typename OutputIt>
+template <typename T>
   requires(std::is_unsigned_v<T>)
-constexpr OutputIt write_decimal(T abs_number, OutputIt next) noexcept {
-  if (abs_number == 0) {
-    *(--next) = '0';
-    return next;
-  }
+constexpr char* write_decimal(T abs_number, char* next) noexcept {
   // Write number from right to left.
   while (abs_number >= 100) {
     next -= 2;
@@ -228,11 +224,37 @@ constexpr OutputIt write_decimal(T abs_number, OutputIt next) noexcept {
   return next;
 }
 
-template <typename T, typename OutputIt>
+template <size_t BaseBits, typename T>
   requires(std::is_unsigned_v<T>)
-constexpr OutputIt write_number(T abs_number, int base, bool upper, OutputIt next) noexcept {
+constexpr char* write_uint(T abs_number, const bool upper, char* next) noexcept {
+  const char* digits = upper ? "0123456789ABCDEF" : "0123456789abcdef";
+  do {
+    T digit = static_cast<T>(abs_number & ((1 << BaseBits) - 1));
+    if constexpr (BaseBits < 4) {
+      EMIO_Z_DEV_ASSERT(digit < 8);
+      *--next = static_cast<char>('0' + digit);
+    } else {
+      EMIO_Z_DEV_ASSERT(digit < 16);
+      *--next = digits[digit];
+    }
+  } while ((abs_number >>= BaseBits) != 0);
+  return next;
+}
+
+template <typename T>
+  requires(std::is_unsigned_v<T>)
+constexpr char* write_number(T abs_number, const int base, const bool upper, char* next) noexcept {
   if (base == 10) {
     return write_decimal(abs_number, next);
+  }
+  if (base == 16) {
+    return write_uint<4>(abs_number, upper, next);
+  }
+  if (base == 2) {
+    return write_uint<1>(abs_number, false, next);
+  }
+  if (base == 8) {
+    return write_uint<3>(abs_number, false, next);
   }
   if (abs_number == 0) {
     *(--next) = '0';

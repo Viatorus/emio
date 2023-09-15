@@ -83,7 +83,7 @@ inline constexpr result<std::pair<std::string_view, writer::write_int_options>> 
     break;
   case 'x':
     prefix = hex_lower;
-    options = {.base = 16};
+    options.base = 16;
     break;
   case 'X':
     prefix = hex_upper;
@@ -685,14 +685,14 @@ inline constexpr result<void> check_integral_specs(const format_specs& specs) no
   }
   switch (specs.type) {
   case no_type:
+  case 'd':
+  case 'x':
+  case 'X':
   case 'b':
   case 'B':
   case 'c':
-  case 'd':
   case 'o':
   case 'O':
-  case 'x':
-  case 'X':
     return success;
   }
   return err::invalid_format;
