@@ -92,6 +92,22 @@ TEST_CASE("writer", "[writer]") {
     CHECK(writer.write_int(3, {.base = 37}) == emio::err::invalid_argument);
     CHECK(buf.view() == "1fA-11");
   }
+  SECTION("write_int zeros") {
+    CHECK(writer.write_int(0));
+    CHECK(buf.view() == "0");
+
+    CHECK(writer.write_int(0, {.base = 16}));
+    CHECK(buf.view() == "00");
+
+    CHECK(writer.write_int(0, {.base = 8}));
+    CHECK(buf.view() == "000");
+
+    CHECK(writer.write_int(0, {.base = 2}));
+    CHECK(buf.view() == "0000");
+
+    CHECK(writer.write_int(0, {.base = 36}));
+    CHECK(buf.view() == "00000");
+  }
 }
 
 TEST_CASE("writer with cached buffer", "[writer]") {

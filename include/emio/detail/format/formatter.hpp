@@ -83,7 +83,7 @@ inline constexpr result<std::pair<std::string_view, writer::write_int_options>> 
     break;
   case 'x':
     prefix = hex_lower;
-    options = {.base = 16};
+    options.base = 16;
     break;
   case 'X':
     prefix = hex_upper;
@@ -596,6 +596,10 @@ inline constexpr result<void> validate_format_specs(reader& format_rdr, format_s
     EMIO_TRY(c, format_rdr.read_char());
   }
   if (c == '.') {  // Precision.
+    if (const result<char> next = format_rdr.peek();
+        next && !isdigit(next.assume_value())) {  // Not followed by a digit.
+      return err::invalid_format;
+    }
     EMIO_TRY(const uint32_t precision, format_rdr.parse_int<uint32_t>());
     if (precision > (static_cast<uint32_t>(std::numeric_limits<int32_t>::max()))) {
       return err::invalid_format;
@@ -685,14 +689,14 @@ inline constexpr result<void> check_integral_specs(const format_specs& specs) no
   }
   switch (specs.type) {
   case no_type:
+  case 'd':
+  case 'x':
+  case 'X':
   case 'b':
   case 'B':
   case 'c':
-  case 'd':
   case 'o':
   case 'O':
-  case 'x':
-  case 'X':
     return success;
   }
   return err::invalid_format;
