@@ -28,41 +28,19 @@ TEST_CASE("scan simple integer") {
 }
 
 TEST_CASE("scan complex integer") {
-  static constexpr std::string_view input("8978612134175239201");
-
   BENCHMARK("base") {
     return "1";
   };
   BENCHMARK("emio") {
-    int64_t i;
-    return emio::scan(input, "{}", i);
+    int i;
+    return emio::scan("0x1049Fae2", "{:#x}", i);
   };
   BENCHMARK("emio runtime") {
-    int64_t i;
-    return emio::scan(input, emio::runtime("{}"), i);
+    int i;
+    return emio::scan("0x1049Fae2", emio::runtime("{:#x}"), i);
   };
   BENCHMARK("snprintf") {
-    int64_t i;
-    return sscanf(input.data(), "%" PRIi64, &i);
-  };
-}
-
-TEST_CASE("scan complex hex") {
-  static constexpr std::string_view input("7C9A702A5186EC21");
-
-  BENCHMARK("base") {
-    return "1";
-  };
-  BENCHMARK("emio") {
-    int64_t i;
-    return emio::scan(input, "{:x}", i);
-  };
-  BENCHMARK("emio runtime") {
-    int64_t i;
-    return emio::scan(input, emio::runtime("{:x}"), i);
-  };
-  BENCHMARK("snprintf") {
-    int64_t i;
-    return sscanf(input.data(), "%" PRIx64, &i);
+    unsigned int i;
+    return sscanf("0x1049Fae2", "0x%x", &i);
   };
 }
