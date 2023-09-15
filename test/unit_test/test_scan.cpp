@@ -284,6 +284,9 @@ TEST_CASE("integral with width", "[scan]") {
   REQUIRE(emio::scan("+0x5", "{:#1}0x5", val) == emio::err::eof);
   REQUIRE(emio::scan("+0x5", "{:#6}", val) == emio::err::eof);
   REQUIRE(emio::scan("+0x5", "{:#3}5", val) == emio::err::eof);
+
+  CHECK(!validate_scan_string<int>("{:+5}"));
+  CHECK(!validate_scan_string<int>("{:-5}"));
 }
 
 TEST_CASE("scan integral of different types", "[scan]") {
