@@ -53,7 +53,7 @@ Every function describes the possible errors which can occur. See the source cod
 
 *Example*
 ```cpp
-emio::to_string(emio::err::invalid_format);  // invalid_format
+std::string_view error_msg = emio::to_string(emio::err::invalid_format);  // invalid_format
 ```
 
 ## result
@@ -128,9 +128,9 @@ emio::result<void> parse(std::string_view sv) {
         return res.error();
     }
     if (res.assume_value() == val) {
-        return success;
+        return emio::success;
     }
-    return emio::err::invalid_format();
+    return emio::err::invalid_format;
 }
 ```
 
@@ -234,7 +234,7 @@ assert(input2.view_remaining() == "foo");
 *Example*
 ```cpp
 emio::reader input{"abc"};
-emio::result<char> res = input.peek();  // Char kept in reader.
+emio::result<char> res = input.peek();
 assert(res == 'a');
 ```
 
@@ -299,7 +299,7 @@ emio::result<std::string_view> res = get_input().read_until_none_of("ab");
 assert(res == "ab");
 
 // read_until with predicate
-emio::result<std::string_view> res = get_input().read_until([](char c) { return c != a;});
+emio::result<std::string_view> res = get_input().read_until([](char c) { return c != 'a';});
 assert(res == "a");
 ```
 
@@ -357,6 +357,7 @@ emio::writer output{buf};
 ```cpp
 emio::writer output{get_buffer()};
 emio::result<void> res = output.write_char('a');  // Buffer contains "a"
+assert(res);
 ```
 
 `write_char_n(c, n) -> result<void>`
@@ -367,6 +368,7 @@ emio::result<void> res = output.write_char('a');  // Buffer contains "a"
 ```cpp
 emio::writer output{get_buffer()};
 emio::result<void> res = output.write_char_n('a', 5);  // Buffer contains "aaaaa"
+assert(res);
 ```
 
 `write_char_escaped(c) -> result<void>`
@@ -377,6 +379,7 @@ emio::result<void> res = output.write_char_n('a', 5);  // Buffer contains "aaaaa
 ```cpp
 emio::writer output{get_buffer()};
 emio::result<void> res = output.write_char_escaped('\n', 5);  // Buffer contains "\\n"
+assert(res);
 ```
 
 `write_str(sv) -> result<void>`
@@ -387,6 +390,7 @@ emio::result<void> res = output.write_char_escaped('\n', 5);  // Buffer contains
 ```cpp
 emio::writer output{get_buffer()};
 emio::result<void> res = output.write_str("Hello");  // Buffer contains "Hello"
+assert(res);
 ```
 
 `write_str_escaped(sv) -> result<void>`
@@ -397,6 +401,7 @@ emio::result<void> res = output.write_str("Hello");  // Buffer contains "Hello"
 ```cpp
 emio::writer output{get_buffer()};
 emio::result<void> res = output.write_str("\t 'and'");  // Buffer contains "\\t \'and\'"
+assert(res);
 ```
 
 `write_int(integer, options) -> result<void>`
@@ -411,6 +416,7 @@ emio::result<void> res = output.write_int(15);  // Buffer contains "15"
 assert(res);
 
 res = output.write_int(15, {.base = 16, upper_case = true});  // Buffer contains "15F"
+assert(res);
 ```
 
 ## Format
@@ -504,8 +510,8 @@ out.resize(10);
 emio::result<emio::format_to_n_result<std::string::iterator>> res = 
         emio::format_to_n(out.begin(), 7, "Hello {}!", 42);
 assert(res)
-assert(res.out == "Hello 4");
-assert(res.size == 7);
+assert(res->out == "Hello 4");
+assert(res->size == 7);
 ```
 
 `formatted_size(format_str, ...args) -> size_t/result<size_t>`
@@ -710,7 +716,7 @@ assert(res);
 
 *Example*
 ```cpp
-emio::println("{}!", 42);  // Outputs: "42!" // Outputs: "42!" with a line break
+emio::println("{}!", 42);  // Outputs: "42!" with a line break
 
 emio::result<void> res = emio::println(emio::runtime("{}!"), 42);  // Outputs: "42!" with a line break
 assert(res);
@@ -722,7 +728,7 @@ assert(res);
 
 *Example*
 ```cpp
-emio::result<void> res = emio::println(stderr, "{}!", 42);  // Outputs: "42!" // Outputs: "42!" with a line break to stderr
+emio::result<void> res = emio::println(stderr, "{}!", 42);  // Outputs: "42!" with a line break to stderr
 assert(res);
 ```
 
@@ -770,10 +776,12 @@ assert(l == 0x101);
 *Example*
 ```cpp
 int i;
-int j;
-scan("123", "{:2}{}", i, j);
+std::string_view j;
+int k;
+scan("125673", "{:2}{:3}{}", i, j, k);
 assert(i == 12);
-assert(j == 3);
+assert(j == "567");
+assert(k == 3);
 ```
 
 `type`
@@ -850,7 +858,7 @@ implementations and reduce the binary size. **Note:** These type erased function
 
 ### Scanner
 
-There exists a scanner for builtin types like char and integers. Support for other types (e.g. float) is planned.
+There exists scanner for builtin types like char, string and integers. Support for other types (e.g. float) is planned.
 
 Use `is_scanner_v<Type>` to check if a type is scannable.
 
