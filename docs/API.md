@@ -51,6 +51,11 @@ Every function describes the possible errors which can occur. See the source cod
 
 - Returns the name of the error code.
 
+*Example*
+```cpp
+std::string_view error_msg = emio::to_string(emio::err::invalid_format);  // invalid_format
+```
+
 ## result
 
 `template <typename T> class result;`
@@ -102,9 +107,36 @@ There exists two helper macros to simplify the control flow:
 - Evaluates an expression *expr*. If successful, assigns the value to a declaration *var*. If unsuccessful, immediately
   returns from the calling function.
 
+*Example*
+```cpp
+result<int> parse_one(std::string_view sv) {
+    if (sv.empty()) {
+        return emio::err::eof;
+    }
+    if (sv == "1") {
+        return 1;
+    } else {
+        return emio::err::invalid_data;
+    }
+}
+
+emio::result<void> parse(std::string_view sv) {
+    EMIO_TRY(int val, parse_one(sv));
+    
+    emio::result<int> res = parse_one(sv);
+    if (!res) {
+        return res.error();
+    }
+    if (res.assume_value() == val) {
+        return emio::success;
+    }
+    return emio::err::invalid_format;
+}
+```
+
 ## Buffer
 
-An abstract class which provides functionality for receiving a contiguous memory region to write into.
+An abstract class which provides functionality for receiving a contiguous memory region of chars to write into.
 
 There exist multiple implementation of a buffer, all fulfilling a different use case.
 Some buffers have an internal cache to provide a contiguous memory if the actually output object doesn't provide on.
@@ -113,22 +145,65 @@ Some buffers have an internal cache to provide a contiguous memory if the actual
 
 - An endless growing buffer with an internal storage for small buffer optimization.
 
+*Example*
+```cpp
+emio::memory_buffer buf;
+
+emio::result<std::span<char>> area = buf.get_write_area_of(50);
+assert(area);
+```
+
 ### span_buffer
 
 - A buffer over a specific contiguous range.
 
+*Example*
+```cpp
+std::array<char, 512> storage;
+emio::span_buffer buf{storage};
+
+emio::result<std::span<char>> area = buf.get_write_area_of(50);
+assert(area);
+```
+
 ### static_buffer
 
 - A buffer containing a fixed-size storage.
+
+*Example*
+```cpp
+emio::static_buffer<512> buf{storage}; 
+
+emio::result<std::span<char>> area = buf.get_write_area_of(50);
+assert(area);
+```
 
 ### iterator_buffer
 
 - A buffer for all kinds of output iterators (raw-pointers, back_insert_iterator or any other output iterator).
 - The buffer's with a direct output iterator (e.g. std::string::iterator) do have an internal cache.
 
+*Example*
+```cpp
+std::string storage{"filled with something up"};
+emio::iterator_buffer buf{std::back_inserter(storage)}; 
+
+emio::result<std::span<char>> area = buf.get_write_area_of(50);
+assert(area);
+```
+
 ### file_buffer
 
 - A buffer which over an std::File (file stream) with an internal cache.
+
+*Example*
+```cpp
+std::FILE* file = std::fopen("test", "w");
+emio::file_buffer buf{file}; 
+
+emio::result<std::span<char>> area = buf.get_write_area_of(50);
+assert(area);
+```
 
 ## Reader
 
@@ -140,30 +215,123 @@ Some buffers have an internal cache to provide a contiguous memory if the actual
 
 - Constructable from any suitable char sequence.
 
+*Example*
+```cpp
+emio::reader input{"1"};
+assert(input.cnt_remaining() == 1);
+assert(input.view_remaining() == "1");
+
+std::string foo{"foo"};
+emio::reader input2{foo};
+assert(input2.cnt_remaining() == 3);
+assert(input2.view_remaining() == "foo");
+```
+
 `peek() -> result<char>`
 
 - Returns the next char without consuming it.
+
+*Example*
+```cpp
+emio::reader input{"abc"};
+emio::result<char> res = input.peek();
+assert(res == 'a');
+```
 
 `read_char() -> result<char>`
 
 - Returns one char.
 
+*Example*
+```cpp
+emio::reader input{"abc"};
+emio::result<char> res = input.read_char();
+assert(res == 'a');
+```
+
 `read_n_char(n) -> result<string_view>`
 
 - Returns *n* chars.
+
+*Example*
+```cpp
+emio::reader input{"abc"};
+emio::result<std::string_view> res = input.read_n_char(3);
+assert(res == "abc");
+```
 
 `parse_int<T>(base = 10) -> result<T>`
 
 - Parses an integer of type *T* with a specific *base*.
 
-`read_until/_char/str/any_of/none_of(predicate, options) -> result<string_view>`
+*Example*
+```cpp
+emio::reader input{"abc"};
+emio::result<int> res = input.read_int(16 /* hexadecimal */);
+assert(res == 0xabc);
+```
+
+`read_until/_char/str/any_of/none_of/([predicate,] options) -> result<string_view>`
 
 - Reads n chars until a given *predicate* (delimiter/group/function) applies.
 - Has *options* to configure what should happen with the predicate and what should happen if EOF is reached.
 
-`read_if_match_char/str(c/str)`
+*Example*
+```cpp
+emio::reader get_input() {
+    return emio::reader{"abc"};
+}
+
+// read_until_char
+emio::result<std::string_view> res = get_input().read_until_char('c');
+assert(res == "ab");
+
+// read_until_str
+emio::result<std::string_view> res = get_input().read_until_str("bc");
+assert(res == "a");
+
+// read_until_any_of
+emio::result<std::string_view> res = get_input().read_until_any_of("cd");
+assert(res == "ab");
+
+// read_until_none_of
+emio::result<std::string_view> res = get_input().read_until_none_of("ab");
+assert(res == "ab");
+
+// read_until with predicate
+emio::result<std::string_view> res = get_input().read_until([](char c) { return c != 'a';});
+assert(res == "a");
+```
+
+```cpp
+// Different options.
+emio::reader input{"abc 123 Hello"};
+
+// with include_delimiter option 
+emio::result<std::string_view> res = input.read_until_str(" ", {.include_delimiter = true});
+assert(res == "abc ");
+
+// with keep keep_delimiter option 
+emio::result<std::string_view> res = input.read_until_str("Hello", {.keep_delimiter = true});
+assert(res == "123 ");
+
+//  with ignore_eof option 
+emio::result<std::string_view> res = input.read_until_str("xyz", {.ignore_eof = true});
+assert(res == "Hello");
+```
+
+`read_if_match_char/str(c/str) -> result<char/std::string_view>`
 
 - Reads one/multiple chars if *c/str* matches the next char/chars.
+
+*Example*
+```cpp
+emio::reader input{"abc"};
+if (input.read_if_match_char('a')) {
+  emio::result<std::string_view> res = input.read_if_match_str("bc");   
+  assert(res == "bc");   
+}
+```
 
 ## Writer
 
@@ -173,32 +341,83 @@ Some buffers have an internal cache to provide a contiguous memory if the actual
 
 *constructor(buffer)*
 
+*Example*
+```cpp
+emio::static_buffer<128> buf;
+emio::writer output{buf};
+```
+
 - Constructable from a reference to a buffer.
 
 `write_char(c) -> result<void>`
 
 - Writes a char *c* into the buffer.
 
+*Example*
+```cpp
+emio::writer output{get_buffer()};
+emio::result<void> res = output.write_char('a');  // Buffer contains "a"
+assert(res);
+```
+
 `write_char_n(c, n) -> result<void>`
 
 - Writes a char *c* *n* times into the buffer.
+
+*Example*
+```cpp
+emio::writer output{get_buffer()};
+emio::result<void> res = output.write_char_n('a', 5);  // Buffer contains "aaaaa"
+assert(res);
+```
 
 `write_char_escaped(c) -> result<void>`
 
 - Writes a char *c* escaped into the buffer.
 
+*Example*
+```cpp
+emio::writer output{get_buffer()};
+emio::result<void> res = output.write_char_escaped('\n', 5);  // Buffer contains "\\n"
+assert(res);
+```
+
 `write_str(sv) -> result<void>`
 
 - Writes a char sequence *sv* into the buffer.
+
+*Example*
+```cpp
+emio::writer output{get_buffer()};
+emio::result<void> res = output.write_str("Hello");  // Buffer contains "Hello"
+assert(res);
+```
 
 `write_str_escaped(sv) -> result<void>`
 
 - Writes a char sequence *sv* escaped into the buffer.
 
+*Example*
+```cpp
+emio::writer output{get_buffer()};
+emio::result<void> res = output.write_str("\t 'and'");  // Buffer contains "\\t \'and\'"
+assert(res);
+```
+
 `write_int(integer, options) -> result<void>`
 
 - Writes an *integer* into the buffer.
 - Has *options* to configure the base and if the alphanumerics should be in lower or upper case.
+
+*Example*
+```cpp
+emio::writer output{get_buffer()};
+emio::result<void> res = output.write_int(15);  // Buffer contains "15"
+assert(res);
+
+res = output.write_int(15, {.base = 16, upper_case = true});  // Buffer contains "15F"
+assert(res);
+```
 
 ## Format
 
@@ -209,6 +428,7 @@ The following functions use a format string syntax which is nearly identical to 
 Things that are missing:
 
 - chrono syntax (planned)
+- 'a'/'A' for hexadecimal floating point format (TBD)
 - UTF-8 support (TBD)
 - using an identifier as arg_id: `fmt::format("{nbr}", fmt::arg("nbr", 42)` (TBD)
 - `'L'` options for locale (somehow possible but not with std::locale because of the binary size)
@@ -251,22 +471,59 @@ string is a valid-only format string that could be ensured at compile-time.
 
 `format(format_str, ...args) -> string/result<string>`
 
+*Example*
+```cpp
+std::string str = emio::format("Hello {}!", 42);
+assert(str == "Hello 42!");
+
+std::string format_str = "Good by {}!";
+emio::result<std::string> res = emio::format(emio::runtime(format_str), 42);
+assert(res == "Good by 42!");
+```
+
 - Formats arguments according to the format string, and returns the result as a string.
 - The return value depends on the type of the format string (valid-only type or not).
 
 `format_to(out, format_str, ...args) -> result<Output>`
 
-- Formats arguments according to the format string, and writes the result to the output.
+- Formats arguments according to the format string, and writes the result to the output. 
+**Note** If a raw output pointer or simple output iterator is used, no range checking can take place!
+
+*Example*
+```cpp
+std::string out;
+out.resize(10);
+emio::result<std::string::iterator> res = emio::format_to(out.begin(), "Hello {}!", 42);
+assert(res);
+assert(out == "Hello 42!");
+```
 
 `format_to_n(out, n, format_str, ...args) -> result<format_to_n_result<Output>>`
 
 - Formats arguments according to the format string, and writes the result to the output iterator. At most *n* characters
   are written.
 
+*Example*
+```cpp
+std::string out;
+out.resize(10);
+emio::result<emio::format_to_n_result<std::string::iterator>> res = 
+        emio::format_to_n(out.begin(), 7, "Hello {}!", 42);
+assert(res)
+assert(res->out == "Hello 4");
+assert(res->size == 7);
+```
+
 `formatted_size(format_str, ...args) -> size_t/result<size_t>`
 
 - Determines the total number of characters in the formatted string by formatting args according to the format string.
 - The return value depends on the type of the format string (valid-only type or not).
+
+*Example*
+```cpp
+size_t size = emio::formatted_size("> {}", 42);
+assert(size == 4);
+```
 
 For each function there exists a function prefixed with v (e.g. `vformat`) which takes `format_args` instead of a
 format string and arguments. The types are erased and can be used in non-template functions to reduce build-time, hide
@@ -280,6 +537,34 @@ implementations and reduce the binary size. **Note:** These type erased function
 - Keep in mind that the storage uses reference semantics and does not extend the lifetime of args. It is the
   programmer's responsibility to ensure that args outlive the return value.
 
+*Example*
+```cpp
+emio::result<void> internal_info(const emio::format_args& args) {
+    emio::memory_buffer buf;
+    
+    emio::writer out{buf};  // Prefix message.
+    EMIO_TRYV(out.write_str("INFO: "));  
+    
+    EMIO_TRYV(emio::vformat_to(out, args));
+    log_message(out.view());  // Forward result. 
+    return emio::success;
+}
+
+template<typename...Args>
+void log_info(emio::format_string<Args...> fmt, const Args&...args) {
+    emio::result<void> res = internal_info(emio::make_format_args(fmt, args...));  // type-erasing takes place 
+    res.value();  // Throw on any error.
+}
+
+void do_something(int i) {
+    log_info("Do something started with {}.", i);
+}
+
+int main() {
+    do_something(42);  // INFO: Do something started with 42. 
+}
+```
+
 ### Dynamic format specification
 
 Unlike other libraries, the format specification cannot be changed through extra replacement fields, as it is possible
@@ -292,11 +577,10 @@ passed as an argument with the original value to the format function.
 
 - If a spec is not defined inside the struct, the spec of the parsed format string will be applied.
 
-In the example shown below the precision is set dynamically to 1:
-
+*Example*
 ```cpp
 emio::format_spec spec{.precision = 1};
-emio::format('{}', spec.with(3.14));  // 3.1
+emio::format("{}", spec.with(3.141592653));  // 3.1
 ```
 
 ### Formatter
@@ -309,8 +593,7 @@ Use `is_formattable_v<Type>` to check if a type is formattable.
 A formatter exists of one optional function `validate` and two mandatory functions `parse` and `format`. If `validate`
 is not present, `parse` must validate the format string.
 
-A custom formatter for the class `foo` could be implemented like this:
-
+*Example*
 ```cpp
 struct foo {
     int x;
@@ -356,6 +639,7 @@ int main() {
 
 It is also possible to reuse existing formatters via inheritance or composition.
 
+*Example*
 ```cpp
 struct foo {
     int x;
@@ -381,6 +665,7 @@ If the `validate` (or if absent the `parse`) function is not constexpr, a runtim
 For simple type formatting, like formatting an enum class to its underlying integer or to a string, the function
 `format_as` could be provided. The function must be in the same namespace since ADL is used.
 
+*Example*
 ```cpp
 namespace foo {
     
@@ -405,9 +690,23 @@ It is possible to directly print to the standard output or other file streams.
 - Formats arguments according to the format string, and writes the result to the standard output stream.
 - The return value depends on the type of the format string (valid-only type or not).
 
+*Example*
+```cpp
+emio::print("{}!", 42);  // Outputs: "42!"
+
+emio::result<void> res = emio::print(emio::runtime("{}!"), 42);  // Outputs: "42!"
+assert(res);
+```
+
 `print(file, format_str, ...args) -> result<void>`
 
 - Formats arguments according to the format string, and writes the result to a file stream.
+
+*Example*
+```cpp
+emio::result<void> res = emio::print(stderr, "{}!", 42);  // Outputs: "42!" to stderr
+assert(res);
+```
 
 `println(format_str, ...args) -> void/result<void>`
 
@@ -415,9 +714,23 @@ It is possible to directly print to the standard output or other file streams.
   at the end.
 - The return value depends on the type of the format string (valid-only type or not).
 
+*Example*
+```cpp
+emio::println("{}!", 42);  // Outputs: "42!" with a line break
+
+emio::result<void> res = emio::println(emio::runtime("{}!"), 42);  // Outputs: "42!" with a line break
+assert(res);
+```
+
 `println(file, format_str, ...args) -> result<void>`
 
 - Formats arguments according to the format string, and writes the result to a file stream with a new line at the end.
+
+*Example*
+```cpp
+emio::result<void> res = emio::println(stderr, "{}!", 42);  // Outputs: "42!" with a line break to stderr
+assert(res);
+```
 
 For each function there exists a function prefixed with v (e.g. `vprint`) which allow the same functionality as
 e.g. `vformat(...)` does for `format(...)`.
@@ -434,6 +747,43 @@ format_spec ::=  ["#"][width][type]
 type        ::=  "b" | "B" | "c" | "d" | "o" | "s" | "x" | "X"
 ```
 
+`#`
+
+- for integral types: the alternate form
+  - b/B: `0b` (e.g. 0b10110)
+  - d: nothing (e.g. 9825)
+  - o: leading `0` (e.g. 057)
+  - x/X: `0x` (e.g 0x2fA3)
+- if `#` is present but not the `type`, the base is deduced from the scanned alternate form.
+
+*Example*
+```cpp
+int i;
+int j;
+int k;
+int l;
+scan("0b101 101 0101 0x101", "{:#} {:#} {:#} {:#}", i, j, k, l);
+assert(i == 0b101);
+assert(j == 101);
+assert(k == 0101);
+assert(l == 0x101);
+```
+
+`width`
+
+- specifies the number of characters to include when parsing an argument
+
+*Example*
+```cpp
+int i;
+std::string_view j;
+int k;
+scan("125673", "{:2}{:3}{}", i, j, k);
+assert(i == 12);
+assert(j == "567");
+assert(k == 3);
+```
+
 `type`
 
 - for integral types: the base to assume
@@ -444,14 +794,18 @@ type        ::=  "b" | "B" | "c" | "d" | "o" | "s" | "x" | "X"
 - c for char
 - s for string/string_view
 
-`#`
-
-- for integral types: the alternate form
-    - b/B: `0b` (e.g. 0b10110)
-    - d: nothing (e.g. 9825)
-    - o: leading `0` (e.g. 057)
-    - x/X: `0x` (e.g 0x2fA3)
-- if `#` is present but not the `type`, the base is deduced from the scanned alternate form.
+*Example*
+```cpp
+int i;
+int j;
+int k;
+int l;
+scan("101 101 101 101", "{:b} {:d} {:o} {:x}", i, j, k, l);
+assert(i == 0b101);
+assert(j == 101);
+assert(k == 0101);
+assert(l == 0x101);
+```
 
 The syntax of the format string is validated at compile-time. If a validation at runtime is required, the string must
 be wrapped inside a `runtime_string` object. There is a simple helper function for that:
@@ -462,11 +816,33 @@ The API is structured as follows:
 
 `scan(input, format_str, ...args) -> result<void>`
 
+*Example*
+```cpp
+int32_t i;
+uint32_t j;
+emio::result<void> res = emio::scan("-1,2", "{},{}", i, j);
+assert(res);
+assert(i == -1);
+assert(j == 2);
+```
+
 - Scans the input string for the given arguments according to the format string.
 
 `scan_from(reader, format_str, ...args) -> result<void>`
 
 - Scans the content of the reader for the given arguments according to the format string.
+
+*Example*
+```cpp
+int32_t i;
+uint32_t j;
+emio::reader input{"-1,2..."};
+emio::result<void> res = emio::scan_from(input, "{},{}", i, j);
+assert(res);
+assert(i == -1);
+assert(j == 2);
+assert(input.view_remaining() == "...");
+```
 
 For each function there exists a function prefixed with v (e.g. `vscan`) which takes `scan_args` instead of a format
 string and arguments. The types are erased and can be used in non-template functions to reduce build-time, hide
@@ -482,16 +858,14 @@ implementations and reduce the binary size. **Note:** These type erased function
 
 ### Scanner
 
-There exists a scanner for builtin types like char and integers. Support for other types (e.g. string, float) is
-planned.
+There exists scanner for builtin types like char, string and integers. Support for other types (e.g. float) is planned.
 
 Use `is_scanner_v<Type>` to check if a type is scannable.
 
 A scanner exists of one optional function `validate` and two mandatory functions `parse` and `scan`. If `validate`
 is not present, `parse` must validate the format string.
 
-A custom scanner for the class `foo` could be implemented like this:
-
+*Example*
 ```cpp
 struct foo {
     int x;
@@ -539,6 +913,7 @@ int main() {
 
 It is also possible to reuse existing scanner via inheritance or composition.
 
+*Example*
 ```cpp
 struct foo {
     int x;

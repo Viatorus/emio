@@ -1,19 +1,26 @@
 @startuml
 
+class "scan functions" << (F,#FF7700) >> {
+    scan(input, format_str, args...) -> result<void>
+}
+
 class "format functions" << (F,#FF7700) >> {
     format(format_str, args...) -> result<std::string>
 }
 
 class reader
-reader *-- "std::string_view"
+class "std::string_view" as sv
+reader *-- sv
 
 abstract class buffer
 
 class memory_buffer
+class static_buffer
 class span_buffer
 class iterator_buffer
 
 buffer <|-- iterator_buffer
+buffer <|-- static_buffer
 buffer <|-- span_buffer
 buffer <|-- memory_buffer
 
@@ -41,14 +48,28 @@ class format_string
 class formatter<T - Type to format> {
     validate(reader&) [0..1]
     parse(reader&)
-    format(writer&, T)
+    format(writer& out, T)
 }
 
-format_string  -.> "validate[/parse] " formatter
+format_string  -.> "validate & parse" formatter
 
 "format functions" *-.- "format_string"
 "format functions" -.-> "writer" : "write formatted\noutput"
 "format functions" -.-> "reader" : read format\nstring
 "format functions" -.-> "formatter" : parse,\nformat
+
+class format_scan_string
+
+class scanner<T - Type to scan> {
+    validate(reader&) [0..1]
+    parse(reader&)
+    scan(reader& in, T&)
+}
+
+format_scan_string   -.> "validate & parse" scanner
+
+"scan functions" *-.- "format_scan_string"
+"scan functions" -.-> "reader" : read input & \nformat string
+"scan functions" -.-> "scanner" : parse,\nscan
 
 @enduml

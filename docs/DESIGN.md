@@ -73,8 +73,9 @@ the explicit handling of the control flow.
 
 ## Performance
 
-The current benchmarks show that the formatting is round about 1.5 - 2 times slower than fmtlib. See the benchmark tests
-inside the CI for more details.
+The current benchmarks show that the formatting is round about 1.5 - 2 times slower than fmtlib and the performance is
+similar to printf (e.g. for integer types). Scanning on the other hand is around twice as fast then scanf. See the
+benchmark tests inside the CI for more details.
 
 ## Class diagram
 
