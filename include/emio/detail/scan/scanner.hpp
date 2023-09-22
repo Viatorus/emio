@@ -213,7 +213,7 @@ inline constexpr result<void> read_string(reader& in, format_specs& specs, reade
     EMIO_TRY(arg, in.read_n_chars(static_cast<size_t>(specs.width)));
     return success;
   }
-  const result<std::string_view> until_next_res = format_rdr.read_until_any_of("{}"sv, {.keep_delimiter = true});
+  const result<std::string_view> until_next_res = read_until(format_rdr);
   if (until_next_res == err::eof) {  // Read everything. 2)
     arg = in.read_remaining();
     return success;
