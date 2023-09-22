@@ -38,6 +38,13 @@ class parser_base {
 
   constexpr result<void> parse(uint8_t& arg_nbr) noexcept {
     while (true) {
+      {  // Read until maybe first replacement field/escape sequence.
+        result<std::string_view> res = format_rdr_.read_until_any_of("{}"sv, {.keep_delimiter = true});
+        if (res == err::eof) {
+          return success;
+        }
+        EMIO_TRYV(process(res.assume_value()));
+      }
       result<char> res = format_rdr_.read_char();
       if (res == err::eof) {
         return success;
@@ -65,11 +72,15 @@ class parser_base {
   }
 
  protected:
-  virtual constexpr result<void> process(char c) noexcept = 0;
+  virtual constexpr result<void> process(const std::string_view& str) noexcept = 0;
 
   reader& format_rdr_;
 
  private:
+  constexpr result<void> process(char c) noexcept {
+    return process(std::string_view{&c, 1});
+  }
+
   constexpr result<void> parse_replacement_field(uint8_t& arg_nbr) noexcept {
     EMIO_TRYV(parse_field_name(arg_nbr));
 
@@ -122,6 +133,13 @@ class parser_base<input_validation::disabled> {
 
   constexpr result<void> parse(uint8_t& arg_nbr) noexcept {
     while (true) {
+      {  // Read until maybe first replacement field/escape sequence.
+        result<std::string_view> res = format_rdr_.read_until_any_of("{}"sv, {.keep_delimiter = true});
+        if (res == err::eof) {
+          return success;
+        }
+        EMIO_TRYV(process(res.assume_value()));
+      }
       result<char> res = format_rdr_.read_char();
       if (res == err::eof) {
         return success;
@@ -141,11 +159,15 @@ class parser_base<input_validation::disabled> {
   }
 
  protected:
-  virtual constexpr result<void> process(char c) noexcept = 0;
+  virtual constexpr result<void> process(const std::string_view& str) noexcept = 0;
 
   reader& format_rdr_;
 
  private:
+  constexpr result<void> process(char c) noexcept {
+    return process(std::string_view{&c, 1});
+  }
+
   constexpr result<void> parse_replacement_field(uint8_t& arg_nbr) noexcept {
     parse_field_name(arg_nbr);
     const char c = format_rdr_.peek().assume_value();

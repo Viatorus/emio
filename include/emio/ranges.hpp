@@ -38,18 +38,21 @@ class formatter<T> {
 
   constexpr formatter() noexcept
     requires(!detail::format::is_map<T> && !detail::format::is_set<T>)
-      : specs_{"[", "]", ", "} {}
+      : specs_{detail::sv("["), detail::sv("]"), detail::sv(", ")} {}
 
   constexpr formatter() noexcept
     requires(detail::format::is_map<T>)
-      : specs_{"{", "}", ", "} {
+      : specs_{detail::sv("{"), detail::sv("}"), detail::sv(", ")} {
     underlying_.set_brackets({}, {});
-    underlying_.set_separator(": ");
+    underlying_.set_separator(detail::sv(": "));
   }
+
+
 
   constexpr formatter() noexcept
     requires(detail::format::is_set<T> && !detail::format::is_map<T>)
-      : specs_{"{", "}", ", "} {}
+      : specs_{detail::sv("{"), detail::sv("}"), detail::sv(", ")} {
+  }
 
   constexpr void set_separator(std::string_view separator) noexcept {
     specs_.separator = separator;
@@ -117,7 +120,7 @@ template <typename T>
   requires(detail::format::is_valid_tuple<T>)
 class formatter<T> {
  public:
-  constexpr formatter() : specs_{"(", ")", ", "} {}
+  constexpr formatter() : specs_{detail::sv("("), detail::sv(")"), detail::sv(", ")} {}
 
   constexpr void set_separator(std::string_view separator) noexcept {
     specs_.separator = separator;

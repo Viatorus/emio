@@ -303,4 +303,12 @@ constexpr char* copy_n(const char* in, Size count, char* out) noexcept {
   }
 }
 
+using namespace std::string_view_literals;
+
+// Helper function to construct string literals directly as string_view during compilation if string_view_literal
+// operator "" sv is not available.
+inline consteval std::string_view sv(std::string_view sv) noexcept {
+  return sv;
+}
+
 }  // namespace emio::detail
