@@ -47,12 +47,9 @@ class formatter<T> {
     underlying_.set_separator(detail::sv(": "));
   }
 
-
-
   constexpr formatter() noexcept
     requires(detail::format::is_set<T> && !detail::format::is_map<T>)
-      : specs_{detail::sv("{"), detail::sv("}"), detail::sv(", ")} {
-  }
+      : specs_{detail::sv("{"), detail::sv("}"), detail::sv(", ")} {}
 
   constexpr void set_separator(std::string_view separator) noexcept {
     specs_.separator = separator;
