@@ -54,15 +54,15 @@ TEST_CASE("scan complex hex") {
     return "1";
   };
   BENCHMARK("emio") {
-    int64_t i;
+    uint64_t i;
     return emio::scan(input, "{:x}", i);
   };
   BENCHMARK("emio runtime") {
-    int64_t i;
+    uint64_t i;
     return emio::scan(input, emio::runtime("{:x}"), i);
   };
   BENCHMARK("snprintf") {
-    int64_t i;
+    uint64_t i;
     return sscanf(input.data(), "%" PRIx64, &i);
   };
 }

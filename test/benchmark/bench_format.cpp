@@ -61,7 +61,7 @@ TEST_CASE("format big integer") {
 
 TEST_CASE("format big hex") {
   static constexpr std::string_view format_str("{:x}");
-  static constexpr int64_t arg = 8978612134175239201;
+  static constexpr uint64_t arg = 8978612134175239201;
 
   BENCHMARK("base") {
     return "1";
