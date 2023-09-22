@@ -24,6 +24,21 @@ enum class input_validation { enabled, disabled };
 
 inline constexpr uint8_t no_more_args = std::numeric_limits<uint8_t>::max();
 
+inline constexpr std::string_view read_until(reader& format_rdr) noexcept {
+  const std::string_view sv = format_rdr.view_remaining();
+  const char* it = sv.data();
+  const char* const begin = sv.data();
+  const char* end = sv.data() + sv.size();
+  while (it != end) {
+    if (*it == '{' || *it == '}') {
+      break;
+    }
+    it += 1;
+  }
+  format_rdr.pop(static_cast<size_t>(it - begin));
+  return {begin, it};
+}
+
 template <input_validation>
 class parser_base {
  public:
@@ -39,11 +54,13 @@ class parser_base {
   constexpr result<void> parse(uint8_t& arg_nbr) noexcept {
     while (true) {
       {  // Read until maybe first replacement field/escape sequence.
-        result<std::string_view> res = format_rdr_.read_until_any_of("{}"sv, {.keep_delimiter = true});
-        if (res == err::eof) {
-          return success;
-        }
-        EMIO_TRYV(process(res.assume_value()));
+        //        result<std::string_view> res = format_rdr_.read_until_any_of("{}"sv, {.keep_delimiter = true});
+        //        if (res == err::eof) {
+        //          return success;
+        //        }
+        //        EMIO_TRYV(process(res.assume_value()));
+        std::string_view res = read_until(format_rdr_);
+        EMIO_TRYV(process(res));
       }
       result<char> res = format_rdr_.read_char();
       if (res == err::eof) {
@@ -134,11 +151,8 @@ class parser_base<input_validation::disabled> {
   constexpr result<void> parse(uint8_t& arg_nbr) noexcept {
     while (true) {
       {  // Read until maybe first replacement field/escape sequence.
-        result<std::string_view> res = format_rdr_.read_until_any_of("{}"sv, {.keep_delimiter = true});
-        if (res == err::eof) {
-          return success;
-        }
-        EMIO_TRYV(process(res.assume_value()));
+        std::string_view res = read_until(format_rdr_);
+        EMIO_TRYV(process(res));
       }
       result<char> res = format_rdr_.read_char();
       if (res == err::eof) {
