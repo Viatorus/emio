@@ -126,12 +126,12 @@ inline constexpr result<std::string_view> try_write_prefix(writer& out, const fo
   const bool write_prefix = specs.alternate_form && !prefix.empty();
   if (write_prefix && specs.zero_flag) {
     EMIO_TRYV(out.write_str(prefix));
-    return "";
+    return ""sv;
   }
   if (write_prefix) {
     return prefix;
   }
-  return "";
+  return ""sv;
 }
 
 template <typename Arg>
@@ -145,7 +145,7 @@ constexpr result<void> write_arg(writer& out, format_specs& specs, const Arg& ar
   EMIO_TRY((auto [prefix, options]), make_write_int_options(specs.type));
 
   if (specs.type == 'o' && arg == 0) {
-    prefix = "";
+    prefix = ""sv;
   }
 
   const auto abs_number = detail::to_absolute(arg);
@@ -181,9 +181,9 @@ constexpr result<void> write_arg(writer& out, format_specs& specs, const Arg& ar
 
 inline constexpr result<void> write_non_finite(writer& out, bool upper_case, bool is_inf) noexcept {
   if (is_inf) {
-    EMIO_TRYV(out.write_str(upper_case ? "INF" : "inf"));
+    EMIO_TRYV(out.write_str(upper_case ? "INF"sv : "inf"sv));
   } else {
-    EMIO_TRYV(out.write_str(upper_case ? "NAN" : "nan"));
+    EMIO_TRYV(out.write_str(upper_case ? "NAN"sv : "nan"sv));
   }
   return success;
 }
@@ -520,11 +520,11 @@ constexpr result<void> write_arg(writer& out, format_specs& specs, Arg arg) noex
   }
   if (arg) {
     return write_padded<alignment::left>(out, specs, 4, [&]() noexcept {
-      return out.write_str("true");
+      return out.write_str("true"sv);
     });
   }
   return write_padded<alignment::left>(out, specs, 5, [&]() noexcept {
-    return out.write_str("false");
+    return out.write_str("false"sv);
   });
 }
 

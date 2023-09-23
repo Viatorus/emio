@@ -24,6 +24,24 @@ enum class input_validation { enabled, disabled };
 
 inline constexpr uint8_t no_more_args = std::numeric_limits<uint8_t>::max();
 
+inline constexpr result<std::string_view> read_until(reader& format_rdr) noexcept {
+  const std::string_view sv = format_rdr.view_remaining();
+  const char* it = sv.begin();
+  const char* const begin = it;
+  const char* end = sv.end();
+  if (it == end) {
+    return err::eof;
+  }
+  while (it != end) {
+    if (*it == '{' || *it == '}') {
+      break;
+    }
+    it += 1;
+  }
+  format_rdr.pop(static_cast<size_t>(it - begin));
+  return std::string_view{begin, it};
+}
+
 template <input_validation>
 class parser_base {
  public:
@@ -38,6 +56,13 @@ class parser_base {
 
   constexpr result<void> parse(uint8_t& arg_nbr) noexcept {
     while (true) {
+      {  // Read until maybe first replacement field/escape sequence.
+        const result<std::string_view> res = read_until(format_rdr_);
+        if (res == err::eof) {
+          return success;
+        }
+        EMIO_TRYV(process(res.assume_value()));
+      }
       result<char> res = format_rdr_.read_char();
       if (res == err::eof) {
         return success;
@@ -65,11 +90,15 @@ class parser_base {
   }
 
  protected:
-  virtual constexpr result<void> process(char c) noexcept = 0;
+  virtual constexpr result<void> process(const std::string_view& str) noexcept = 0;
 
   reader& format_rdr_;
 
  private:
+  constexpr result<void> process(char c) noexcept {
+    return process(std::string_view{&c, 1});
+  }
+
   constexpr result<void> parse_replacement_field(uint8_t& arg_nbr) noexcept {
     EMIO_TRYV(parse_field_name(arg_nbr));
 
@@ -122,6 +151,13 @@ class parser_base<input_validation::disabled> {
 
   constexpr result<void> parse(uint8_t& arg_nbr) noexcept {
     while (true) {
+      {  // Read until maybe first replacement field/escape sequence.
+        const result<std::string_view> res = read_until(format_rdr_);
+        if (res == err::eof) {
+          return success;
+        }
+        EMIO_TRYV(process(res.assume_value()));
+      }
       result<char> res = format_rdr_.read_char();
       if (res == err::eof) {
         return success;
@@ -141,11 +177,15 @@ class parser_base<input_validation::disabled> {
   }
 
  protected:
-  virtual constexpr result<void> process(char c) noexcept = 0;
+  virtual constexpr result<void> process(const std::string_view& str) noexcept = 0;
 
   reader& format_rdr_;
 
  private:
+  constexpr result<void> process(char c) noexcept {
+    return process(std::string_view{&c, 1});
+  }
+
   constexpr result<void> parse_replacement_field(uint8_t& arg_nbr) noexcept {
     parse_field_name(arg_nbr);
     const char c = format_rdr_.peek().assume_value();

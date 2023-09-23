@@ -23,6 +23,6 @@ target_link_libraries(emio_benchmark
 
 target_compile_features(emio_benchmark PRIVATE cxx_std_20)
 
-add_test(NAME emio_benchmark COMMAND emio_benchmark)
+add_test(NAME emio_benchmark COMMAND emio_benchmark --benchmark-samples 1000)
 
 add_folders(Benchmark)
