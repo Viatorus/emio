@@ -9,6 +9,60 @@
 #include <cinttypes>
 #include <cmath>
 
+static constexpr std::string_view long_text(
+    "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore "
+    "magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo "
+    "consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla "
+    "pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est "
+    "laborum.");
+
+
+TEST_CASE("format nothing but long text") {
+  BENCHMARK("base") {
+    return "1";
+  };
+  BENCHMARK("emio") {
+    return emio::format(long_text);
+  };
+  BENCHMARK("emio runtime") {
+    return emio::format(emio::runtime(long_text)).value();
+  };
+  BENCHMARK("fmt") {
+    return fmt::format(long_text);
+  };
+  BENCHMARK("fmt runtime") {
+    return fmt::format(fmt::runtime(long_text));
+  };
+  BENCHMARK("snprintf") {
+    std::string buf{};
+    buf.resize(long_text.size());
+    return snprintf(buf.data(), buf.size(), long_text.data());
+  };
+}
+
+TEST_CASE("format string") {
+  BENCHMARK("base") {
+    return "1";
+  };
+  BENCHMARK("emio") {
+    return emio::format("{}", long_text);
+  };
+  BENCHMARK("emio runtime") {
+    return emio::format(emio::runtime("{}"), long_text).value();
+  };
+  BENCHMARK("fmt") {
+    return fmt::format("{}", long_text);
+  };
+  BENCHMARK("fmt runtime") {
+    return fmt::format(fmt::runtime("{}"), long_text);
+  };
+  BENCHMARK("snprintf") {
+    std::string buf{};
+    buf.resize(long_text.size());
+    return snprintf(buf.data(), buf.size(), "%*s", static_cast<int>(long_text.size()), long_text.data());
+  };
+}
+
 TEST_CASE("format small integer") {
   static constexpr std::string_view format_str(" {}");
   static constexpr int arg = 1;
@@ -29,7 +83,8 @@ TEST_CASE("format small integer") {
     return fmt::format(fmt::runtime(format_str), arg);
   };
   BENCHMARK("snprintf") {
-    std::array<char, 42> buf{};
+    std::string buf{};
+    buf.resize(42);
     return snprintf(buf.data(), buf.size(), " %d", 1);
   };
 }
@@ -54,7 +109,8 @@ TEST_CASE("format big integer") {
     return fmt::format(fmt::runtime(format_str), arg);
   };
   BENCHMARK("snprintf") {
-    std::array<char, 42> buf{};
+    std::string buf{};
+    buf.resize(42);
     return snprintf(buf.data(), buf.size(), " %" PRIi64, arg);
   };
 }
@@ -79,7 +135,8 @@ TEST_CASE("format big hex") {
     return fmt::format(fmt::runtime(format_str), arg);
   };
   BENCHMARK("snprintf") {
-    std::array<char, 42> buf{};
+    std::string buf{};
+    buf.resize(42);
     return snprintf(buf.data(), buf.size(), "%" PRIx64, arg);
   };
 }
@@ -126,7 +183,8 @@ TEST_CASE("format zero as double") {
     return fmt::format(fmt::runtime(format_str), arg);
   };
   BENCHMARK("snprintf") {
-    std::array<char, 42> buf{};
+    std::string buf{};
+    buf.resize(42);
     return snprintf(buf.data(), buf.size(), "%g", arg);
   };
 }
@@ -151,7 +209,8 @@ TEST_CASE("format shortest double general") {
     return fmt::format(fmt::runtime(format_str), arg);
   };
   BENCHMARK("snprintf (not shortest but general)") {
-    std::array<char, 42> buf{};
+    std::string buf{};
+    buf.resize(42);
     return snprintf(buf.data(), buf.size(), "%g", arg);
   };
 }
@@ -176,7 +235,8 @@ TEST_CASE("format double exponent") {
     return fmt::format(fmt::runtime(format_str), arg);
   };
   BENCHMARK("snprintf") {
-    std::array<char, 42> buf{};
+    std::string buf{};
+    buf.resize(42);
     return snprintf(buf.data(), buf.size(), "%e", arg);
   };
 }
@@ -201,7 +261,8 @@ TEST_CASE("format double fixed") {
     return fmt::format(fmt::runtime(format_str), arg);
   };
   BENCHMARK("snprintf") {
-    std::array<char, 42> buf{};
+    std::string buf{};
+    buf.resize(42);
     return snprintf(buf.data(), buf.size(), "%f", arg);
   };
 }
