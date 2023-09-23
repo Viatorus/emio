@@ -35,7 +35,7 @@ TEST_CASE("format nothing but long text") {
   };
   BENCHMARK("snprintf") {
     std::string buf{};
-    buf.resize(long_text.size());
+    buf.resize(long_text.size() + 1);
     return snprintf(buf.data(), buf.size(), long_text.data());
   };
 }
@@ -58,7 +58,7 @@ TEST_CASE("format string") {
   };
   BENCHMARK("snprintf") {
     std::string buf{};
-    buf.resize(long_text.size());
+    buf.resize(long_text.size() + 1);
     return snprintf(buf.data(), buf.size(), "%*s", static_cast<int>(long_text.size()), long_text.data());
   };
 }
