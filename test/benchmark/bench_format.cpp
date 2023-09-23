@@ -16,7 +16,6 @@ static constexpr std::string_view long_text(
     "pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est "
     "laborum.");
 
-
 TEST_CASE("format nothing but long text") {
   BENCHMARK("base") {
     return "1";
