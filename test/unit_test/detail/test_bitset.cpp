@@ -120,7 +120,7 @@ TEST_CASE("bitset") {
     CHECK(bitset.all_first(256));
   }
   SECTION("constexpr check") {
-    STATIC_CHECK(([] {
+    constexpr bool success = [] {
       bitset<74> bitset;
 
       bool good = true;
@@ -138,6 +138,7 @@ TEST_CASE("bitset") {
       good &= (bitset.all_first(74));
 
       return good;
-    })());
+    }();
+    STATIC_CHECK(success);
   }
 }

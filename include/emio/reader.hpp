@@ -324,7 +324,8 @@ class reader {
     return err::invalid_data;
   }
 
- private:
+// private:
+
   // Helper function since GCC and Clang complain about "member initializer for '...' needed within definition of
   // enclosing class". Which is a bug.
   [[nodiscard]] static constexpr read_until_options default_read_until_options() noexcept {

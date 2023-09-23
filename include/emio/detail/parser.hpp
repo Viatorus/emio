@@ -55,50 +55,33 @@ class parser_base {
   virtual constexpr ~parser_base() = default;
 
   constexpr result<void> parse(uint8_t& arg_nbr) noexcept {
-    while (true) {
-      {  // Read until maybe first replacement field/escape sequence.
-        const result<std::string_view> res = read_until(format_rdr_);
-        if (res == err::eof) {
-          return success;
-        }
-        EMIO_TRYV(process(res.assume_value()));
-      }
-      result<char> res = format_rdr_.read_char();
-      if (res == err::eof) {
-        return success;
-      }
-      if (!res) {
-        return res;
-      }
-      char c = res.assume_value();
+    const char*& it = format_rdr_.it_;
+    const char* const end = format_rdr_.end_;
+    while (it != end) {
+      char c = *it++;
       if (c == '{') {
-        EMIO_TRY(c, format_rdr_.peek());  // If failed: Incorrect escaped {.
-        if (c != '{') {
+        if (it == end) {
+          return emio::err::invalid_format;
+        }
+        if (*it == '{') {
+          ++it;
+        } else {
           return parse_replacement_field(arg_nbr);
         }
-        format_rdr_.pop();
       } else if (c == '}') {
-        EMIO_TRY(c, format_rdr_.peek());
-        if (c != '}') {
-          // Not escaped }.
+        if (it == end || *it != '}') {
           return err::invalid_format;
         }
-        format_rdr_.pop();
+        ++it;
       }
-      EMIO_TRYV(process(c));
     }
+    return success;
   }
 
  protected:
-  virtual constexpr result<void> process(const std::string_view& str) noexcept = 0;
-
   reader& format_rdr_;
 
  private:
-  constexpr result<void> process(char c) noexcept {
-    return process(std::string_view{&c, 1});
-  }
-
   constexpr result<void> parse_replacement_field(uint8_t& arg_nbr) noexcept {
     EMIO_TRYV(parse_field_name(arg_nbr));
 
@@ -150,30 +133,28 @@ class parser_base<input_validation::disabled> {
   virtual constexpr ~parser_base() = default;
 
   constexpr result<void> parse(uint8_t& arg_nbr) noexcept {
-    while (true) {
-      {  // Read until maybe first replacement field/escape sequence.
-        const result<std::string_view> res = read_until(format_rdr_);
-        if (res == err::eof) {
-          return success;
-        }
-        EMIO_TRYV(process(res.assume_value()));
-      }
-      result<char> res = format_rdr_.read_char();
-      if (res == err::eof) {
-        return success;
-      }
-      char c = res.assume_value();
+    const char*& it = format_rdr_.it_;
+    const char* begin = it;
+    const char* const end = format_rdr_.end_;
+    while (it != end) {
+      char c = *it++;
       if (c == '{') {
-        c = format_rdr_.peek().assume_value();
-        if (c != '{') {
+        if (*it == '{') {
+          EMIO_TRYV(process(std::string_view{begin, it}));
+          begin = ++it;
+        } else {
+          EMIO_TRYV(process(std::string_view{begin, it - 1}));
           return parse_replacement_field(arg_nbr);
         }
-        format_rdr_.pop();
       } else if (c == '}') {
-        format_rdr_.pop();
+        EMIO_TRYV(process(std::string_view{begin, it}));
+        begin = ++it;
       }
-      EMIO_TRYV(process(c));
     }
+    if (begin != it) {
+      EMIO_TRYV(process(std::string_view{begin, it}));
+    }
+    return success;
   }
 
  protected:
@@ -182,10 +163,6 @@ class parser_base<input_validation::disabled> {
   reader& format_rdr_;
 
  private:
-  constexpr result<void> process(char c) noexcept {
-    return process(std::string_view{&c, 1});
-  }
-
   constexpr result<void> parse_replacement_field(uint8_t& arg_nbr) noexcept {
     parse_field_name(arg_nbr);
     const char c = format_rdr_.peek().assume_value();
