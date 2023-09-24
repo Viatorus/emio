@@ -21,6 +21,10 @@ class reader;
 
 namespace detail {
 
+inline constexpr const char*& get_it(reader& rdr) noexcept;
+
+inline constexpr const char* get_end(reader& rdr) noexcept;
+
 inline constexpr result<bool> parse_sign(reader& in) noexcept;
 
 template <typename T>
@@ -282,9 +286,10 @@ class reader {
    */
   template <typename Predicate>
     requires(std::is_invocable_r_v<bool, Predicate, char>)
-  constexpr result<std::string_view>
-  read_until(Predicate&& predicate, const read_until_options& options = default_read_until_options()) noexcept(
-      std::is_nothrow_invocable_r_v<bool, Predicate, char>) {
+  constexpr result<std::string_view> read_until(
+      Predicate&& predicate,
+      const read_until_options& options =
+          default_read_until_options()) noexcept(std::is_nothrow_invocable_r_v<bool, Predicate, char>) {
     //    const std::string_view sv = view_remaining();
     //    const char* begin = sv.data();
     //    const char* end = sv.data() + sv.size();
@@ -324,7 +329,9 @@ class reader {
     return err::invalid_data;
   }
 
-// private:
+ private:
+  friend constexpr const char*& detail::get_it(reader&) noexcept;
+  friend constexpr const char* detail::get_end(reader&) noexcept;
 
   // Helper function since GCC and Clang complain about "member initializer for '...' needed within definition of
   // enclosing class". Which is a bug.
@@ -368,6 +375,14 @@ class reader {
 };
 
 namespace detail {
+
+inline constexpr const char*& get_it(reader& rdr) noexcept {
+  return rdr.it_;
+}
+
+inline constexpr const char* get_end(reader& rdr) noexcept {
+  return rdr.end_;
+}
 
 inline constexpr result<bool> parse_sign(reader& in) noexcept {
   bool is_negative = false;

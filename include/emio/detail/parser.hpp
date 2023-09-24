@@ -55,10 +55,10 @@ class parser_base {
   virtual constexpr ~parser_base() = default;
 
   constexpr result<void> parse(uint8_t& arg_nbr) noexcept {
-    const char*& it = format_rdr_.it_;
-    const char* const end = format_rdr_.end_;
+    const char*& it = get_it(format_rdr_);
+    const char* const end = get_end(format_rdr_);
     while (it != end) {
-      char c = *it++;
+      const char c = *it++;
       if (c == '{') {
         if (it == end) {
           return emio::err::invalid_format;
@@ -133,22 +133,28 @@ class parser_base<input_validation::disabled> {
   virtual constexpr ~parser_base() = default;
 
   constexpr result<void> parse(uint8_t& arg_nbr) noexcept {
-    const char*& it = format_rdr_.it_;
+    const char*& it = get_it(format_rdr_);
+    const char* const end = get_end(format_rdr_);
     const char* begin = it;
-    const char* const end = format_rdr_.end_;
     while (it != end) {
-      char c = *it++;
+      const char c = *it++;
       if (c == '{') {
         if (*it == '{') {
-          EMIO_TRYV(process(std::string_view{begin, it}));
-          begin = ++it;
+          if (begin != it) {
+            EMIO_TRYV(process(std::string_view{begin, it}));
+            begin = ++it;
+          }
         } else {
-          EMIO_TRYV(process(std::string_view{begin, it - 1}));
+          if (begin != (it - 1)) {
+            EMIO_TRYV(process(std::string_view{begin, it - 1}));
+          }
           return parse_replacement_field(arg_nbr);
         }
       } else if (c == '}') {
-        EMIO_TRYV(process(std::string_view{begin, it}));
-        begin = ++it;
+        if (begin != it) {
+          EMIO_TRYV(process(std::string_view{begin, it}));
+          begin = ++it;
+        }
       }
     }
     if (begin != it) {
