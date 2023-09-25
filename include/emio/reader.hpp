@@ -59,15 +59,17 @@ class reader {
    * @param input The char sequence.
    */
   template <typename Arg>
-    requires(std::is_constructible_v<std::string_view, Arg> && !std::is_same_v<std::decay_t<Arg>, std::string_view>)
+    requires(std::is_constructible_v<std::string_view, Arg> && !std::is_same_v<Arg, std::string_view>)
   // NOLINTNEXTLINE(bugprone-forwarding-reference-overload): Is guarded by require clause.
-  constexpr explicit(!std::is_convertible_v<Arg, std::string_view>) reader(Arg&& input) noexcept
+  constexpr explicit reader(Arg&& input) noexcept
       : reader{std::string_view{input}} {}
 
-  template <typename T>
-    requires(std::is_same_v<std::string_view, T>)
-  // NOLINTNEXTLINE(bugprone-forwarding-reference-overload): Is guarded by require clause.
-  constexpr explicit reader(const T& input) noexcept : begin_{input.begin()}, it_{input.begin()}, end_{input.end()} {}
+  /**
+   * Constructs the reader from a string view.
+   * @param sv The string view.
+   */
+  constexpr explicit reader(const std::string_view& sv) noexcept
+      : begin_{sv.begin()}, it_{begin_}, end_{sv.end()} {}
 
   /**
    * Returns the current read position.
@@ -199,13 +201,13 @@ class reader {
     requires(std::is_integral_v<T>)
   constexpr result<T> parse_int(const int base = 10) noexcept {
     // Store current read position.
-    const char* const backup_pos = it_;
+    const char* const backup_it = it_;
 
     // Reduce code generation by upcasting the integer.
     using upcasted_t = detail::upcasted_int_t<T>;
     const result<upcasted_t> res = parse_sign_and_int<upcasted_t>(base);
     if (!res) {
-      it_ = backup_pos;
+      it_ = backup_it;
       return res.assume_error();
     }
     if constexpr (std::is_same_v<upcasted_t, T>) {
@@ -214,7 +216,7 @@ class reader {
       // Check if upcast int is within the integer type range.
       const upcasted_t val = res.assume_value();
       if (val < std::numeric_limits<T>::min() || val > std::numeric_limits<T>::max()) {
-        it_ = backup_pos;
+        it_ = backup_it;
         return err::out_of_range;
       }
       return static_cast<T>(val);
@@ -249,7 +251,7 @@ class reader {
    * @return invalid_data if the delimiter hasn't been found and ignore_eof is set to true or EOF if the stream is
    * empty.
    */
-  constexpr result<std::string_view> read_until_str(const std::string_view delimiter,
+  constexpr result<std::string_view> read_until_str(const std::string_view& delimiter,
                                                     const read_until_options& options = default_read_until_options()) {
     return read_until_pos(view_remaining().find(delimiter), options, delimiter.size());
   }
@@ -261,7 +263,7 @@ class reader {
    * @return invalid_data if no char has been found and ignore_eof is set to True or EOF if the stream is empty.
    */
   constexpr result<std::string_view> read_until_any_of(
-      const std::string_view group, const read_until_options& options = default_read_until_options()) noexcept {
+      const std::string_view& group, const read_until_options& options = default_read_until_options()) noexcept {
     return read_until_pos(view_remaining().find_first_of(group), options);
   }
 
@@ -273,7 +275,7 @@ class reader {
    * is empty.
    */
   constexpr result<std::string_view> read_until_none_of(
-      const std::string_view group, const read_until_options& options = default_read_until_options()) noexcept {
+      const std::string_view& group, const read_until_options& options = default_read_until_options()) noexcept {
     return read_until_pos(view_remaining().find_first_not_of(group), options);
   }
 
@@ -286,10 +288,9 @@ class reader {
    */
   template <typename Predicate>
     requires(std::is_invocable_r_v<bool, Predicate, char>)
-  constexpr result<std::string_view> read_until(
-      Predicate&& predicate,
-      const read_until_options& options =
-          default_read_until_options()) noexcept(std::is_nothrow_invocable_r_v<bool, Predicate, char>) {
+  constexpr result<std::string_view>
+  read_until(Predicate&& predicate, const read_until_options& options = default_read_until_options()) noexcept(
+      std::is_nothrow_invocable_r_v<bool, Predicate, char>) {
     return read_until_match(std::find_if(it_, end_, predicate), options);
   }
 
@@ -315,13 +316,13 @@ class reader {
    * @return invalid_data if the chars don't match or EOF if the end of the stream has been reached.
    */
   constexpr result<std::string_view> read_if_match_str(const std::string_view& sv) noexcept {
-    const size_t num = sv.size();
-    if (num > static_cast<size_t>(end_ - it_)) {
+    const size_t n = sv.size();
+    if (static_cast<size_t>(end_ - it_) < n) {
       return err::eof;
     }
-    if (memcmp(it_, sv.begin(), num) == 0) {
-      const std::string_view res{it_, num};
-      it_ += num;
+    if (memcmp(it_, sv.begin(), n) == 0) {
+      const std::string_view res{it_, n};
+      it_ += n;
       return res;
     }
     return err::invalid_data;
