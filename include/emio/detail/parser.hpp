@@ -121,6 +121,7 @@ class parser_base<input_validation::disabled> {
     while (it != end) {
       const char c = *it++;
       if (c == '{') {
+        EMIO_Z_DEV_ASSERT(it != end);
         if (*it == '{') {
           if (begin != it) {
             EMIO_TRYV(process(std::string_view{begin, it}));
@@ -133,6 +134,7 @@ class parser_base<input_validation::disabled> {
           return parse_replacement_field(arg_nbr);
         }
       } else if (c == '}') {
+        EMIO_Z_DEV_ASSERT(it != end);
         if (begin != it) {
           EMIO_TRYV(process(std::string_view{begin, it}));
           begin = ++it;

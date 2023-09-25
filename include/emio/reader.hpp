@@ -320,7 +320,7 @@ class reader {
     if (static_cast<size_t>(end_ - it_) < n) {
       return err::eof;
     }
-    if (memcmp(it_, sv.begin(), n) == 0) {
+    if (detail::equal_n(it_, sv.begin(), n)) {
       const std::string_view res{it_, n};
       it_ += n;
       return res;
