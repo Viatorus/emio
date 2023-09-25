@@ -61,15 +61,13 @@ class reader {
   template <typename Arg>
     requires(std::is_constructible_v<std::string_view, Arg> && !std::is_same_v<Arg, std::string_view>)
   // NOLINTNEXTLINE(bugprone-forwarding-reference-overload): Is guarded by require clause.
-  constexpr explicit reader(Arg&& input) noexcept
-      : reader{std::string_view{input}} {}
+  constexpr explicit reader(Arg&& input) noexcept : reader{std::string_view{input}} {}
 
   /**
    * Constructs the reader from a string view.
    * @param sv The string view.
    */
-  constexpr explicit reader(const std::string_view& sv) noexcept
-      : begin_{sv.begin()}, it_{begin_}, end_{sv.end()} {}
+  constexpr explicit reader(const std::string_view& sv) noexcept : begin_{sv.begin()}, it_{begin_}, end_{sv.end()} {}
 
   /**
    * Returns the current read position.
@@ -127,8 +125,9 @@ class reader {
   }
 
   /**
-   * Makes the most recently extracted char available again.
+   * Makes one (default) or n chars available again to read.
    * @note Does never underflow.
+   * @param cnt The number of chars to unpop.
    */
   constexpr void unpop(const size_t cnt = 1) noexcept {
     if (static_cast<size_t>(it_ - begin_) >= cnt) {
@@ -146,7 +145,7 @@ class reader {
    * @return EOF if the position is outside the char sequence.
    */
   constexpr result<reader> subreader(const size_t pos, const size_t len = npos) const noexcept {
-    const char* next_it = it_ + pos;
+    const char* const next_it = it_ + pos;
     if (next_it > end_) {
       return err::eof;
     }
@@ -288,9 +287,10 @@ class reader {
    */
   template <typename Predicate>
     requires(std::is_invocable_r_v<bool, Predicate, char>)
-  constexpr result<std::string_view>
-  read_until(Predicate&& predicate, const read_until_options& options = default_read_until_options()) noexcept(
-      std::is_nothrow_invocable_r_v<bool, Predicate, char>) {
+  constexpr result<std::string_view> read_until(
+      Predicate&& predicate,
+      const read_until_options& options =
+          default_read_until_options()) noexcept(std::is_nothrow_invocable_r_v<bool, Predicate, char>) {
     return read_until_match(std::find_if(it_, end_, predicate), options);
   }
 
