@@ -303,4 +303,25 @@ constexpr char* copy_n(const char* in, Size count, char* out) noexcept {
   }
 }
 
+[[nodiscard]] inline constexpr bool equal_n(const char* a, const char* b, const size_t n) {
+  if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
+    for (size_t i = 0; i < n; i++) {
+      if (a[i] != b[i]) {
+        return false;
+      }
+    }
+    return true;
+  } else {
+    return std::memcmp(a, b, n) == 0;
+  }
+}
+
+using namespace std::string_view_literals;
+
+// Helper function to construct string literals directly as string_view during compilation if string_view_literal
+// operator "" sv is not available.
+inline consteval std::string_view sv(std::string_view sv) noexcept {
+  return sv;
+}
+
 }  // namespace emio::detail

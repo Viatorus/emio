@@ -22,8 +22,8 @@ class format_parser final : public parser<format_parser, input_validation::disab
   format_parser& operator=(format_parser&&) = delete;
   constexpr ~format_parser() noexcept override;  // NOLINT(performance-trivially-destructible): See definition.
 
-  constexpr result<void> process(char c) noexcept override {
-    return out_.write_char(c);
+  constexpr result<void> process(const std::string_view& str) noexcept override {
+    return out_.write_str(str);
   }
 
   result<void> process_arg(const format_arg& arg) noexcept {
@@ -58,10 +58,6 @@ class format_specs_checker final : public parser<format_specs_checker, input_val
   format_specs_checker& operator=(const format_specs_checker& other) = delete;
   format_specs_checker& operator=(format_specs_checker&& other) = delete;
   constexpr ~format_specs_checker() noexcept override;  // NOLINT(performance-trivially-destructible): See definition.
-
-  constexpr result<void> process(char /*c*/) noexcept override {
-    return success;
-  }
 
   result<void> process_arg(const format_validation_arg& arg) noexcept {
     return arg.validate(this->format_rdr_);

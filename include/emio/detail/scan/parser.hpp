@@ -22,8 +22,8 @@ class scan_parser final : public parser<scan_parser, input_validation::disabled>
   scan_parser& operator=(scan_parser&&) = delete;
   constexpr ~scan_parser() noexcept override;  // NOLINT(performance-trivially-destructible): See definition.
 
-  constexpr result<void> process(const char c) noexcept override {
-    return in_.read_if_match_char(c);
+  constexpr result<void> process(const std::string_view& str) noexcept override {
+    return in_.read_if_match_str(str);
   }
 
   result<void> process_arg(const scan_arg& arg) noexcept {
@@ -58,10 +58,6 @@ class scan_specs_checker final : public parser<scan_specs_checker, input_validat
   scan_specs_checker& operator=(const scan_specs_checker& other) = delete;
   scan_specs_checker& operator=(scan_specs_checker&& other) = delete;
   constexpr ~scan_specs_checker() noexcept override;  // NOLINT(performance-trivially-destructible): See definition.
-
-  constexpr result<void> process(char /*c*/) noexcept override {
-    return success;
-  }
 
   result<void> process_arg(const scan_validation_arg& arg) noexcept {
     return arg.validate(this->format_rdr_);
