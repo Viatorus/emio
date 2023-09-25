@@ -24,24 +24,6 @@ enum class input_validation { enabled, disabled };
 
 inline constexpr uint8_t no_more_args = std::numeric_limits<uint8_t>::max();
 
-inline constexpr result<std::string_view> read_until(reader& format_rdr) noexcept {
-  const std::string_view sv = format_rdr.view_remaining();
-  const char* it = sv.begin();
-  const char* const begin = it;
-  const char* end = sv.end();
-  if (it == end) {
-    return err::eof;
-  }
-  while (it != end) {
-    if (*it == '{' || *it == '}') {
-      break;
-    }
-    it += 1;
-  }
-  format_rdr.pop(static_cast<size_t>(it - begin));
-  return std::string_view{begin, it};
-}
-
 template <input_validation>
 class parser_base {
  public:
