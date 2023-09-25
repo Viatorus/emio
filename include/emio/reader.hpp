@@ -330,8 +330,8 @@ class reader {
   }
 
  private:
-  friend constexpr const char*& detail::get_it(reader&) noexcept;
-  friend constexpr const char* detail::get_end(reader&) noexcept;
+  friend constexpr const char*& detail::get_it(reader& rdr) noexcept;
+  friend constexpr const char* detail::get_end(reader& rdr) noexcept;
 
   // Helper function since GCC and Clang complain about "member initializer for '...' needed within definition of
   // enclosing class". Which is a bug.
