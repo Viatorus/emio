@@ -7,7 +7,7 @@
 #pragma once
 
 #include <algorithm>
-#include <string>
+#include <cstring>
 #include <string_view>
 #include <type_traits>
 
@@ -239,7 +239,7 @@ class reader {
    */
   constexpr result<std::string_view> read_until_char(
       const char delimiter, const read_until_options& options = default_read_until_options()) noexcept {
-    return read_until_pos(view_remaining().find(delimiter), options);
+    return read_until_match(std::find(it_, end_, delimiter), options);
   }
 
   /**
@@ -290,12 +290,7 @@ class reader {
       Predicate&& predicate,
       const read_until_options& options =
           default_read_until_options()) noexcept(std::is_nothrow_invocable_r_v<bool, Predicate, char>) {
-    //    const std::string_view sv = view_remaining();
-    //    const char* begin = sv.data();
-    //    const char* end = sv.data() + sv.size();
-    const char* it = std::find_if(it_, end_, predicate);
-    const intptr_t pos = (it != end_) ? std::distance(it_, it) : 0;
-    return read_until_pos(static_cast<size_t>(pos), options);
+    return read_until_match(std::find_if(it_, end_, predicate), options);
   }
 
   /**
@@ -304,12 +299,14 @@ class reader {
    * @return invalid_data if the chars don't match or EOF if the end of the stream has been reached.
    */
   constexpr result<char> read_if_match_char(const char c) noexcept {
-    EMIO_TRY(const char p, peek());
-    if (p == c) {
-      pop();
-      return c;
+    if (it_ != end_) {
+      if (*it_ == c) {
+        ++it_;
+        return c;
+      }
+      return err::invalid_data;
     }
-    return err::invalid_data;
+    return err::eof;
   }
 
   /**
@@ -317,14 +314,15 @@ class reader {
    * @param sv The expected char sequence.
    * @return invalid_data if the chars don't match or EOF if the end of the stream has been reached.
    */
-  constexpr result<std::string_view> read_if_match_str(const std::string_view sv) noexcept {
-    const std::string_view remaining = view_remaining();
-    if (remaining.size() < sv.size()) {
+  constexpr result<std::string_view> read_if_match_str(const std::string_view& sv) noexcept {
+    const size_t num = sv.size();
+    if (num > static_cast<size_t>(end_ - it_)) {
       return err::eof;
     }
-    if (remaining.starts_with(sv)) {
-      pop(sv.size());
-      return detail::unchecked_substr(remaining, 0, sv.size());
+    if (memcmp(it_, sv.begin(), num) == 0) {
+      const std::string_view res{it_, num};
+      it_ += num;
+      return res;
     }
     return err::invalid_data;
   }
@@ -347,26 +345,34 @@ class reader {
 
   constexpr result<std::string_view> read_until_pos(size_t pos, const read_until_options& options,
                                                     const size_type delimiter_size = 1) noexcept {
-    const std::string_view remaining = view_remaining();
-    if (remaining.empty()) {
+    const char* match = end_;
+    if (pos != npos) {
+      match = it_ + pos;
+    }
+    return read_until_match(match, options, delimiter_size);
+  }
+
+  constexpr result<std::string_view> read_until_match(const char* match, const read_until_options& options,
+                                                      const size_type delimiter_size = 1) noexcept {
+    if (it_ == end_) {
       return err::eof;
     }
-    if (pos != npos) {
-      if (!options.keep_delimiter) {
-        pop(pos + delimiter_size);
-      } else {
-        pop(pos);
+    const char* const begin = it_;
+    if (match == end_) {
+      if (!options.ignore_eof) {
+        it_ = end_;
+        return std::string_view{begin, end_};
       }
-      if (options.include_delimiter) {
-        pos += delimiter_size;
-      }
-      return detail::unchecked_substr(remaining, 0, pos);
+      return err::invalid_data;
     }
-    if (!options.ignore_eof) {
-      pop(remaining.size());
-      return remaining;
+    it_ = match;
+    if (!options.keep_delimiter) {
+      it_ += delimiter_size;
     }
-    return err::invalid_data;
+    if (options.include_delimiter) {
+      match += delimiter_size;
+    }
+    return std::string_view{begin, match};
   }
 
   const char* begin_{};
