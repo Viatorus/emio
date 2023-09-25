@@ -270,6 +270,8 @@ constexpr char* write_number(T abs_number, const int base, const bool upper, cha
   return next;
 }
 
+inline constexpr size_t npos = std::string_view::npos;
+
 constexpr std::string_view unchecked_substr(const std::string_view& str, size_t pos, size_t n = npos) noexcept {
   const size_t rlen = std::min(n, str.length() - pos);
   return {str.data() + pos, rlen};
