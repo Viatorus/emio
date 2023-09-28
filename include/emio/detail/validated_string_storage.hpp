@@ -29,14 +29,13 @@ class validated_string_storage {
     validated_string_storage storage{};
     if constexpr (sizeof...(Args) == 0) {
       if (check_if_plain_string(s)) {
-        storage.is_plain_str_ = true;
-        storage.str_ = s;
+        storage.str_ = {true, s};
       } else if (Trait::template validate_string<Args...>(s)) {
-        storage.str_ = s;
+        storage.str_ = {false, s};
       }
     } else {
       if (Trait::template validate_string<Args...>(s)) {
-        storage.str_ = s;
+        storage.str_ = {false, s};
       }
     }
     return storage;
@@ -45,19 +44,19 @@ class validated_string_storage {
   constexpr validated_string_storage() noexcept = default;
 
   /**
-   * Returns the validated format/scan string.
-   * @return The view or invalid_format if the validation failed.
-   */
-  constexpr result<std::string_view> get() const noexcept {
-    return str_;
-  }
-
-  /**
    * Returns if it is just a plain string.
    * @return True, if the string does not contain any escape sequences or replacement fields, otherwise false.
    */
   [[nodiscard]] constexpr bool is_plain_str() const noexcept {
-    return is_plain_str_;
+    return str_.first;
+  }
+
+  /**
+   * Returns the validated format/scan string.
+   * @return The view or invalid_format if the validation failed.
+   */
+  constexpr result<std::string_view> get() const noexcept {
+    return str_.second;
   }
 
  protected:
@@ -68,8 +67,8 @@ class validated_string_storage {
       : validated_string_storage{other} {}
 
  private:
-  bool is_plain_str_{false};
-  result<std::string_view> str_{err::invalid_format};  ///< Validated string.
+  // Wonder why pair and not two variables? Look at this bug report: https://github.com/llvm/llvm-project/issues/67731
+  std::pair<bool, result<std::string_view>> str_{false, err::invalid_format};
 };
 
 }  // namespace emio::detail
