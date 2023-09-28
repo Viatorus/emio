@@ -23,7 +23,7 @@ TEST_CASE("allowed types for format string", "[format_string]") {
   // Expected: Constexpr, runtime and precompiled format string work, the results are the same.
 
   SECTION("format") {
-    auto str = emio::format(format_str, 42, 'x', "hello"sv).value();
+    std::string str = emio::format(format_str, 42, 'x', "hello"sv);
     CHECK(str == expected_str);
 
     return;

@@ -30,10 +30,13 @@ class validated_string_storage {
       if (check_if_plain_string(s)) {
         storage.is_plain_str_ = true;
         storage.str_ = s;
+      } else if (Trait::template validate_string<Args...>(s)) {
+        storage.str_ = s;
       }
-    }
-    if (!storage.is_plain_str_ && Trait::template validate_string<Args...>(s)) {
-      storage.str_ = s;
+    } else {
+      if (Trait::template validate_string<Args...>(s)) {
+        storage.str_ = s;
+      }
     }
     return storage;
   }
