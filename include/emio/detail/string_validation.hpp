@@ -8,7 +8,7 @@
 
 #include <string_view>
 #include <type_traits>
-
+#include "validated_string.hpp"
 #include "parser.hpp"
 
 namespace emio {
@@ -59,7 +59,7 @@ class valid_string;
  * @tparam Args The argument types to format.
  */
 template <typename Trait, typename... Args>
-class validated_string {
+class validated_string : public validatedstring {
  public:
   /**
    * Constructs and validates the format/scan string from any suitable char sequence at compile-time.
@@ -90,14 +90,6 @@ class validated_string {
   }
 
   /**
-   * Returns the validated format/scan string as view.
-   * @return The view or invalid_format if the validation failed.
-   */
-  constexpr result<std::string_view> get() const noexcept {
-    return str_;
-  }
-
-  /**
    * Returns format/scan string as valid one.
    * @return The valid format/scan string or invalid_format if the validation failed.
    */
@@ -109,13 +101,7 @@ class validated_string {
   }
 
  protected:
-  static constexpr struct valid_t {
-  } valid{};
-
-  constexpr explicit validated_string(valid_t /*unused*/, std::string_view s) noexcept : str_{s} {}
-
- private:
-  result<std::string_view> str_{err::invalid_format};  ///< Validated string.
+  using validatedstring::validatedstring;
 };
 
 /**
@@ -146,17 +132,14 @@ class valid_string : public validated_string<Trait, Args...> {
     if (!Trait::template validate_string<Args...>(str)) {
       return err::invalid_format;
     }
-    return valid_string{valid, str};
+    return valid_string{validatedstring::valid, str};
   }
 
  private:
   friend class validated_string<Trait, Args...>;
 
-  using valid_t = typename validated_string<Trait, Args...>::valid_t;
-  using validated_string<Trait, Args...>::valid;
-
-  constexpr explicit valid_string(valid_t /*unused*/, std::string_view s) noexcept
-      : validated_string<Trait, Args...>{valid, s} {}
+  constexpr explicit valid_string(validatedstring::valid_t /*valid*/, std::string_view s) noexcept
+      : validated_string<Trait, Args...>{validatedstring::valid, s} {}
 };
 
 }  // namespace detail

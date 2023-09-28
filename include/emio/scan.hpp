@@ -15,7 +15,7 @@ namespace emio {
  * @note This type should only be "constructed" via make_scan_args(format_str, args...) and passed directly to a
  * scanning function.
  */
-using scan_args = detail::args_span<detail::scan::scan_arg>;
+using scan_args = detail::scan::scan_args;
 
 // Alias template types.
 template <typename... Args>
@@ -38,7 +38,7 @@ using valid_format_scan_string = detail::scan::valid_format_string<Args...>;
 template <typename... Args>
 [[nodiscard]] detail::args_storage<detail::scan::scan_arg, sizeof...(Args)> make_scan_args(
     format_scan_string<Args...> format_str, Args&... args) noexcept {
-  return {format_str.get(), args...};
+  return {format_str, args...};
 }
 
 /**

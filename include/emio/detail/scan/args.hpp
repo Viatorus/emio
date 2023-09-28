@@ -43,6 +43,6 @@ using scan_validation_arg = validation_arg<scan_arg_trait>;
 
 using scan_arg = arg<reader, scan_arg_trait>;
 
-using scan_args = args_span<scan_arg>;
+using scan_args = args_span_with_str<scan_arg>;
 
 }  // namespace emio::detail::scan

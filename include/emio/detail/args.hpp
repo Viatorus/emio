@@ -6,6 +6,11 @@
 
 #pragma once
 
+#include <string_view>
+#include <type_traits>
+
+#include "validated_string.hpp"
+
 namespace emio::detail {
 
 /**
@@ -131,10 +136,7 @@ class arg {
   std::aligned_storage_t<sizeof(model_t<std::string_view>)> storage_;
 };
 
-/**
- * Format arguments just for format string validation.
- */
-template <typename T>
+template <typename Arg>
 class args_span {
  public:
   args_span(const args_span&) = delete;
@@ -143,31 +145,47 @@ class args_span {
   args_span& operator=(args_span&&) = delete;
   ~args_span() = default;
 
-  [[nodiscard]] result<std::string_view> get_str() const noexcept {
-    return format_str_;
-  }
-
-  [[nodiscard]] std::span<const T> get_args() const noexcept {
+  [[nodiscard]] std::span<const Arg> get_args() const noexcept {
     return args_;
   }
 
  protected:
-  args_span(result<std::string_view> format_str, std::span<const T> args) : format_str_{format_str}, args_{args} {}
+  args_span(std::span<const Arg> args) : args_{args} {}
 
  private:
-  result<std::string_view> format_str_;
-  std::span<const T> args_;
+  std::span<const Arg> args_;
 };
 
-/**
- * Format arguments storage just for format string validation.
- */
+template <typename Arg>
+class args_span_with_str : public args_span<Arg> {
+ public:
+  args_span_with_str(const args_span_with_str&) = delete;
+  args_span_with_str(args_span_with_str&&) = delete;
+  args_span_with_str& operator=(const args_span_with_str&) = delete;
+  args_span_with_str& operator=(args_span_with_str&&) = delete;
+  ~args_span_with_str() = default;
+
+  [[nodiscard]] result<std::string_view> get_str() const noexcept {
+    return str_.get();
+  }
+
+  [[nodiscard]] constexpr bool is_plain_str() const noexcept {
+    return str_.is_plain_str();
+  }
+
+ protected:
+  args_span_with_str(const validatedstring& str, std::span<const Arg> args) : args_span<Arg>(args), str_{str} {}
+
+ private:
+  const validatedstring& str_;
+};
+
 template <typename Arg, size_t NbrOfArgs>
-class args_storage : public args_span<Arg> {
+class args_storage : public args_span_with_str<Arg> {
  public:
   template <typename... Args>
-  args_storage(result<std::string_view> str, Args&&... args) noexcept
-      : args_span<Arg>{str, args_storage_}, args_storage_{Arg{std::forward<Args>(args)}...} {}
+  args_storage(const validatedstring& str, Args&&... args) noexcept
+      : args_span_with_str<Arg>{str, args_storage_}, args_storage_{Arg{std::forward<Args>(args)}...} {}
 
   args_storage(const args_storage&) = delete;
   args_storage(args_storage&&) = delete;
@@ -179,9 +197,26 @@ class args_storage : public args_span<Arg> {
   std::array<Arg, NbrOfArgs> args_storage_;
 };
 
+template <typename Arg, size_t NbrOfArgs>
+class validation_args_storage : public args_span<Arg> {
+ public:
+  template <typename... Args>
+  validation_args_storage(Args&&... args) noexcept
+      : args_span<Arg>{args_storage_}, args_storage_{Arg{std::forward<Args>(args)}...} {}
+
+  validation_args_storage(const validation_args_storage&) = delete;
+  validation_args_storage(validation_args_storage&&) = delete;
+  validation_args_storage& operator=(const validation_args_storage&) = delete;
+  validation_args_storage& operator=(validation_args_storage&&) = delete;
+  ~validation_args_storage() = default;
+
+ private:
+  std::array<Arg, NbrOfArgs> args_storage_;
+};
+
 template <typename T, typename... Args>
-args_storage<T, sizeof...(Args)> make_validation_args(std::string_view format_str) noexcept {
-  return {format_str, std::type_identity<Args>{}...};
+validation_args_storage<T, sizeof...(Args)> make_validation_args() noexcept {
+  return {std::type_identity<Args>{}...};
 }
 
 }  // namespace emio::detail

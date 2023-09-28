@@ -41,7 +41,7 @@ using valid_format_string = detail::format::valid_format_string<Args...>;
 template <typename... Args>
 [[nodiscard]] detail::args_storage<detail::format::format_arg, sizeof...(Args)> make_format_args(
     format_string<Args...> format_str, const Args&... args) noexcept {
-  return {format_str.get(), args...};
+  return {format_str, args...};
 }
 
 /**
