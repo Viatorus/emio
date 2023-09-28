@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <span>
 #include <string_view>
 #include <type_traits>
 
@@ -185,6 +186,7 @@ template <typename Arg, size_t NbrOfArgs>
 class args_storage : public args_span_with_str<Arg> {
  public:
   template <typename... Args>
+  // NOLINTNEXTLINE(modernize-pass-by-value): false-positive since no dynamic allocation takes place
   args_storage(const validated_string_storage& str, Args&&... args) noexcept
       : args_span_with_str<Arg>{str, args_storage_}, args_storage_{Arg{std::forward<Args>(args)}...} {}
 

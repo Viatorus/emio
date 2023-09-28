@@ -26,19 +26,15 @@ class validated_string_storage {
  public:
   template <typename Trait, typename... Args>
   static constexpr validated_string_storage from(const std::string_view& s) noexcept {
-    validated_string_storage storage{};
     if constexpr (sizeof...(Args) == 0) {
       if (check_if_plain_string(s)) {
-        storage.str_ = {true, s};
-      } else if (Trait::template validate_string<Args...>(s)) {
-        storage.str_ = {false, s};
-      }
-    } else {
-      if (Trait::template validate_string<Args...>(s)) {
-        storage.str_ = {false, s};
+        return {{true, s}};
       }
     }
-    return storage;
+    if (Trait::template validate_string<Args...>(s)) {
+      return {{false, s}};
+    }
+    return {};
   }
 
   constexpr validated_string_storage() noexcept = default;
@@ -63,10 +59,13 @@ class validated_string_storage {
   static constexpr struct valid_t {
   } valid{};
 
+  // NOLINTNEXTLINE(modernize-pass-by-value): false-positive since no dynamic allocation takes place
   constexpr explicit validated_string_storage(valid_t /*unused*/, const validated_string_storage& other) noexcept
       : validated_string_storage{other} {}
 
  private:
+  constexpr validated_string_storage(const std::pair<bool, result<std::string_view>>& str) noexcept : str_{str} {}
+
   // Wonder why pair and not two variables? Look at this bug report: https://github.com/llvm/llvm-project/issues/67731
   std::pair<bool, result<std::string_view>> str_{false, err::invalid_format};
 };

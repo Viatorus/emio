@@ -26,8 +26,6 @@ TEST_CASE("allowed types for format string", "[format_string]") {
     std::string str = emio::format(format_str, 42, 'x', "hello"sv);
     CHECK(str == expected_str);
 
-    return;
-
     emio::result<std::string> res = emio::format(emio::runtime(format_str), 42, 'x', "hello"sv);
     CHECK(res == expected_str);
 
