@@ -8,7 +8,7 @@
 
 #include "../../reader.hpp"
 #include "../../writer.hpp"
-#include "../string_validation.hpp"
+#include "../validated_string.hpp"
 #include "args.hpp"
 #include "parser.hpp"
 

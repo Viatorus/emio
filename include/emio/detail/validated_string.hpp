@@ -7,34 +7,148 @@
 #pragma once
 
 #include <string_view>
+#include <type_traits>
 
-#include "../result.hpp"
+#include "parser.hpp"
+#include "validated_string_storage.hpp"
 
 namespace emio {
 
-class validatedstring {
+namespace detail {
+
+/**
+ * This class represents a not yet validated format/scan string, which has to be validated at runtime.
+ */
+class runtime_string {
  public:
-  constexpr validatedstring() {}
+  /**
+   * Constructs an empty runtime format/scan string.
+   */
+  constexpr runtime_string() = default;
+
+  // Don't allow temporary strings or any nullptr.
+  constexpr runtime_string(std::string&&) = delete;
+  constexpr runtime_string(std::nullptr_t) = delete;
+  constexpr runtime_string(int) = delete;
 
   /**
-   * Returns the validated format/scan string as view.
-   * @return The view or invalid_format if the validation failed.
+   * Constructs the runtime format/scan string from any suitable char sequence.
+   * @param str The char sequence.
    */
-  constexpr result<std::string_view> get() const noexcept {
+  template <typename S>
+    requires(std::is_constructible_v<std::string_view, S>)
+  constexpr explicit runtime_string(const S& str) : str_{str} {}
+
+  /**
+   * Obtains a view over the runtime format/scan string.
+   * @return The view.
+   */
+  [[nodiscard]] constexpr std::string_view get() const noexcept {
     return str_;
   }
 
-  [[nodiscard]] constexpr bool is_plain_str() const noexcept {
-    return false;
+ private:
+  std::string_view str_;
+};
+
+template <typename Trait, typename... Args>
+class valid_string;
+
+/**
+ * This class represents a validated format/scan string. The format/scan string is either valid or not.
+ * @note The validation happens at object construction.
+ * @tparam Args The argument types to format.
+ */
+template <typename Trait, typename... Args>
+class validated_string : public validated_string_storage {
+ public:
+  /**
+   * Constructs and validates the format/scan string from any suitable char sequence at compile-time.
+   * @note Terminates compilation if format/scan string is invalid.
+   * @param s The char sequence.
+   */
+  template <typename S>
+    requires(std::is_constructible_v<std::string_view, S>)
+  consteval validated_string(const S& s) noexcept
+      : validated_string_storage{validated_string_storage::from<Trait, Args...>(s)} {
+    if (get().has_error()) {
+      std::terminate();
+    }
+  }
+
+  /**
+   * Constructs and validates a runtime format/scan string at runtime.
+   * @param s The runtime format/scan string.
+   */
+  constexpr validated_string(const runtime_string& s) noexcept
+      : validated_string_storage{validated_string_storage::from<Trait, Args...>(s.get())} {}
+
+  /**
+   * Returns format/scan string as valid one.
+   * @return The valid format/scan string or invalid_format if the validation failed.
+   */
+  constexpr result<valid_string<Trait, Args...>> as_valid() const noexcept {
+    if (get().has_value()) {
+      return valid_string<Trait, Args...>{valid, *this};
+    }
+    return err::invalid_format;
   }
 
  protected:
-  static constexpr struct valid_t {
-  } valid{};
-
-  constexpr explicit validatedstring(valid_t /*unused*/, std::string_view s) noexcept : str_{s} {}
-
-  result<std::string_view> str_{err::invalid_format};  ///< Validated string.
+  using validated_string_storage::validated_string_storage;
 };
+
+/**
+ * This class represents a validated format/scan string. The format/scan string can only be valid.
+ * @tparam Args The argument types to format.
+ */
+template <typename Trait, typename... Args>
+class valid_string : public validated_string<Trait, Args...> {
+ public:
+  /**
+   * Constructs and validates a format/scan string at runtime.
+   * @param s The format/scan string.
+   * @return The valid format/scan string or invalid_format if the validation failed.
+   */
+  template <typename S>
+    requires(std::is_constructible_v<std::string_view, S>)
+  static constexpr result<valid_string<Trait, Args...>> from(const S& s) noexcept {
+    validated_string_storage storage = validated_string_storage::from<Trait, Args...>(s);
+    if (storage.get().has_value()) {
+      return valid_string{validated_string_storage::valid, storage};
+    }
+    return err::invalid_format;
+  }
+
+  /**
+   * Constructs and validates the format/scan string from any suitable char sequence at compile-time.
+   * @note Terminates compilation if format/scan string is invalid.
+   * @param s The char sequence.
+   */
+  template <typename S>
+    requires(std::is_constructible_v<std::string_view, S>)
+  consteval valid_string(const S& s) noexcept : validated_string<Trait, Args...>{s} {}
+
+ private:
+  friend class validated_string<Trait, Args...>;
+
+  constexpr explicit valid_string(validated_string_storage::valid_t /*valid*/,
+                                  const validated_string_storage& str) noexcept
+      : validated_string<Trait, Args...>{validated_string_storage::valid, str} {}
+};
+
+}  // namespace detail
+
+// Alias template types.
+using runtime_string = detail::runtime_string;
+
+/**
+ * @brief Constructs a runtime string from a given format/scan string.
+ * @param s The format/scan string.
+ * @return The runtime string.
+ */
+inline constexpr runtime_string runtime(const std::string_view& s) noexcept {
+  return runtime_string{s};
+}
 
 }  // namespace emio

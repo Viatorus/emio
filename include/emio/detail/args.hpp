@@ -9,7 +9,7 @@
 #include <string_view>
 #include <type_traits>
 
-#include "validated_string.hpp"
+#include "validated_string_storage.hpp"
 
 namespace emio::detail {
 
@@ -174,17 +174,18 @@ class args_span_with_str : public args_span<Arg> {
   }
 
  protected:
-  args_span_with_str(const validatedstring& str, std::span<const Arg> args) : args_span<Arg>(args), str_{str} {}
+  args_span_with_str(const validated_string_storage& str, std::span<const Arg> args)
+      : args_span<Arg>(args), str_{str} {}
 
  private:
-  const validatedstring& str_;
+  validated_string_storage str_;
 };
 
 template <typename Arg, size_t NbrOfArgs>
 class args_storage : public args_span_with_str<Arg> {
  public:
   template <typename... Args>
-  args_storage(const validatedstring& str, Args&&... args) noexcept
+  args_storage(const validated_string_storage& str, Args&&... args) noexcept
       : args_span_with_str<Arg>{str, args_storage_}, args_storage_{Arg{std::forward<Args>(args)}...} {}
 
   args_storage(const args_storage&) = delete;
