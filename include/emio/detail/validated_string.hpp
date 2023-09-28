@@ -89,13 +89,13 @@ class validated_string : public validated_string_storage {
    */
   constexpr result<valid_string<Trait, Args...>> as_valid() const noexcept {
     if (get().has_value()) {
-      return valid_string<Trait, Args...>{valid, *this};
+      return valid_string<Trait, Args...>{*this};
     }
     return err::invalid_format;
   }
 
  protected:
-  using validated_string_storage::validated_string_storage;
+  constexpr explicit validated_string(const validated_string_storage& str) noexcept : validated_string_storage{str} {}
 };
 
 /**
@@ -115,7 +115,7 @@ class valid_string : public validated_string<Trait, Args...> {
   static constexpr result<valid_string<Trait, Args...>> from(const S& s) noexcept {
     validated_string_storage storage = validated_string_storage::from<Trait, Args...>(s);
     if (storage.get().has_value()) {
-      return valid_string{validated_string_storage::valid, storage};
+      return valid_string{storage};
     }
     return err::invalid_format;
   }
@@ -132,9 +132,8 @@ class valid_string : public validated_string<Trait, Args...> {
  private:
   friend class validated_string<Trait, Args...>;
 
-  constexpr explicit valid_string(validated_string_storage::valid_t /*valid*/,
-                                  const validated_string_storage& str) noexcept
-      : validated_string<Trait, Args...>{validated_string_storage::valid, str} {}
+  constexpr explicit valid_string(const validated_string_storage& str) noexcept
+      : validated_string<Trait, Args...>{str} {}
 };
 
 }  // namespace detail

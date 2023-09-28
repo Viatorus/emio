@@ -55,15 +55,8 @@ class validated_string_storage {
     return str_.second;
   }
 
- protected:
-  static constexpr struct valid_t {
-  } valid{};
-
-  // NOLINTNEXTLINE(modernize-pass-by-value): false-positive since no dynamic allocation takes place
-  constexpr explicit validated_string_storage(valid_t /*unused*/, const validated_string_storage& other) noexcept
-      : validated_string_storage{other} {}
-
  private:
+  // NOLINTNEXTLINE(modernize-pass-by-value): false-positive since no dynamic allocation takes place
   constexpr validated_string_storage(const std::pair<bool, result<std::string_view>>& str) noexcept : str_{str} {}
 
   // Wonder why pair and not two variables? Look at this bug report: https://github.com/llvm/llvm-project/issues/67731

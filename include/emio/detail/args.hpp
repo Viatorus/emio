@@ -175,6 +175,7 @@ class args_span_with_str : public args_span<Arg> {
   }
 
  protected:
+  // NOLINTNEXTLINE(modernize-pass-by-value): false-positive since no dynamic allocation takes place
   args_span_with_str(const validated_string_storage& str, std::span<const Arg> args)
       : args_span<Arg>(args), str_{str} {}
 
