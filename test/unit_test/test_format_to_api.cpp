@@ -51,18 +51,25 @@ TEST_CASE("emio::format_to with output iterator", "[format_to]") {
 
 TEST_CASE("emio::format_to with emio::buffer", "[format_to]") {
   // Test strategy:
-  // * Call emio::format_to with an emio::span_buffer.
+  // * Call emio::format_to with an emio::static_buffer.
   // Expected: The return type, value and the format result is correct.
 
   SECTION("compile-time") {
     SECTION("success") {
       constexpr bool success = [] {
         emio::static_buffer<2> buf{};
+        emio::result<void> res = emio::format_to(buf, "42");
+        return res && buf.view() == "42";
+      }();
+      STATIC_CHECK(success);
+
+      constexpr bool success2 = [] {
+        emio::static_buffer<2> buf{};
 
         emio::result<void> res = emio::format_to(buf, "{}", 42);
         return res && buf.view() == "42";
       }();
-      STATIC_CHECK(success);
+      STATIC_CHECK(success2);
     }
     SECTION("eof") {
       constexpr bool eof = [] {
@@ -143,7 +150,7 @@ TEST_CASE("emio::vformat_to with output iterator", "[format_to]") {
 
 TEST_CASE("emio::vformat_to with emio::buffer", "[format_to]") {
   // Test strategy:
-  // * Call emio::vformat_to with an emio::span_buffer.
+  // * Call emio::vformat_to with an emio::static_buffer.
   // Expected: The return type, value and the format result is correct.
 
   emio::static_buffer<2> buf{};

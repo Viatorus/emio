@@ -66,7 +66,11 @@ template <typename... Args>
 [[nodiscard]] constexpr size_t formatted_size(valid_format_string<Args...> format_str,
                                               const Args&... args) noexcept(detail::exceptions_disabled) {
   detail::counting_buffer buf{};
-  detail::format::format_to(buf, format_str, args...).value();
+  if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
+    detail::format::format_to(buf, format_str, args...).value();
+  } else {
+    detail::format::vformat_to(buf, make_format_args(format_str, args...)).value();
+  }
   return buf.count();
 }
 
