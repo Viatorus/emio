@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <cstring>
 #include <string_view>
 
 #include "../result.hpp"
@@ -16,8 +17,8 @@ inline constexpr bool check_if_plain_string(const std::string_view& s) noexcept 
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     return s.find_first_of("{}"sv) == npos;
   } else {
-    return std::memchr(s.data(), static_cast<int>('{'), s.size()) == 0 &&
-           std::memchr(s.data(), static_cast<int>('}'), s.size()) == 0;
+    return std::memchr(s.data(), static_cast<int>('{'), s.size()) == nullptr &&
+           std::memchr(s.data(), static_cast<int>('}'), s.size()) == nullptr;
   }
 }
 
