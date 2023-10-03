@@ -79,7 +79,7 @@ TEST_CASE("scan complex hex") {
   static constexpr std::string_view input("7C9A702A5186EC21");
 
   BENCHMARK("base") {
-    int64_t i;
+    uint64_t i;
     REQUIRE(emio::scan(input, "{}", i));
     REQUIRE(i == 0x7C9A702A5186EC21);
     i = 0;
