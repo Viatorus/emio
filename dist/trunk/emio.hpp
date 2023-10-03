@@ -2404,6 +2404,73 @@ class writer {
 //
 // For the license information refer to emio.hpp
 
+#include <span>
+#include <string_view>
+#include <type_traits>
+
+//
+// Copyright (c) 2023 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+
+#include <cstring>
+#include <string_view>
+
+namespace emio::detail {
+
+inline constexpr bool check_if_plain_string(const std::string_view& s) noexcept {
+  if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
+    return s.find_first_of("{}"sv) == npos;
+  } else {
+    return std::memchr(s.data(), static_cast<int>('{'), s.size()) == nullptr &&
+           std::memchr(s.data(), static_cast<int>('}'), s.size()) == nullptr;
+  }
+}
+
+class validated_string_storage {
+ public:
+  template <typename Trait, typename... Args>
+  static constexpr validated_string_storage from(const std::string_view& s) noexcept {
+    if constexpr (sizeof...(Args) == 0) {
+      if (check_if_plain_string(s)) {
+        return {{true, s}};
+      }
+    }
+    if (Trait::template validate_string<Args...>(s)) {
+      return {{false, s}};
+    }
+    return {};
+  }
+
+  constexpr validated_string_storage() noexcept = default;
+
+  /**
+   * Returns if it is just a plain string.
+   * @return True, if the string does not contain any escape sequences or replacement fields, otherwise false.
+   */
+  [[nodiscard]] constexpr bool is_plain_str() const noexcept {
+    return str_.first;
+  }
+
+  /**
+   * Returns the validated format/scan string.
+   * @return The view or invalid_format if the validation failed.
+   */
+  constexpr result<std::string_view> get() const noexcept {
+    return str_.second;
+  }
+
+ private:
+  // NOLINTNEXTLINE(modernize-pass-by-value): false-positive since no dynamic allocation takes place
+  constexpr validated_string_storage(const std::pair<bool, result<std::string_view>>& str) noexcept : str_{str} {}
+
+  // Wonder why pair and not two variables? Look at this bug report: https://github.com/llvm/llvm-project/issues/67731
+  std::pair<bool, result<std::string_view>> str_{false, err::invalid_format};
+};
+
+}  // namespace emio::detail
+
 namespace emio::detail {
 
 /**
@@ -2529,10 +2596,7 @@ class arg {
   std::aligned_storage_t<sizeof(model_t<std::string_view>)> storage_;
 };
 
-/**
- * Format arguments just for format string validation.
- */
-template <typename T>
+template <typename Arg>
 class args_span {
  public:
   args_span(const args_span&) = delete;
@@ -2541,31 +2605,50 @@ class args_span {
   args_span& operator=(args_span&&) = delete;
   ~args_span() = default;
 
-  [[nodiscard]] result<std::string_view> get_str() const noexcept {
-    return format_str_;
-  }
-
-  [[nodiscard]] std::span<const T> get_args() const noexcept {
+  [[nodiscard]] std::span<const Arg> get_args() const noexcept {
     return args_;
   }
 
  protected:
-  args_span(result<std::string_view> format_str, std::span<const T> args) : format_str_{format_str}, args_{args} {}
+  args_span(std::span<const Arg> args) : args_{args} {}
 
  private:
-  result<std::string_view> format_str_;
-  std::span<const T> args_;
+  std::span<const Arg> args_;
 };
 
-/**
- * Format arguments storage just for format string validation.
- */
+template <typename Arg>
+class args_span_with_str : public args_span<Arg> {
+ public:
+  args_span_with_str(const args_span_with_str&) = delete;
+  args_span_with_str(args_span_with_str&&) = delete;
+  args_span_with_str& operator=(const args_span_with_str&) = delete;
+  args_span_with_str& operator=(args_span_with_str&&) = delete;
+  ~args_span_with_str() = default;
+
+  [[nodiscard]] result<std::string_view> get_str() const noexcept {
+    return str_.get();
+  }
+
+  [[nodiscard]] constexpr bool is_plain_str() const noexcept {
+    return str_.is_plain_str();
+  }
+
+ protected:
+  // NOLINTNEXTLINE(modernize-pass-by-value): false-positive since no dynamic allocation takes place
+  args_span_with_str(const validated_string_storage& str, std::span<const Arg> args)
+      : args_span<Arg>(args), str_{str} {}
+
+ private:
+  validated_string_storage str_;
+};
+
 template <typename Arg, size_t NbrOfArgs>
-class args_storage : public args_span<Arg> {
+class args_storage : public args_span_with_str<Arg> {
  public:
   template <typename... Args>
-  args_storage(result<std::string_view> str, Args&&... args) noexcept
-      : args_span<Arg>{str, args_storage_}, args_storage_{Arg{std::forward<Args>(args)}...} {}
+  // NOLINTNEXTLINE(modernize-pass-by-value): false-positive since no dynamic allocation takes place
+  args_storage(const validated_string_storage& str, Args&&... args) noexcept
+      : args_span_with_str<Arg>{str, args_storage_}, args_storage_{Arg{std::forward<Args>(args)}...} {}
 
   args_storage(const args_storage&) = delete;
   args_storage(args_storage&&) = delete;
@@ -2577,9 +2660,26 @@ class args_storage : public args_span<Arg> {
   std::array<Arg, NbrOfArgs> args_storage_;
 };
 
+template <typename Arg, size_t NbrOfArgs>
+class validation_args_storage : public args_span<Arg> {
+ public:
+  template <typename... Args>
+  validation_args_storage(Args&&... args) noexcept
+      : args_span<Arg>{args_storage_}, args_storage_{Arg{std::forward<Args>(args)}...} {}
+
+  validation_args_storage(const validation_args_storage&) = delete;
+  validation_args_storage(validation_args_storage&&) = delete;
+  validation_args_storage& operator=(const validation_args_storage&) = delete;
+  validation_args_storage& operator=(validation_args_storage&&) = delete;
+  ~validation_args_storage() = default;
+
+ private:
+  std::array<Arg, NbrOfArgs> args_storage_;
+};
+
 template <typename T, typename... Args>
-args_storage<T, sizeof...(Args)> make_validation_args(std::string_view format_str) noexcept {
-  return {format_str, std::type_identity<Args>{}...};
+validation_args_storage<T, sizeof...(Args)> make_validation_args() noexcept {
+  return {std::type_identity<Args>{}...};
 }
 
 }  // namespace emio::detail
@@ -2976,7 +3076,7 @@ class runtime_string {
    * Obtains a view over the runtime format/scan string.
    * @return The view.
    */
-  [[nodiscard]] constexpr std::string_view view() const noexcept {
+  [[nodiscard]] constexpr std::string_view get() const noexcept {
     return str_;
   }
 
@@ -2993,7 +3093,7 @@ class valid_string;
  * @tparam Args The argument types to format.
  */
 template <typename Trait, typename... Args>
-class validated_string {
+class validated_string : public validated_string_storage {
  public:
   /**
    * Constructs and validates the format/scan string from any suitable char sequence at compile-time.
@@ -3002,12 +3102,9 @@ class validated_string {
    */
   template <typename S>
     requires(std::is_constructible_v<std::string_view, S>)
-  consteval validated_string(const S& s) noexcept {
-    std::string_view str{s};
-    if (Trait::template validate_string<Args...>(str)) {
-      str_ = str;
-    } else {
-      // Invalid format/scan string detected. Stop compilation.
+  consteval validated_string(const S& s) noexcept
+      : validated_string_storage{validated_string_storage::from<Trait, Args...>(s)} {
+    if (get().has_error()) {
       std::terminate();
     }
   }
@@ -3016,40 +3113,22 @@ class validated_string {
    * Constructs and validates a runtime format/scan string at runtime.
    * @param s The runtime format/scan string.
    */
-  constexpr validated_string(runtime_string s) noexcept {
-    std::string_view str{s.view()};
-    if (Trait::template validate_string<Args...>(str)) {
-      str_ = str;
-    }
-  }
-
-  /**
-   * Returns the validated format/scan string as view.
-   * @return The view or invalid_format if the validation failed.
-   */
-  constexpr result<std::string_view> get() const noexcept {
-    return str_;
-  }
+  constexpr validated_string(const runtime_string& s) noexcept
+      : validated_string_storage{validated_string_storage::from<Trait, Args...>(s.get())} {}
 
   /**
    * Returns format/scan string as valid one.
    * @return The valid format/scan string or invalid_format if the validation failed.
    */
   constexpr result<valid_string<Trait, Args...>> as_valid() const noexcept {
-    if (str_.has_value()) {
-      return valid_string<Trait, Args...>{valid, str_.assume_value()};
+    if (get().has_value()) {
+      return valid_string<Trait, Args...>{*this};
     }
     return err::invalid_format;
   }
 
  protected:
-  static constexpr struct valid_t {
-  } valid{};
-
-  constexpr explicit validated_string(valid_t /*unused*/, std::string_view s) noexcept : str_{s} {}
-
- private:
-  result<std::string_view> str_{err::invalid_format};  ///< Validated string.
+  constexpr explicit validated_string(const validated_string_storage& str) noexcept : validated_string_storage{str} {}
 };
 
 /**
@@ -3060,6 +3139,21 @@ template <typename Trait, typename... Args>
 class valid_string : public validated_string<Trait, Args...> {
  public:
   /**
+   * Constructs and validates a format/scan string at runtime.
+   * @param s The format/scan string.
+   * @return The valid format/scan string or invalid_format if the validation failed.
+   */
+  template <typename S>
+    requires(std::is_constructible_v<std::string_view, S>)
+  static constexpr result<valid_string<Trait, Args...>> from(const S& s) noexcept {
+    validated_string_storage storage = validated_string_storage::from<Trait, Args...>(s);
+    if (storage.get().has_value()) {
+      return valid_string{storage};
+    }
+    return err::invalid_format;
+  }
+
+  /**
    * Constructs and validates the format/scan string from any suitable char sequence at compile-time.
    * @note Terminates compilation if format/scan string is invalid.
    * @param s The char sequence.
@@ -3068,29 +3162,11 @@ class valid_string : public validated_string<Trait, Args...> {
     requires(std::is_constructible_v<std::string_view, S>)
   consteval valid_string(const S& s) noexcept : validated_string<Trait, Args...>{s} {}
 
-  /**
-   * Constructs and validates a format/scan string at runtime.
-   * @param s The format/scan string.
-   * @return The valid format/scan string or invalid_format if the validation failed.
-   */
-  template <typename S>
-    requires(std::is_constructible_v<std::string_view, S>)
-  static constexpr result<valid_string<Trait, Args...>> from(const S& s) noexcept {
-    std::string_view str{s};
-    if (!Trait::template validate_string<Args...>(str)) {
-      return err::invalid_format;
-    }
-    return valid_string{valid, str};
-  }
-
  private:
   friend class validated_string<Trait, Args...>;
 
-  using valid_t = typename validated_string<Trait, Args...>::valid_t;
-  using validated_string<Trait, Args...>::valid;
-
-  constexpr explicit valid_string(valid_t /*unused*/, std::string_view s) noexcept
-      : validated_string<Trait, Args...>{valid, s} {}
+  constexpr explicit valid_string(const validated_string_storage& str) noexcept
+      : validated_string<Trait, Args...>{str} {}
 };
 
 }  // namespace detail
@@ -5128,7 +5204,7 @@ using format_validation_arg = validation_arg<format_arg_trait>;
 
 using format_arg = arg<writer, format_arg_trait>;
 
-using format_args = args_span<format_arg>;
+using format_args = args_span_with_str<format_arg>;
 
 }  // namespace emio::detail::format
 
@@ -5212,7 +5288,7 @@ struct format_trait {
       return validate<format_specs_checker>(format_str, sizeof...(Args), std::type_identity<Args>{}...);
     } else {
       return validate<format_specs_checker>(format_str, sizeof...(Args),
-                                            make_validation_args<format_validation_arg, Args...>(format_str));
+                                            make_validation_args<format_validation_arg, Args...>());
     }
   }
 };
@@ -5227,6 +5303,9 @@ using valid_format_string = valid_string<format_trait, std::type_identity_t<Args
 inline result<void> vformat_to(buffer& buf, const format_args& args) noexcept {
   EMIO_TRY(const std::string_view str, args.get_str());
   writer wtr{buf};
+  if (args.is_plain_str()) {
+    return wtr.write_str(str);
+  }
   return parse<format_parser>(str, wtr, args);
 }
 
@@ -5235,6 +5314,9 @@ template <typename... Args>
 constexpr result<void> format_to(buffer& buf, format_string<Args...> format_string, const Args&... args) noexcept {
   EMIO_TRY(const std::string_view str, format_string.get());
   writer wtr{buf};
+  if (format_string.is_plain_str()) {
+    return wtr.write_str(str);
+  }
   return parse<format_parser>(str, wtr, args...);
 }
 
@@ -5419,7 +5501,7 @@ using valid_format_string = detail::format::valid_format_string<Args...>;
 template <typename... Args>
 [[nodiscard]] detail::args_storage<detail::format::format_arg, sizeof...(Args)> make_format_args(
     format_string<Args...> format_str, const Args&... args) noexcept {
-  return {format_str.get(), args...};
+  return {format_str, args...};
 }
 
 /**
@@ -5444,7 +5526,11 @@ template <typename... Args>
 [[nodiscard]] constexpr size_t formatted_size(valid_format_string<Args...> format_str,
                                               const Args&... args) noexcept(detail::exceptions_disabled) {
   detail::counting_buffer buf{};
-  detail::format::format_to(buf, format_str, args...).value();
+  if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
+    detail::format::format_to(buf, format_str, args...).value();
+  } else {
+    detail::format::vformat_to(buf, make_format_args(format_str, args...)).value();
+  }
   return buf.count();
 }
 
@@ -6708,7 +6794,7 @@ using scan_validation_arg = validation_arg<scan_arg_trait>;
 
 using scan_arg = arg<reader, scan_arg_trait>;
 
-using scan_args = args_span<scan_arg>;
+using scan_args = args_span_with_str<scan_arg>;
 
 }  // namespace emio::detail::scan
 
@@ -6792,7 +6878,7 @@ struct scan_trait {
       return validate<scan_specs_checker>(format_str, sizeof...(Args), std::type_identity<Args>{}...);
     } else {
       return validate<scan_specs_checker>(format_str, sizeof...(Args),
-                                          make_validation_args<scan_validation_arg, Args...>(format_str));
+                                          make_validation_args<scan_validation_arg, Args...>());
     }
   }
 };
@@ -6805,12 +6891,18 @@ using valid_format_string = valid_string<scan_trait, std::type_identity_t<Args>.
 
 inline result<void> vscan_from(reader& in, const scan_args& args) noexcept {
   EMIO_TRY(const std::string_view str, args.get_str());
+  if (args.is_plain_str()) {
+    return in.read_if_match_str(str);
+  }
   return parse<scan_parser>(str, in, args);
 }
 
 template <typename... Args>
 constexpr result<void> scan_from(reader& in, format_string<Args...> format_str, Args&... args) noexcept {
   EMIO_TRY(const std::string_view str, format_str.get());
+  if (format_str.is_plain_str()) {
+    return in.read_if_match_str(str);
+  }
   return parse<scan_parser>(str, in, args...);
 }
 
@@ -6823,7 +6915,7 @@ namespace emio {
  * @note This type should only be "constructed" via make_scan_args(format_str, args...) and passed directly to a
  * scanning function.
  */
-using scan_args = detail::args_span<detail::scan::scan_arg>;
+using scan_args = detail::scan::scan_args;
 
 // Alias template types.
 template <typename... Args>
@@ -6846,7 +6938,7 @@ using valid_format_scan_string = detail::scan::valid_format_string<Args...>;
 template <typename... Args>
 [[nodiscard]] detail::args_storage<detail::scan::scan_arg, sizeof...(Args)> make_scan_args(
     format_scan_string<Args...> format_str, Args&... args) noexcept {
-  return {format_str.get(), args...};
+  return {format_str, args...};
 }
 
 /**
