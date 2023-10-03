@@ -8,7 +8,7 @@
 
 #include "../../reader.hpp"
 #include "../../writer.hpp"
-#include "../string_validation.hpp"
+#include "../validated_string.hpp"
 #include "args.hpp"
 #include "parser.hpp"
 
@@ -21,7 +21,7 @@ struct format_trait {
       return validate<format_specs_checker>(format_str, sizeof...(Args), std::type_identity<Args>{}...);
     } else {
       return validate<format_specs_checker>(format_str, sizeof...(Args),
-                                            make_validation_args<format_validation_arg, Args...>(format_str));
+                                            make_validation_args<format_validation_arg, Args...>());
     }
   }
 };
@@ -36,6 +36,9 @@ using valid_format_string = valid_string<format_trait, std::type_identity_t<Args
 inline result<void> vformat_to(buffer& buf, const format_args& args) noexcept {
   EMIO_TRY(const std::string_view str, args.get_str());
   writer wtr{buf};
+  if (args.is_plain_str()) {
+    return wtr.write_str(str);
+  }
   return parse<format_parser>(str, wtr, args);
 }
 
@@ -44,6 +47,9 @@ template <typename... Args>
 constexpr result<void> format_to(buffer& buf, format_string<Args...> format_string, const Args&... args) noexcept {
   EMIO_TRY(const std::string_view str, format_string.get());
   writer wtr{buf};
+  if (format_string.is_plain_str()) {
+    return wtr.write_str(str);
+  }
   return parse<format_parser>(str, wtr, args...);
 }
 

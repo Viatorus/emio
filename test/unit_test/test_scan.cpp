@@ -78,7 +78,12 @@ TEST_CASE("vscan API", "[scan]") {
 }
 
 TEST_CASE("scan_from API", "[scan]") {
-  SECTION("no args") {
+  SECTION("no args and no escapes") {
+    emio::reader rdr("abc");
+    CHECK(emio::scan_from(rdr, "abc"));
+    CHECK(rdr.eof());
+  }
+  SECTION("no args and escapes") {
     emio::reader rdr("abc{");
     CHECK(emio::scan_from(rdr, "abc{{"));
     CHECK(rdr.eof());
@@ -109,6 +114,13 @@ TEST_CASE("scan_from API", "[scan]") {
   }
   SECTION("compile time") {
     constexpr bool success = [] {
+      emio::reader rdr("abc");
+      emio::result<void> res = emio::scan_from(rdr, emio::runtime("abc"));
+      return res && rdr.eof();
+    }();
+    STATIC_CHECK(success);
+
+    constexpr bool success2 = [] {
       unsigned int a = 0;
       int b = 0;
       char c;
@@ -117,7 +129,7 @@ TEST_CASE("scan_from API", "[scan]") {
       emio::result<void> res = emio::scan_from(rdr, emio::runtime("{},{}{}"), a, b, c);
       return res && (a == 1) && (b == -2) && (c == '!') && (rdr.read_remaining() == "rest");
     }();
-    STATIC_CHECK(success);
+    STATIC_CHECK(success2);
   }
 }
 
