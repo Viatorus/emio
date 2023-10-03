@@ -15,5 +15,6 @@ int main(int /*c*/, char* args[]) {
   int64_t i64{};
   uint64_t u64{};
   std::string_view str{};
-  static_cast<void>(emio::scan(args[0], emio::runtime("{}{}{}{}{}{}{}{}{}{}"), ch, i8, u8, i16, u16, i32, u32, i64, u64, str));
+  static_cast<void>(
+      emio::scan(args[0], emio::runtime("{}{}{}{}{}{}{}{}{}{}"), ch, i8, u8, i16, u16, i32, u32, i64, u64, str));
 }
