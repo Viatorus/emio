@@ -18,7 +18,8 @@ TEST_CASE("scan nothing") {
       "laborum.");
 
   BENCHMARK("base") {
-    return "1";
+    REQUIRE(emio::scan(long_text, long_text));
+    REQUIRE(sscanf(long_text.data(), long_text.data()) == 0);
   };
   BENCHMARK("emio") {
     return emio::scan(long_text, long_text);
@@ -53,7 +54,12 @@ TEST_CASE("scan complex integer") {
   static constexpr std::string_view input("8978612134175239201");
 
   BENCHMARK("base") {
-    return "1";
+    int64_t i;
+    REQUIRE(emio::scan(input, "{}", i));
+    REQUIRE(i == 8978612134175239201);
+    i = 0;
+    REQUIRE(sscanf(input.data(), "%" PRIi64, &i) == 1);
+    REQUIRE(i == 8978612134175239201);
   };
   BENCHMARK("emio") {
     int64_t i;
@@ -73,7 +79,12 @@ TEST_CASE("scan complex hex") {
   static constexpr std::string_view input("7C9A702A5186EC21");
 
   BENCHMARK("base") {
-    return "1";
+    uint64_t i;
+    REQUIRE(emio::scan(input, "{:x}", i));
+    REQUIRE(i == 0x7C9A702A5186EC21);
+    i = 0;
+    REQUIRE(sscanf(input.data(), "%" PRIx64, &i) == 1);
+    REQUIRE(i == 0x7C9A702A5186EC21);
   };
   BENCHMARK("emio") {
     uint64_t i;
