@@ -80,7 +80,7 @@ TEST_CASE("scan complex hex") {
 
   BENCHMARK("base") {
     uint64_t i;
-    REQUIRE(emio::scan(input, "{}", i));
+    REQUIRE(emio::scan(input, "{:x}", i));
     REQUIRE(i == 0x7C9A702A5186EC21);
     i = 0;
     REQUIRE(sscanf(input.data(), "%" PRIx64, &i) == 1);
