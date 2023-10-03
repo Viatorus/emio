@@ -4562,8 +4562,12 @@ template <typename Arg>
 constexpr result<void> write_arg(writer& out, format_specs& specs, Arg arg) noexcept {
   specs.alternate_form = true;
   specs.type = 'x';
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): valid cast
-  return write_arg(out, specs, reinterpret_cast<uintptr_t>(arg));
+  if constexpr (std::is_same_v<Arg, std::nullptr_t>) {
+    return write_arg(out, specs, uintptr_t{0});
+  } else {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): valid cast
+    return write_arg(out, specs, reinterpret_cast<uintptr_t>(arg));
+  }
 }
 
 template <typename Arg>
