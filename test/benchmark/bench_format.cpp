@@ -25,7 +25,13 @@ TEST_CASE("format nothing but long text") {
   std::array<char, 2 * emio_formatted_size> buf{};
 
   BENCHMARK("base") {
-    return "1";
+    const std::string emio_str = emio::format(format_str);
+    const std::string fmt_str = fmt::format(format_str);
+    REQUIRE(emio_str == fmt_str);
+
+    REQUIRE(snprintf(buf.data(), buf.size(), format_str.data()) == static_cast<int>(emio_str.size()));
+    REQUIRE(emio_str == buf.data());
+    return emio_str == fmt_str;
   };
   BENCHMARK("emio") {
     return emio::format_to(buf.data(), format_str);
@@ -54,22 +60,29 @@ TEST_CASE("format string") {
   std::array<char, 2 * emio_formatted_size> buf{};
 
   BENCHMARK("base") {
-    return "1";
+    const std::string emio_str = emio::format(format_str, arg);
+    const std::string fmt_str = fmt::format(format_str, arg);
+    REQUIRE(emio_str == fmt_str);
+
+    REQUIRE(snprintf(buf.data(), buf.size(), " %*s", static_cast<int>(arg.size()), arg.data()) ==
+            static_cast<int>(emio_str.size()));
+    REQUIRE(emio_str == buf.data());
+    return emio_str == fmt_str;
   };
   BENCHMARK("emio") {
-    return emio::format_to(buf.data(), format_str, long_text).value();
+    return emio::format_to(buf.data(), format_str, arg).value();
   };
   BENCHMARK("emio runtime") {
-    return emio::format_to(buf.data(), emio::runtime(format_str), long_text).value();
+    return emio::format_to(buf.data(), emio::runtime(format_str), arg).value();
   };
   BENCHMARK("fmt") {
-    return fmt::format_to(buf.data(), format_str, long_text);
+    return fmt::format_to(buf.data(), format_str, arg);
   };
   BENCHMARK("fmt runtime") {
-    return fmt::format_to(buf.data(), fmt::runtime(format_str), long_text);
+    return fmt::format_to(buf.data(), fmt::runtime(format_str), arg);
   };
   BENCHMARK("snprintf") {
-    return snprintf(buf.data(), buf.size(), " %*s", static_cast<int>(long_text.size()), long_text.data());
+    return snprintf(buf.data(), buf.size(), " %*s", static_cast<int>(arg.size()), arg.data());
   };
 }
 
@@ -83,7 +96,13 @@ TEST_CASE("format small integer") {
   std::array<char, 2 * emio_formatted_size> buf{};
 
   BENCHMARK("base") {
-    return "1";
+    const std::string emio_str = emio::format(format_str, arg);
+    const std::string fmt_str = fmt::format(format_str, arg);
+    REQUIRE(emio_str == fmt_str);
+
+    REQUIRE(snprintf(buf.data(), buf.size(), " %d", arg) == static_cast<int>(emio_str.size()));
+    REQUIRE(emio_str == buf.data());
+    return emio_str == fmt_str;
   };
   BENCHMARK("emio") {
     return emio::format_to(buf.data(), format_str, arg);
@@ -98,7 +117,7 @@ TEST_CASE("format small integer") {
     return fmt::format_to(buf.data(), fmt::runtime(format_str), arg);
   };
   BENCHMARK("snprintf") {
-    return snprintf(buf.data(), buf.size(), " %d", 1);
+    return snprintf(buf.data(), buf.size(), " %d", arg);
   };
 }
 
@@ -112,7 +131,13 @@ TEST_CASE("format big integer") {
   std::array<char, 2 * emio_formatted_size> buf{};
 
   BENCHMARK("base") {
-    return "1";
+    const std::string emio_str = emio::format(format_str, arg);
+    const std::string fmt_str = fmt::format(format_str, arg);
+    REQUIRE(emio_str == fmt_str);
+
+    REQUIRE(snprintf(buf.data(), buf.size(), " %" PRIi64, arg) == static_cast<int>(emio_str.size()));
+    REQUIRE(emio_str == buf.data());
+    return emio_str == fmt_str;
   };
   BENCHMARK("emio") {
     return emio::format_to(buf.data(), format_str, arg);
@@ -141,7 +166,13 @@ TEST_CASE("format big hex") {
   std::array<char, 2 * emio_formatted_size> buf{};
 
   BENCHMARK("base") {
-    return "1";
+    const std::string emio_str = emio::format(format_str, arg);
+    const std::string fmt_str = fmt::format(format_str, arg);
+    REQUIRE(emio_str == fmt_str);
+
+    REQUIRE(snprintf(buf.data(), buf.size(), "%" PRIx64, arg) == static_cast<int>(emio_str.size()));
+    REQUIRE(emio_str == buf.data());
+    return emio_str == fmt_str;
   };
   BENCHMARK("emio") {
     return emio::format_to(buf.data(), format_str, arg);
@@ -170,7 +201,10 @@ TEST_CASE("format complex format spec") {
   std::array<char, 2 * emio_formatted_size> buf{};
 
   BENCHMARK("base") {
-    return "1";
+    const std::string emio_str = emio::format(format_str, arg);
+    const std::string fmt_str = fmt::format(format_str, arg);
+    REQUIRE(emio_str == fmt_str);
+    return emio_str == fmt_str;
   };
   BENCHMARK("emio") {
     return emio::format_to(buf.data(), format_str, arg);
@@ -197,7 +231,14 @@ TEST_CASE("format zero as double") {
   std::array<char, 2 * emio_formatted_size> buf{};
 
   BENCHMARK("base") {
-    return "1";
+    const std::string emio_str = emio::format(format_str, arg);
+    const std::string fmt_str = fmt::format(format_str, arg);
+    REQUIRE(emio_str == fmt_str);
+
+    REQUIRE(snprintf(buf.data(), buf.size(), "%g", arg) == static_cast<int>(emio_str.size()));
+    REQUIRE(emio_str == buf.data());
+
+    return emio_str == fmt_str;
   };
   BENCHMARK("emio") {
     return emio::format_to(buf.data(), format_str, arg);
@@ -226,7 +267,10 @@ TEST_CASE("format shortest double general") {
   std::array<char, 2 * emio_formatted_size> buf{};
 
   BENCHMARK("base") {
-    return "1";
+    const std::string emio_str = emio::format(format_str, arg);
+    const std::string fmt_str = fmt::format(format_str, arg);
+    REQUIRE(emio_str == fmt_str);
+    return emio_str == fmt_str;
   };
   BENCHMARK("emio") {
     return emio::format_to(buf.data(), format_str, arg);
@@ -240,9 +284,6 @@ TEST_CASE("format shortest double general") {
   BENCHMARK("fmt runtime") {
     return fmt::format_to(buf.data(), fmt::runtime(format_str), arg);
   };
-  BENCHMARK("snprintf (not shortest but general)") {
-    return snprintf(buf.data(), buf.size(), "%g", arg);
-  };
 }
 
 TEST_CASE("format double exponent") {
@@ -255,7 +296,14 @@ TEST_CASE("format double exponent") {
   std::array<char, 2 * emio_formatted_size> buf{};
 
   BENCHMARK("base") {
-    return "1";
+    const std::string emio_str = emio::format(format_str, arg);
+    const std::string fmt_str = fmt::format(format_str, arg);
+    REQUIRE(emio_str == fmt_str);
+
+    REQUIRE(snprintf(buf.data(), buf.size(), "%e", arg) == static_cast<int>(emio_str.size()));
+    REQUIRE(emio_str == buf.data());
+
+    return emio_str == fmt_str;
   };
   BENCHMARK("emio") {
     return emio::format_to(buf.data(), format_str, arg);
@@ -284,7 +332,14 @@ TEST_CASE("format double fixed") {
   std::array<char, 2 * emio_formatted_size> buf{};
 
   BENCHMARK("base") {
-    return "1";
+    const std::string emio_str = emio::format(format_str, arg);
+    const std::string fmt_str = fmt::format(format_str, arg);
+    REQUIRE(emio_str == fmt_str);
+
+    REQUIRE(snprintf(buf.data(), buf.size(), "%f", arg) == static_cast<int>(emio_str.size()));
+    REQUIRE(emio_str == buf.data());
+
+    return emio_str == fmt_str;
   };
   BENCHMARK("emio") {
     return emio::format_to(buf.data(), format_str, arg);
@@ -316,7 +371,10 @@ TEST_CASE("format many arguments") {
   std::array<char, 2 * emio_formatted_size> buf{};
 
   BENCHMARK("base") {
-    return "1";
+    const std::string emio_str = emio::format(format_str, ARGS);
+    const std::string fmt_str = fmt::format(format_str, ARGS);
+    REQUIRE(emio_str == fmt_str);
+    return emio_str == fmt_str;
   };
   BENCHMARK("emio") {
     return emio::format_to(buf.data(), format_str, ARGS);
