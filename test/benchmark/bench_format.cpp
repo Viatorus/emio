@@ -17,47 +17,45 @@ static constexpr std::string_view long_text(
     "laborum.");
 
 TEST_CASE("format nothing but long text") {
+  std::array<char, long_text.size() + 1> buf{};
   BENCHMARK("base") {
     return "1";
   };
   BENCHMARK("emio") {
-    return emio::format(long_text);
+    return emio::format_to(buf.data(), long_text);
   };
   BENCHMARK("emio runtime") {
-    return emio::format(emio::runtime(long_text)).value();
+    return emio::format_to(buf.data(), emio::runtime(long_text)).value();
   };
   BENCHMARK("fmt") {
-    return fmt::format(long_text);
+    return fmt::format_to(buf.data(), long_text);
   };
   BENCHMARK("fmt runtime") {
-    return fmt::format(fmt::runtime(long_text));
+    return fmt::format_to(buf.data(), fmt::runtime(long_text));
   };
   BENCHMARK("snprintf") {
-    std::string buf{};
-    buf.resize(long_text.size() + 1);
     return snprintf(buf.data(), buf.size(), long_text.data());
   };
 }
 
 TEST_CASE("format string") {
+  std::array<char, long_text.size() + 1> buf{};
   BENCHMARK("base") {
     return "1";
   };
   BENCHMARK("emio") {
-    return emio::format("{}", long_text);
+    return emio::format_to(buf.data(), "{}", long_text).value();
   };
   BENCHMARK("emio runtime") {
-    return emio::format(emio::runtime("{}"), long_text).value();
+    return emio::format_to(buf.data(), emio::runtime("{}"), long_text).value();
   };
   BENCHMARK("fmt") {
-    return fmt::format("{}", long_text);
+    return fmt::format_to(buf.data(), "{}", long_text);
   };
   BENCHMARK("fmt runtime") {
-    return fmt::format(fmt::runtime("{}"), long_text);
+    return fmt::format_to(buf.data(), fmt::runtime("{}"), long_text);
   };
   BENCHMARK("snprintf") {
-    std::string buf{};
-    buf.resize(long_text.size() + 1);
     return snprintf(buf.data(), buf.size(), "%*s", static_cast<int>(long_text.size()), long_text.data());
   };
 }
@@ -273,19 +271,24 @@ TEST_CASE("format many arguments") {
   true, static_cast<int8_t>(1), static_cast<uint8_t>(2), static_cast<int16_t>(3), static_cast<uint16_t>(4), \
       static_cast<int32_t>(5), static_cast<uint32_t>(6), "abc", 'x', nullptr
 
+  constexpr size_t emio_formatted_size = emio::formatted_size(format_str, ARGS);
+  const size_t fmt_formatted_size = fmt::formatted_size(format_str, ARGS);
+  REQUIRE(emio_formatted_size == fmt_formatted_size);
+  std::array<char, emio_formatted_size> buf{};
+
   BENCHMARK("base") {
     return "1";
   };
   BENCHMARK("emio") {
-    return emio::format(format_str, ARGS);
+    return emio::format_to(buf.data(), format_str, ARGS);
   };
   BENCHMARK("emio runtime") {
-    return emio::format(emio::runtime(format_str), ARGS).value();
+    return emio::format_to(buf.data(), emio::runtime(format_str), ARGS).value();
   };
   BENCHMARK("fmt") {
-    return fmt::format(format_str, ARGS);
+    return fmt::format_to(buf.data(), format_str, ARGS);
   };
   BENCHMARK("fmt runtime") {
-    return fmt::format(fmt::runtime(format_str), ARGS);
+    return fmt::format_to(buf.data(), fmt::runtime(format_str), ARGS);
   };
 }
