@@ -21,7 +21,7 @@ namespace emio::detail {
  * @tparam Char The character type.
  * @tparam StorageSize The size of the inlined storage.
  */
-template <typename Char, size_t StorageSize = 32>
+template <typename Char, size_t StorageSize = 128>
 class ct_vector {
  public:
   constexpr ct_vector() noexcept {
