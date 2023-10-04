@@ -5409,9 +5409,9 @@ class truncating_iterator<OutputIt> : public truncating_iterator_base<OutputIt> 
   template <typename T>
   constexpr truncating_iterator& operator=(T val) {
     if (this->count_ < this->limit_) {
-      ++this->count_;
       *this->out_++ = val;
     }
+    this->count_ += 1;
     return *this;
   }
 
@@ -5440,9 +5440,9 @@ class truncating_iterator<OutputIt> : public truncating_iterator_base<OutputIt> 
 
   constexpr truncating_iterator& operator++() {
     if (this->count_ < this->limit_) {
-      ++this->count_;
       ++this->out_;
     }
+    this->count_ += 1;
     return *this;
   }
 
