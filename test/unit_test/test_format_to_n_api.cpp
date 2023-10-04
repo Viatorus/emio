@@ -16,17 +16,17 @@ TEST_CASE("emio::format_to_n with output iterator", "[format_to_n]") {
       constexpr bool success = [] {
         std::array<char, 2> arr{};
 
-        emio::result<emio::format_to_n_result<char*>> res = emio::format_to_n(arr.begin(), 1, "{}", 42);
-        return res && res->size == 1 && (res->out == arr.begin() + 1) && arr[0] == '4' && arr[1] == '\0';
+        emio::result<emio::format_to_n_result<char*>> res = emio::format_to_n(arr.begin(), 1, "{}", 421);
+        return res && res->size == 3 && (res->out == arr.begin() + 1) && arr[0] == '4' && arr[1] == '\0';
       }();
       STATIC_CHECK(success);
     }
     SECTION("runtime") {
       std::array<char, 2> arr{};
 
-      emio::result<emio::format_to_n_result<char*>> res = emio::format_to_n(arr.begin(), 1, "{}", 42);
+      emio::result<emio::format_to_n_result<char*>> res = emio::format_to_n(arr.begin(), 1, "{}", 421);
       CHECK(res);
-      CHECK(res->size == 1);
+      CHECK(res->size == 3);
       CHECK(arr[0] == '4');
       CHECK(arr[1] == '\0');
     }
@@ -36,9 +36,9 @@ TEST_CASE("emio::format_to_n with output iterator", "[format_to_n]") {
     std::string s;
     s.resize(2);
 
-    emio::result<emio::format_to_n_result<std::string::iterator>> res = emio::format_to_n(s.begin(), 1, "{}", 42);
+    emio::result<emio::format_to_n_result<std::string::iterator>> res = emio::format_to_n(s.begin(), 1, "{}", 421);
     REQUIRE(res);
-    CHECK(res->size == 1);
+    CHECK(res->size == 3);
     CHECK(res->out == s.begin() + 1);
     CHECK(s == "4\0"sv);
   }
@@ -47,9 +47,9 @@ TEST_CASE("emio::format_to_n with output iterator", "[format_to_n]") {
     std::string s;
 
     emio::result<emio::format_to_n_result<std::back_insert_iterator<std::string>>> res =
-        emio::format_to_n(std::back_inserter(s), 1, "{}", 42);
+        emio::format_to_n(std::back_inserter(s), 1, "{}", 421);
     REQUIRE(res);
-    CHECK(res->size == 1);
+    CHECK(res->size == 3);
     CHECK(s == "4");
   }
 }
@@ -63,9 +63,9 @@ TEST_CASE("emio::vformat_to_n with output iterator", "[format_to_n]") {
     std::array<char, 2> arr{};
 
     emio::result<emio::format_to_n_result<char*>> res =
-        emio::vformat_to_n(arr.begin(), 1, emio::make_format_args("{}", 42));
+        emio::vformat_to_n(arr.begin(), 1, emio::make_format_args("{}", 421));
     REQUIRE(res);
-    CHECK(res->size == 1);
+    CHECK(res->size == 3);
     CHECK(res->out == arr.begin() + 1);
     CHECK(arr[0] == '4');
     CHECK(arr[1] == '\0');
@@ -76,9 +76,9 @@ TEST_CASE("emio::vformat_to_n with output iterator", "[format_to_n]") {
     s.resize(2);
 
     emio::result<emio::format_to_n_result<std::string::iterator>> res =
-        emio::vformat_to_n(s.begin(), 1, emio::make_format_args("{}", 42));
+        emio::vformat_to_n(s.begin(), 1, emio::make_format_args("{}", 421));
     REQUIRE(res);
-    CHECK(res->size == 1);
+    CHECK(res->size == 3);
     CHECK(res->out == s.begin() + 1);
     CHECK(s == "4\0"sv);
   }
@@ -87,9 +87,9 @@ TEST_CASE("emio::vformat_to_n with output iterator", "[format_to_n]") {
     std::string s;
 
     emio::result<emio::format_to_n_result<std::back_insert_iterator<std::string>>> res =
-        emio::vformat_to_n(std::back_inserter(s), 1, emio::make_format_args("{}", 42));
+        emio::vformat_to_n(std::back_inserter(s), 1, emio::make_format_args("{}", 421));
     REQUIRE(res);
-    CHECK(res->size == 1);
+    CHECK(res->size == 3);
     CHECK(s == "4");
   }
 }

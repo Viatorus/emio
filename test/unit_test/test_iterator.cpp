@@ -26,7 +26,7 @@ TEST_CASE("truncating_iterator") {
       *ti++ = c;
     }
 
-    CHECK(ti.count() == 10);
+    CHECK(ti.count() == 20);
     CHECK(std::distance(ti.out(), &*str.end()) == 0);
     CHECK(str.size() == 10);
     CHECK(str == full_message.substr(0, max_length));
@@ -49,7 +49,7 @@ TEST_CASE("truncating_iterator") {
       *ti++ = c;
     }
 
-    CHECK(ti.count() == 10);
+    CHECK(ti.count() == 20);
     CHECK(std::distance(ti.out(), str.end()) == 0);
     CHECK(str.size() == 10);
     CHECK(str == full_message.substr(0, max_length));
@@ -72,7 +72,7 @@ TEST_CASE("truncating_iterator") {
       *ti++ = c;
     }
 
-    CHECK(ti.count() == 10);
+    CHECK(ti.count() == 20);
     CHECK(str.size() == 10);
     CHECK(str == full_message.substr(0, max_length));
 
