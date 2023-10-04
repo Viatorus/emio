@@ -1481,7 +1481,7 @@ namespace emio::detail {
  * @tparam Char The character type.
  * @tparam StorageSize The size of the inlined storage.
  */
-template <typename Char, size_t StorageSize = 32>
+template <typename Char, size_t StorageSize = 128>
 class ct_vector {
  public:
   constexpr ct_vector() noexcept {
@@ -1659,7 +1659,7 @@ class buffer {
  * This class fulfills the buffer API by providing an endless growing buffer.
  * @tparam StorageSize The size of the inlined storage for small buffer optimization.
  */
-template <size_t StorageSize = 32>
+template <size_t StorageSize = 128>
 class memory_buffer final : public buffer {
  public:
   /**
@@ -1781,7 +1781,7 @@ class static_buffer : private std::array<char, StorageSize>, public span_buffer 
 
 namespace detail {
 
-inline constexpr size_t internal_buffer_size{256};
+inline constexpr size_t internal_buffer_size{128};
 
 // Extracts a reference to the container from back_insert_iterator.
 template <typename Container>
