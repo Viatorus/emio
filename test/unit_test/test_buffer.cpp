@@ -15,7 +15,7 @@ TEST_CASE("memory_buffer", "[buffer]") {
 
   constexpr size_t first_size{15};
   constexpr size_t second_size{55};
-  constexpr size_t third_size{256};
+  constexpr size_t third_size{emio::detail::internal_buffer_size};
 
   const std::string expected_str_part_1(first_size, 'x');
   const std::string expected_str_part_2(second_size, 'y');
@@ -138,7 +138,7 @@ TEST_CASE("span_buffer", "[buffer]") {
 
   constexpr size_t first_size{15};
   constexpr size_t second_size{55};
-  constexpr size_t third_size{256};
+  constexpr size_t third_size{emio::detail::internal_buffer_size};
 
   std::array<char, first_size + second_size + third_size> storage{};
   emio::span_buffer buf{storage};
@@ -248,7 +248,7 @@ TEST_CASE("counting_buffer", "[buffer]") {
 
   constexpr size_t first_size{15};
   constexpr size_t second_size{55};
-  constexpr size_t third_size{256};
+  constexpr size_t third_size{emio::detail::internal_buffer_size};
 
   using emio::detail::internal_buffer_size;
 

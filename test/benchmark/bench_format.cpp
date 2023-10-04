@@ -16,6 +16,30 @@ static constexpr std::string_view long_text{
     "pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est "
     "laborum."};
 
+TEST_CASE("format default") {
+  static constexpr std::string_view format_str{"Hello world! Let's count together until {}!"};
+  static constexpr int arg = 42;
+
+  BENCHMARK("base") {
+    const std::string emio_str = emio::format(format_str, arg);
+    const std::string fmt_str = fmt::format(format_str, arg);
+    REQUIRE(emio_str == fmt_str);
+    return emio_str == fmt_str;
+  };
+  BENCHMARK("emio") {
+    return emio::format(format_str, arg);
+  };
+  BENCHMARK("emio runtime") {
+    return emio::format(emio::runtime(format_str), arg).value();
+  };
+  BENCHMARK("fmt") {
+    return fmt::format(format_str, arg);
+  };
+  BENCHMARK("fmt runtime") {
+    return fmt::format(fmt::runtime(format_str), arg);
+  };
+}
+
 TEST_CASE("format nothing but long text") {
   static constexpr std::string_view format_str{long_text};
 
