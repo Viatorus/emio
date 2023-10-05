@@ -406,7 +406,7 @@ class iterator_buffer<std::back_insert_iterator<Container>> final : public buffe
  public:
   /**
    * Constructs and initializes the buffer with the given back-insert iterator.
-   * @param it The output iterator.
+   * @param it The back-insert iterator.
    */
   constexpr explicit iterator_buffer(std::back_insert_iterator<Container> it) noexcept
       : container_{detail::get_container(it)} {
@@ -508,19 +508,32 @@ class file_buffer : public buffer {
   std::array<char, detail::internal_buffer_size> cache_;
 };
 
+/**
+ * This class fulfills the buffer API by using a primary buffer and an internal cache.
+ * Only a limited amount of characters is written to the primary buffer. The remaining characters are truncated.
+ */
 class truncating_buffer : public buffer {
  public:
+  /**
+   * Constructs and initializes the buffer with the given primary buffer and limit.
+   * @param primary The primary buffer.
+   * @param limit The limit.
+   */
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): cache_ can be left uninitialized.
   constexpr explicit truncating_buffer(buffer& primary, size_t limit) : primary_{primary}, limit_{limit} {
     this->set_write_area(cache_);
   }
 
+  /**
+   * Returns the count of the total (not truncated) written characters.
+   * @return The count.
+   */
   [[nodiscard]] constexpr size_t count() const noexcept {
     return used_ + this->get_used_count();
   }
 
   /**
-   * Flushes the internal cache to the output iterator.
+   * Flushes the internal cache to the primary buffer.
    */
   [[nodiscard]] constexpr result<void> flush() noexcept {
     size_t bytes_to_write = get_used_count();

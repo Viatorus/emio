@@ -688,4 +688,21 @@ TEST_CASE("truncating_buffer", "[buffer]") {
       CHECK(primary_buf.view() == expected_string);
     }
   }
+  SECTION("request more than the cache size") {
+    const std::string expected_string = std::string(64, 'a');
+    emio::truncating_buffer buf{primary_buf, 64};
+
+    auto area = buf.get_write_area_of_max(emio::detail::internal_buffer_size + 10);
+    REQUIRE(area);
+    CHECK(area->size() == emio::detail::internal_buffer_size);
+    fill(area, 'a');
+
+    // not flushed
+    CHECK(primary_buf.view().size() == 0);
+    // flush not possible because primary buffer is too small
+    CHECK(buf.flush());
+
+    CHECK(primary_buf.view().size() == 64);
+    CHECK(primary_buf.view() == expected_string);
+  }
 }

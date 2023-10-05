@@ -184,3 +184,22 @@ TEST_CASE("emio::vformat_to with emio::writer", "[format_to]") {
     REQUIRE(res == emio::err::eof);
   }
 }
+
+TEST_CASE("emio::format_to with truncating_buffer", "[format_to]") {
+  // Test strategy:
+  // * Write a longer message than the specified limit into a truncating buffer.
+  // Expected: The primary buffer only has a subset of the message and can later be used independent.
+
+  emio::static_buffer<13> primary_buf;
+  emio::truncating_buffer buf{primary_buf, 10};
+
+  REQUIRE(emio::format_to(buf, "Hello {}!", 123456789));
+
+  CHECK(buf.count() == 16);
+  REQUIRE(buf.flush());
+  CHECK(primary_buf.view() == "Hello 1234");
+  CHECK(buf.count() == 16);
+
+  REQUIRE(emio::format_to(primary_buf, "..."));
+  CHECK(primary_buf.view() == "Hello 1234...");
+}

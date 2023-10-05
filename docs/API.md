@@ -13,6 +13,7 @@ The public namespace is `emio` only - no deeper nesting.
     + [static_buffer](#static-buffer)
     + [iterator_buffer](#iterator-buffer)
     + [file_buffer](#file-buffer)
+    + [truncating_buffer](#truncating-buffer)
 * [Reader](#reader)
 * [Writer](#writer)
 * [Format](#format)
@@ -194,7 +195,7 @@ assert(area);
 
 ### file_buffer
 
-- A buffer which over an std::File (file stream) with an internal cache.
+- A buffer over an std::File (file stream) with an internal cache.
 
 *Example*
 ```cpp
@@ -203,6 +204,21 @@ emio::file_buffer buf{file};
 
 emio::result<std::span<char>> area = buf.get_write_area_of(50);
 assert(area);
+```
+
+### truncating_buffer
+
+- A buffer which truncates the remaining output if the limit of another provided buffer is reached.
+
+*Example*
+```cpp
+emio::static_buffer<48> primary_buf{};
+emio::truncating_buffer buf{primary_buf, 32};
+
+emio::result<std::span<char>> area = buf.get_write_area_of(50);
+assert(area);
+assert(buf.flush());
+assert(primary_buf.view().size() == 32);  // Only 32 bytes are flushed.
 ```
 
 ## Reader
