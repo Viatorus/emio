@@ -5,7 +5,14 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
 
-// TODO: Unify test data. Some tests just pop these sizes. Other tests write into the buffer.
+namespace {
+
+void fill(emio::result<std::span<char>>& area, char v) {
+  REQUIRE(area);
+  std::fill(area->begin(), area->end(), v);
+}
+
+}  // namespace
 
 TEST_CASE("memory_buffer", "[buffer]") {
   // Test strategy:
@@ -539,4 +546,146 @@ TEST_CASE("file_buffer", "[buffer]") {
   std::rewind(tmpf);
   CHECK(std::fgets(read_out_buf.data(), read_out_buf.size(), tmpf));
   CHECK(std::string_view{read_out_buf.data(), 6 + internal_buffer_size} == "yyzzzz" + expected_long_str_part);
+}
+
+TEST_CASE("truncating_buffer", "[buffer]") {
+  emio::static_buffer<64> primary_buf;
+
+  SECTION("request less than limit (1)") {
+    const bool explicit_flush = GENERATE(false, true);
+    const std::string expected_string = std::string(40, 'a') + std::string(8, 'b');
+    emio::truncating_buffer buf{primary_buf, 48};
+
+    auto area = buf.get_write_area_of(40);
+    fill(area, 'a');
+    CHECK(buf.count() == 40);
+
+    // not flushed
+    CHECK(primary_buf.view().size() == 0);
+    if (explicit_flush) {
+      // flushed
+      CHECK(buf.flush());
+      CHECK(primary_buf.view().size() == 40);
+    }
+
+    SECTION("request less than limit (2)") {
+      area = buf.get_write_area_of(8);
+      fill(area, 'b');
+      CHECK(buf.count() == 48);
+
+      if (explicit_flush) {
+        // not flushed
+        CHECK(primary_buf.view().size() == 40);
+        // flushed
+        CHECK(buf.flush());
+        CHECK(primary_buf.view().size() == 48);
+      } else {
+        CHECK(primary_buf.view().size() == 0);
+      }
+
+      SECTION("request more than limit (3)") {
+        area = buf.get_write_area_of(emio::detail::internal_buffer_size);
+        fill(area, 'c');
+        CHECK(buf.count() == 48 + emio::detail::internal_buffer_size);
+
+        // not flushed
+        CHECK(primary_buf.view().size() == 48);
+        // flushed
+        CHECK(buf.flush());
+        CHECK(primary_buf.view().size() == 48);
+
+        CHECK(primary_buf.view() == expected_string);
+      }
+    }
+    SECTION("request more than limit (2)") {
+      area = buf.get_write_area_of(emio::detail::internal_buffer_size);
+      fill(area, 'b');
+      CHECK(buf.count() == 40 + emio::detail::internal_buffer_size);
+
+      // not flushed
+      CHECK(primary_buf.view().size() == 40);
+      // flushed
+      CHECK(buf.flush());
+      CHECK(primary_buf.view().size() == 48);
+
+      CHECK(primary_buf.view() == expected_string);
+    }
+  }
+  SECTION("request more than limit (1)") {
+    const std::string expected_string = std::string(48, 'a');
+    emio::truncating_buffer buf{primary_buf, 48};
+
+    auto area = buf.get_write_area_of(emio::detail::internal_buffer_size);
+    fill(area, 'a');
+    CHECK(buf.count() == emio::detail::internal_buffer_size);
+
+    // not flushed
+    CHECK(primary_buf.view().size() == 0);
+    const bool explicit_flush = GENERATE(false, true);
+    if (explicit_flush) {
+      // flushed
+      CHECK(buf.flush());
+      CHECK(primary_buf.view().size() == 48);
+    }
+
+    SECTION("request more than limit (2)") {
+      CHECK(buf.get_write_area_of(emio::detail::internal_buffer_size));
+      CHECK(buf.count() == 2 * emio::detail::internal_buffer_size);
+
+      // not flushed
+      CHECK(primary_buf.view().size() == 48);
+      // flushed
+      CHECK(buf.flush());
+      CHECK(primary_buf.view().size() == 48);
+
+      CHECK(primary_buf.view() == expected_string);
+    }
+  }
+  SECTION("request more than primary") {
+    emio::truncating_buffer buf{primary_buf, 86};
+
+    SECTION("request less than limit (1)") {
+      const std::string expected_string = std::string(60, 'a') + std::string(4, 'b');
+
+      auto area = buf.get_write_area_of(60);
+      fill(area, 'a');
+      CHECK(buf.count() == 60);
+
+      // not flushed
+      CHECK(primary_buf.view().size() == 0);
+      const bool explicit_flush = GENERATE(false, true);
+      if (explicit_flush) {
+        // flushed
+        CHECK(buf.flush());
+        CHECK(primary_buf.view().size() == 60);
+      }
+
+      SECTION("request less than limit twice (2)") {
+        area = buf.get_write_area_of(8);
+        fill(area, 'b');
+        CHECK(buf.count() == 68);
+
+        // Requesting more will fail because primary buffer is too small.
+        CHECK_FALSE(buf.get_write_area_of(emio::detail::internal_buffer_size));
+
+        CHECK(primary_buf.view().size() == 64);
+        CHECK(primary_buf.view() == expected_string);
+      }
+    }
+    SECTION("request more than limit (1)") {
+      const std::string expected_string = std::string(64, 'a');
+
+      auto area = buf.get_write_area_of(90);
+      fill(area, 'a');
+      CHECK(buf.count() == 90);
+
+      // not flushed
+      CHECK(primary_buf.view().size() == 0);
+      // flush not possible because primary buffer is too small
+      CHECK_FALSE(buf.flush());
+
+      CHECK(primary_buf.view().size() == 64);
+      CHECK(primary_buf.view() == expected_string);
+    }
+  }
 }

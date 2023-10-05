@@ -508,6 +508,52 @@ class file_buffer : public buffer {
   std::array<char, detail::internal_buffer_size> cache_;
 };
 
+class truncating_buffer : public buffer {
+ public:
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): cache_ can be left uninitialized.
+  constexpr explicit truncating_buffer(buffer& primary, size_t limit) : primary_{primary}, limit_{limit} {
+    this->set_write_area(cache_);
+  }
+
+  [[nodiscard]] constexpr size_t count() const noexcept {
+    return used_ + this->get_used_count();
+  }
+
+  /**
+   * Flushes the internal cache to the output iterator.
+   */
+  [[nodiscard]] constexpr result<void> flush() noexcept {
+    size_t bytes_to_write = get_used_count();
+    used_ += bytes_to_write;
+    while (written_ < limit_ && bytes_to_write > 0) {
+      EMIO_TRY(auto area, primary_.get_write_area_of_max(std::min(bytes_to_write, limit_ - written_)));
+      detail::copy_n(cache_.begin(), area.size(), area.data());
+      written_ += area.size();
+      bytes_to_write -= area.size();
+    }
+    this->set_write_area(cache_);
+    return success;
+  }
+
+ protected:
+  constexpr result<std::span<char>> request_write_area(const size_t /*used*/, const size_t size) noexcept override {
+    EMIO_TRYV(flush());
+    const std::span<char> area{cache_};
+    this->set_write_area(area);
+    if (size > cache_.size()) {
+      return area;
+    }
+    return area.subspan(0, size);
+  }
+
+ private:
+  buffer& primary_;
+  size_t limit_;
+  size_t written_{};
+  size_t used_{};
+  std::array<char, detail::internal_buffer_size> cache_;
+};
+
 namespace detail {
 
 /**
