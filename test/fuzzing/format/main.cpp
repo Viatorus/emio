@@ -33,7 +33,7 @@ void format(emio::runtime_format_string format_string, Args&&... args) {
   }
 }
 
-template<typename Arg>
+template <typename Arg>
 void random_format(emio::runtime_format_string format_string, int64_t storage, Arg arg) {
   if constexpr (std::is_same_v<Arg, std::string_view>) {
     arg = format_string.view();
@@ -42,7 +42,6 @@ void random_format(emio::runtime_format_string format_string, int64_t storage, A
   }
   format(format_string, arg);
 }
-
 
 }  // namespace
 

@@ -241,8 +241,22 @@ jobs:
       - name: Size-Coverage
         run: cmake --build build -t size-coverage
 
-#      - name: Coveralls - Doesn't work.
-#        uses: coverallsapp/github-action@master
-#        with:
-#          github-token: ${{ secrets.GITHUB_TOKEN }}
-#          path-to-lcov: build/test/size_test/size-coverage.info
+  #      - name: Coveralls - Doesn't work.
+  #        uses: coverallsapp/github-action@master
+  #        with:
+  #          github-token: ${{ secrets.GITHUB_TOKEN }}
+  #          path-to-lcov: build/test/size_test/size-coverage.info
+
+  fuzzing:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install AFL++
+        run: |
+          sudo apt update && sudo apt install -y afl++
+
+      - name: Build format fuzzing
+        working-directory: build/fuzzing/format
+        run: make
