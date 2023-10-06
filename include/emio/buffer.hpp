@@ -317,7 +317,7 @@ class iterator_buffer<Iterator> final : public buffer {
 
   /**
    * Flushes the internal cache to the output iterator.
-   * @return Always success.
+   * @return Always succeeds.
    */
   constexpr result<void> flush() noexcept {
     it_ = detail::copy_str(cache_.data(), cache_.data() + this->get_used_count(), it_);
@@ -375,7 +375,7 @@ class iterator_buffer<OutputPtr*> final : public buffer {
 
   /**
    * Does nothing. Kept for uniformity with other iterator_buffer implementations.
-   * @return Always success.
+   * @return Always succeeds.
    */
   constexpr result<void> flush() noexcept {
     // Nothing.
@@ -419,7 +419,7 @@ class iterator_buffer<std::back_insert_iterator<Container>> final : public buffe
 
   /**
    * Flushes the back-insert iterator by adjusting the size.
-   * @return Always success.
+   * @return Always succeeds.
    */
   constexpr result<void> flush() noexcept {
     container_.resize(used_ + this->get_used_count());

@@ -233,7 +233,7 @@ struct format_to_n_result {
  * Formats arguments according to the format string, and writes the result to the output iterator. At most n characters
  * are written.
  * @param out The output iterator.
- * @param n The maximum number of characters to be written to the buffer.
+ * @param n The maximum number of characters to be written to the output iterator.
  * @param args The format args with the format string.
  * @return The format_to_n_result on success or invalid_format if the format string validation failed.
  */
@@ -270,7 +270,7 @@ result<size_t> vformat_to_n(buffer& buf, size_t n, const format_args& args) noex
  * Formats arguments according to the format string, and writes the result to the output iterator. At most n characters
  * are written.
  * @param out The output iterator.
- * @param n The maximum number of characters to be written to the buffer.
+ * @param n The maximum number of characters to be written to the output iterator.
  * @param format_str The format string.
  * @param args The arguments to be formatted.
  * @return The format_to_n_result on success or invalid_format if the format string validation failed.
