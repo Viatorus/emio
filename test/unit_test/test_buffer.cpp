@@ -5,7 +5,13 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
 
-// TODO: Unify test data. Some tests just pop these sizes. Other tests write into the buffer.
+namespace {
+
+constexpr void fill(const emio::result<std::span<char>>& area, char v) {
+  std::fill(area->begin(), area->end(), v);
+}
+
+}  // namespace
 
 TEST_CASE("memory_buffer", "[buffer]") {
   // Test strategy:
@@ -31,21 +37,21 @@ TEST_CASE("memory_buffer", "[buffer]") {
   emio::result<std::span<char>> area = buf.get_write_area_of(first_size);
   REQUIRE(area);
   CHECK(area->size() == first_size);
-  std::fill(area->begin(), area->end(), 'x');
+  fill(area, 'x');
   CHECK(buf.view().size() == first_size);
   CHECK(buf.view() == expected_str_part_1);
 
   area = buf.get_write_area_of(second_size);
   REQUIRE(area);
   CHECK(area->size() == second_size);
-  std::fill(area->begin(), area->end(), 'y');
+  fill(area, 'y');
   CHECK(buf.view().size() == first_size + second_size);
   CHECK(buf.view() == expected_str_part_1 + expected_str_part_2);
 
   area = buf.get_write_area_of(third_size);
   REQUIRE(area);
   CHECK(area->size() == third_size);
-  std::fill(area->begin(), area->end(), 'z');
+  fill(area, 'z');
   CHECK(buf.view() == buf.str());
   CHECK(buf.view().size() == first_size + second_size + third_size);
   CHECK(buf.view() == expected_str);
@@ -81,8 +87,8 @@ TEST_CASE("memory_buffer regression bug 1", "[buffer]") {
   buf.get_write_area_of(1).value()[0] = 'b';
 
   // Write c.
-  auto area2 = buf.get_write_area_of(default_resize_capacity).value();
-  std::fill(area2.begin(), area2.end(), 'c');
+  const emio::result<std::span<char>> area2 = buf.get_write_area_of(default_resize_capacity);
+  fill(area2, 'c');
 
   std::string expected_str(default_capacity + 1, 'a');
   expected_str += 'b';
@@ -109,19 +115,19 @@ TEST_CASE("memory_buffer at compile-time", "[buffer]") {
 
     emio::result<std::span<char>> area = buf.get_write_area_of(first_size);
     result &= area->size() == first_size;
-    std::fill(area->begin(), area->end(), 'x');
+    fill(area, 'x');
     result &= buf.view().size() == first_size;
     result &= buf.view() == "xxxxxxx";
 
     area = buf.get_write_area_of(second_size);
     result &= area->size() == second_size;
-    std::fill(area->begin(), area->end(), 'y');
+    fill(area, 'y');
     result &= buf.view().size() == first_size + second_size;
     result &= buf.view() == "xxxxxxxyyyyy";
 
     area = buf.get_write_area_of(third_size);
     result &= area->size() == third_size;
-    std::fill(area->begin(), area->end(), 'z');
+    fill(area, 'z');
     result &= buf.view().size() == first_size + second_size + third_size;
     result &= buf.view() == "xxxxxxxyyyyyzzzzzzzz";
 
@@ -298,7 +304,7 @@ TEST_CASE("iterator_buffer<char ptr>", "[buffer]") {
   REQUIRE(area);
   REQUIRE(area->size() == 2);
 
-  std::fill(area->begin(), area->end(), 'x');
+  fill(area, 'x');
 
   CHECK((it_buf.out() == std::next(s.data(), 2)));
 
@@ -307,11 +313,11 @@ TEST_CASE("iterator_buffer<char ptr>", "[buffer]") {
   REQUIRE(area);
   REQUIRE(area->size() == 3);
 
-  std::fill(area->begin(), area->end(), 'y');
+  fill(area, 'y');
 
   CHECK((it_buf.out() == std::next(s.data(), 5)));
 
-  it_buf.flush();  // noop
+  CHECK(it_buf.flush());  // noop
   CHECK((it_buf.out() == std::next(s.data(), 5)));
   CHECK(std::string_view{s.data(), it_buf.out()} == "xxyyy");
 }
@@ -335,75 +341,68 @@ TEST_CASE("iterator_buffer<iterator>", "[buffer]") {
 
   std::string s(expected_str.size(), '\0');
 
-  {
-    emio::iterator_buffer it_buf{s.begin()};
+  emio::iterator_buffer it_buf{s.begin()};
 
-    CHECK(it_buf.out() == s.begin());
-    CHECK(it_buf.get_write_area_of(std::numeric_limits<size_t>::max()) == emio::err::eof);
-    CHECK(it_buf.get_write_area_of(internal_buffer_size + 1) == emio::err::eof);
+  CHECK(it_buf.out() == s.begin());
+  CHECK(it_buf.get_write_area_of(std::numeric_limits<size_t>::max()) == emio::err::eof);
+  CHECK(it_buf.get_write_area_of(internal_buffer_size + 1) == emio::err::eof);
 
-    emio::result<std::span<char>> area = it_buf.get_write_area_of(internal_buffer_size);
-    REQUIRE(area);
-    REQUIRE(area->size() == internal_buffer_size);
-    std::fill(area->begin(), area->end(), 'x');
+  emio::result<std::span<char>> area = it_buf.get_write_area_of(internal_buffer_size);
+  REQUIRE(area);
+  REQUIRE(area->size() == internal_buffer_size);
+  fill(area, 'x');
 
-    // No flush yet.
-    CHECK(s.starts_with('\0'));
+  // No flush yet.
+  CHECK(s.starts_with('\0'));
 
-    area = it_buf.get_write_area_of(2);
-    REQUIRE(area);
-    REQUIRE(area->size() == 2);
-    std::fill(area->begin(), area->end(), 'y');
+  area = it_buf.get_write_area_of(2);
+  REQUIRE(area);
+  REQUIRE(area->size() == 2);
+  fill(area, 'y');
 
-    // 1. flush.
-    CHECK(s.starts_with(expected_str_part_1));
+  // 1. flush.
+  CHECK(s.starts_with(expected_str_part_1));
 
-    area = it_buf.get_write_area_of(internal_buffer_size);
-    REQUIRE(area);
-    REQUIRE(area->size() == internal_buffer_size);
-    std::fill(area->begin(), area->end(), 'z');
+  area = it_buf.get_write_area_of(internal_buffer_size);
+  REQUIRE(area);
+  REQUIRE(area->size() == internal_buffer_size);
+  fill(area, 'z');
 
-    // 2. flush.
-    CHECK(s.starts_with(expected_str_part_1 + expected_str_part_2));
+  // 2. flush.
+  CHECK(s.starts_with(expected_str_part_1 + expected_str_part_2));
 
-    area = it_buf.get_write_area_of(3);
-    REQUIRE(area);
-    REQUIRE(area->size() == 3);
-    std::fill(area->begin(), area->end(), 'x');
+  area = it_buf.get_write_area_of(3);
+  REQUIRE(area);
+  REQUIRE(area->size() == 3);
+  fill(area, 'x');
 
-    // 3. flush.
-    CHECK(s.starts_with(expected_str_part_1 + expected_str_part_2 + expected_str_part_3));
+  // 3. flush.
+  CHECK(s.starts_with(expected_str_part_1 + expected_str_part_2 + expected_str_part_3));
 
-    area = it_buf.get_write_area_of(2);
-    REQUIRE(area);
-    REQUIRE(area->size() == 2);
-    std::fill_n(area->begin(), 2, 'y');
+  area = it_buf.get_write_area_of(2);
+  REQUIRE(area);
+  REQUIRE(area->size() == 2);
+  fill(area, 'y');
 
-    // No flush.
-    CHECK(s.starts_with(expected_str_part_1 + expected_str_part_2 + expected_str_part_3));
+  // No flush.
+  CHECK(s.starts_with(expected_str_part_1 + expected_str_part_2 + expected_str_part_3));
 
-    area = it_buf.get_write_area_of(42);
-    REQUIRE(area);
-    REQUIRE(area->size() == 42);
-    std::fill_n(area->begin(), 42, 'z');
+  area = it_buf.get_write_area_of(42);
+  REQUIRE(area);
+  REQUIRE(area->size() == 42);
+  fill(area, 'z');
 
-    // No flush.
-    CHECK(s.starts_with(expected_str_part_1 + expected_str_part_2 + expected_str_part_3));
-    CHECK(s != expected_str);
+  // No flush.
+  CHECK(s.starts_with(expected_str_part_1 + expected_str_part_2 + expected_str_part_3));
+  CHECK(s != expected_str);
 
-    const bool early_return = GENERATE(true, false);
-    if (!early_return) {  // Test flush is called at buffer destruction.
-      it_buf.flush();
-      CHECK(s == expected_str);
-      CHECK(std::distance(it_buf.out(), s.end()) == 0);
-
-      it_buf.flush();
-      CHECK(s == expected_str);
-      CHECK(std::distance(it_buf.out(), s.end()) == 0);
-    }
-  }
-
+  CHECK(it_buf.flush());
   CHECK(s == expected_str);
+  CHECK(std::distance(it_buf.out(), s.end()) == 0);
+
+  CHECK(it_buf.flush());
+  CHECK(s == expected_str);
+  CHECK(std::distance(it_buf.out(), s.end()) == 0);
 }
 
 TEST_CASE("iterator_buffer<back_insert_iterator>", "[buffer]") {
@@ -418,54 +417,46 @@ TEST_CASE("iterator_buffer<back_insert_iterator>", "[buffer]") {
   const std::string expected_str = expected_str_part_1 + expected_str_part_2 + expected_str_part_3;
 
   std::string s;
+  emio::iterator_buffer it_buf{std::back_inserter(s)};
+  STATIC_CHECK(std::is_same_v<decltype(it_buf.out()), decltype(std::back_inserter(s))>);
 
-  {
-    emio::iterator_buffer it_buf{std::back_inserter(s)};
-    STATIC_CHECK(std::is_same_v<decltype(it_buf.out()), decltype(std::back_inserter(s))>);
+  // First write.
+  emio::result<std::span<char>> area = it_buf.get_write_area_of(2);
+  REQUIRE(area);
+  REQUIRE(area->size() == 2);
 
-    // First write.
-    emio::result<std::span<char>> area = it_buf.get_write_area_of(2);
-    REQUIRE(area);
-    REQUIRE(area->size() == 2);
+  fill(area, 'x');
 
-    std::fill(area->begin(), area->end(), 'x');
+  CHECK(s.starts_with(expected_str_part_1));
 
-    CHECK(s.starts_with(expected_str_part_1));
+  // Second write.
+  area = it_buf.get_write_area_of(42);
+  REQUIRE(area);
+  REQUIRE(area->size() == 42);
 
-    // Second write.
-    area = it_buf.get_write_area_of(42);
-    REQUIRE(area);
-    REQUIRE(area->size() == 42);
+  fill(area, 'y');
 
-    std::fill(area->begin(), area->end(), 'y');
+  CHECK(s.starts_with(expected_str_part_1 + expected_str_part_2));
 
-    CHECK(s.starts_with(expected_str_part_1 + expected_str_part_2));
+  // Third write.
+  area = it_buf.get_write_area_of(3);
+  REQUIRE(area);
+  REQUIRE(area->size() == 3);
 
-    // Third write.
-    area = it_buf.get_write_area_of(3);
-    REQUIRE(area);
-    REQUIRE(area->size() == 3);
+  fill(area, 'z');
 
-    std::fill(area->begin(), area->end(), 'z');
+  CHECK(s.starts_with(expected_str));
 
-    CHECK(s.starts_with(expected_str));
+  // No flush - no final content.
+  CHECK(s != expected_str);
 
-    // No flush - no final content.
-    CHECK(s != expected_str);
-
-    const bool early_return = GENERATE(true, false);
-    if (!early_return) {  // Test flush is called at buffer destruction.
-      it_buf.flush();
-      CHECK(s == expected_str);
-
-      it_buf.flush();
-      CHECK(s == expected_str);
-
-      CHECK_NOTHROW(it_buf.out());
-    }
-  }
-
+  CHECK(it_buf.flush());
   CHECK(s == expected_str);
+
+  CHECK(it_buf.flush());
+  CHECK(s == expected_str);
+
+  CHECK_NOTHROW(it_buf.out());
 }
 
 TEST_CASE("file_buffer", "[buffer]") {
@@ -490,7 +481,7 @@ TEST_CASE("file_buffer", "[buffer]") {
   emio::result<std::span<char>> area = file_buf.get_write_area_of(2);
   REQUIRE(area);
   REQUIRE(area->size() == 2);
-  std::fill(area->begin(), area->end(), 'y');
+  fill(area, 'y');
 
   // Read out (without flush).
   std::rewind(tmpf);
@@ -509,7 +500,7 @@ TEST_CASE("file_buffer", "[buffer]") {
   area = file_buf.get_write_area_of(4);
   REQUIRE(area);
   REQUIRE(area->size() == 4);
-  std::fill(area->begin(), area->end(), 'z');
+  fill(area, 'z');
 
   // Read out (without flush).
   std::rewind(tmpf);
@@ -528,15 +519,182 @@ TEST_CASE("file_buffer", "[buffer]") {
   area = file_buf.get_write_area_of(internal_buffer_size);
   REQUIRE(area);
   REQUIRE(area->size() == internal_buffer_size);
-  std::fill(area->begin(), area->end(), 'x');
+  fill(area, 'x');
 
   // Internal flush should have happened.
   area = file_buf.get_write_area_of(2);
   REQUIRE(area);
   REQUIRE(area->size() == 2);
-  std::fill(area->begin(), area->end(), 'z');
+  fill(area, 'z');
 
   std::rewind(tmpf);
   CHECK(std::fgets(read_out_buf.data(), read_out_buf.size(), tmpf));
   CHECK(std::string_view{read_out_buf.data(), 6 + internal_buffer_size} == "yyzzzz" + expected_long_str_part);
+}
+
+TEST_CASE("truncating_buffer", "[buffer]") {
+  emio::static_buffer<64> primary_buf;
+
+  SECTION("request less than limit (1)") {
+    const bool explicit_flush = GENERATE(false, true);
+    const std::string expected_string = std::string(40, 'a') + std::string(8, 'b');
+    emio::truncating_buffer buf{primary_buf, 48};
+
+    emio::result<std::span<char>> area = buf.get_write_area_of(40);
+    REQUIRE(area);
+    fill(area, 'a');
+    CHECK(buf.count() == 40);
+
+    // not flushed
+    CHECK(primary_buf.view().size() == 0);
+    if (explicit_flush) {
+      // flushed
+      CHECK(buf.flush());
+      CHECK(primary_buf.view().size() == 40);
+    }
+
+    SECTION("request less than limit (2)") {
+      area = buf.get_write_area_of(8);
+      REQUIRE(area);
+      fill(area, 'b');
+      CHECK(buf.count() == 48);
+
+      if (explicit_flush) {
+        // not flushed
+        CHECK(primary_buf.view().size() == 40);
+        // flushed
+        CHECK(buf.flush());
+        CHECK(primary_buf.view().size() == 48);
+      } else {
+        CHECK(primary_buf.view().size() == 0);
+      }
+
+      SECTION("request more than limit (3)") {
+        area = buf.get_write_area_of(emio::detail::internal_buffer_size);
+        REQUIRE(area);
+        fill(area, 'c');
+        CHECK(buf.count() == 48 + emio::detail::internal_buffer_size);
+
+        // not flushed
+        CHECK(primary_buf.view().size() == 48);
+        // flushed
+        CHECK(buf.flush());
+        CHECK(primary_buf.view().size() == 48);
+
+        CHECK(primary_buf.view() == expected_string);
+      }
+    }
+    SECTION("request more than limit (2)") {
+      area = buf.get_write_area_of(emio::detail::internal_buffer_size);
+      REQUIRE(area);
+      fill(area, 'b');
+      CHECK(buf.count() == 40 + emio::detail::internal_buffer_size);
+
+      // not flushed
+      CHECK(primary_buf.view().size() == 40);
+      // flushed
+      CHECK(buf.flush());
+      CHECK(primary_buf.view().size() == 48);
+
+      CHECK(primary_buf.view() == expected_string);
+    }
+  }
+  SECTION("request more than limit (1)") {
+    const std::string expected_string = std::string(48, 'a');
+    emio::truncating_buffer buf{primary_buf, 48};
+
+    emio::result<std::span<char>> area = buf.get_write_area_of(emio::detail::internal_buffer_size);
+    REQUIRE(area);
+    fill(area, 'a');
+    CHECK(buf.count() == emio::detail::internal_buffer_size);
+
+    // not flushed
+    CHECK(primary_buf.view().size() == 0);
+    const bool explicit_flush = GENERATE(false, true);
+    if (explicit_flush) {
+      // flushed
+      CHECK(buf.flush());
+      CHECK(primary_buf.view().size() == 48);
+    }
+
+    SECTION("request more than limit (2)") {
+      CHECK(buf.get_write_area_of(emio::detail::internal_buffer_size));
+      CHECK(buf.count() == 2 * emio::detail::internal_buffer_size);
+
+      // not flushed
+      CHECK(primary_buf.view().size() == 48);
+      // flushed
+      CHECK(buf.flush());
+      CHECK(primary_buf.view().size() == 48);
+
+      CHECK(primary_buf.view() == expected_string);
+    }
+  }
+  SECTION("request more than primary") {
+    emio::truncating_buffer buf{primary_buf, 86};
+
+    SECTION("request less than limit (1)") {
+      const std::string expected_string = std::string(60, 'a') + std::string(4, 'b');
+
+      emio::result<std::span<char>> area = buf.get_write_area_of(60);
+      REQUIRE(area);
+      fill(area, 'a');
+      CHECK(buf.count() == 60);
+
+      // not flushed
+      CHECK(primary_buf.view().size() == 0);
+      const bool explicit_flush = GENERATE(false, true);
+      if (explicit_flush) {
+        // flushed
+        CHECK(buf.flush());
+        CHECK(primary_buf.view().size() == 60);
+      }
+
+      SECTION("request less than limit twice (2)") {
+        area = buf.get_write_area_of(8);
+        REQUIRE(area);
+        fill(area, 'b');
+        CHECK(buf.count() == 68);
+
+        // Requesting more will fail because primary buffer is too small.
+        CHECK_FALSE(buf.get_write_area_of(emio::detail::internal_buffer_size));
+
+        CHECK(primary_buf.view().size() == 64);
+        CHECK(primary_buf.view() == expected_string);
+      }
+    }
+    SECTION("request more than limit (1)") {
+      const std::string expected_string = std::string(64, 'a');
+
+      emio::result<std::span<char>> area = buf.get_write_area_of(90);
+      REQUIRE(area);
+      fill(area, 'a');
+      CHECK(buf.count() == 90);
+
+      // not flushed
+      CHECK(primary_buf.view().size() == 0);
+      // flush not possible because primary buffer is too small
+      CHECK_FALSE(buf.flush());
+
+      CHECK(primary_buf.view().size() == 64);
+      CHECK(primary_buf.view() == expected_string);
+    }
+  }
+  SECTION("request more than the cache size") {
+    const std::string expected_string = std::string(64, 'a');
+    emio::truncating_buffer buf{primary_buf, 64};
+
+    emio::result<std::span<char>> area = buf.get_write_area_of_max(emio::detail::internal_buffer_size + 10);
+    REQUIRE(area);
+    CHECK(area->size() == emio::detail::internal_buffer_size);
+    fill(area, 'a');
+
+    // not flushed
+    CHECK(primary_buf.view().size() == 0);
+    // flush not possible because primary buffer is too small
+    CHECK(buf.flush());
+
+    CHECK(primary_buf.view().size() == 64);
+    CHECK(primary_buf.view() == expected_string);
+  }
 }

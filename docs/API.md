@@ -8,11 +8,12 @@ The public namespace is `emio` only - no deeper nesting.
 * [err](#err)
 * [result](#result)
 * [Buffer](#buffer)
-    + [memory_buffer](#memory-buffer)
-    + [span_buffer](#span-buffer)
-    + [static_buffer](#static-buffer)
-    + [iterator_buffer](#iterator-buffer)
-    + [file_buffer](#file-buffer)
+    + [memory_buffer](#memorybuffer)
+    + [span_buffer](#spanbuffer)
+    + [static_buffer](#staticbuffer)
+    + [iterator_buffer](#iteratorbuffer)
+    + [file_buffer](#filebuffer)
+    + [truncating_buffer](#truncatingbuffer)
 * [Reader](#reader)
 * [Writer](#writer)
 * [Format](#format)
@@ -190,11 +191,12 @@ emio::iterator_buffer buf{std::back_inserter(storage)};
 
 emio::result<std::span<char>> area = buf.get_write_area_of(50);
 assert(area);
+assert(buf.flush());
 ```
 
 ### file_buffer
 
-- A buffer which over an std::File (file stream) with an internal cache.
+- A buffer over an std::File (file stream) with an internal cache.
 
 *Example*
 ```cpp
@@ -203,6 +205,22 @@ emio::file_buffer buf{file};
 
 emio::result<std::span<char>> area = buf.get_write_area_of(50);
 assert(area);
+assert(buf.flush());
+```
+
+### truncating_buffer
+
+- A buffer which truncates the remaining output if the limit of another provided buffer is reached.
+
+*Example*
+```cpp
+emio::static_buffer<48> primary_buf{};
+emio::truncating_buffer buf{primary_buf, 32};
+
+emio::result<std::span<char>> area = buf.get_write_area_of(50);
+assert(area);
+assert(buf.flush());
+assert(primary_buf.view().size() == 32);  // Only 32 bytes are flushed.
 ```
 
 ## Reader
@@ -486,7 +504,7 @@ assert(res == "Good by 42!");
 
 `format_to(out, format_str, ...args) -> result<Output>`
 
-- Formats arguments according to the format string, and writes the result to the output. 
+- Formats arguments according to the format string, and writes the result to the output iterator/buffer. 
 **Note** If a raw output pointer or simple output iterator is used, no range checking can take place!
 
 *Example*
@@ -500,8 +518,8 @@ assert(out == "Hello 42!");
 
 `format_to_n(out, n, format_str, ...args) -> result<format_to_n_result<Output>>`
 
-- Formats arguments according to the format string, and writes the result to the output iterator. At most *n* characters
-  are written.
+- Formats arguments according to the format string, and writes the result to the output iterator/buffer. At most *n*
+  characters are written.
 
 *Example*
 ```cpp

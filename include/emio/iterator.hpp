@@ -45,7 +45,7 @@ class truncating_iterator_base {
   }
 
   /**
-   * Returns the count of actual passed elements to the wrapped output iterator.
+   * Returns the count of the total (not truncated) outputted elements.
    * @return The count.
    */
   [[nodiscard]] constexpr std::iter_difference_t<OutputIt> count() const noexcept {
