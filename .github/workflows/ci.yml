@@ -258,5 +258,5 @@ jobs:
           sudo apt update && sudo apt install -y afl++
 
       - name: Build format fuzzing
-        working-directory: build/fuzzing/format
+        working-directory: test/fuzzing/format
         run: make
