@@ -1566,7 +1566,7 @@ class buffer {
   buffer(buffer&& other) = delete;
   buffer& operator=(const buffer& other) = delete;
   buffer& operator=(buffer&& other) = delete;
-  virtual constexpr ~buffer() = default;
+  virtual constexpr ~buffer() noexcept = default;
 
   /**
    * Returns a write area with the requested size on success.
@@ -1851,20 +1851,16 @@ class iterator_buffer<Iterator> final : public buffer {
   iterator_buffer(iterator_buffer&&) = delete;
   iterator_buffer& operator=(const iterator_buffer&) = delete;
   iterator_buffer& operator=(iterator_buffer&&) = delete;
-
-  /**
-   * At destruction, the internal cache will be flushed to the output iterator.
-   */
-  constexpr ~iterator_buffer() override {
-    flush();
-  }
+  ~iterator_buffer() override = default;
 
   /**
    * Flushes the internal cache to the output iterator.
+   * @return Always succeeds.
    */
-  constexpr void flush() noexcept {
+  constexpr result<void> flush() noexcept {
     it_ = detail::copy_str(cache_.data(), cache_.data() + this->get_used_count(), it_);
     this->set_write_area(cache_);
+    return success;
   }
 
   /**
@@ -1872,13 +1868,13 @@ class iterator_buffer<Iterator> final : public buffer {
    * @return The output iterator.
    */
   constexpr Iterator out() noexcept {
-    flush();
+    flush().assume_value();  // Will never fail.
     return it_;
   }
 
  protected:
   constexpr result<std::span<char>> request_write_area(const size_t /*used*/, const size_t size) noexcept override {
-    flush();
+    flush().assume_value();  // Will never fail.
     const std::span<char> area{cache_};
     this->set_write_area(area);
     if (size > cache_.size()) {
@@ -1917,9 +1913,11 @@ class iterator_buffer<OutputPtr*> final : public buffer {
 
   /**
    * Does nothing. Kept for uniformity with other iterator_buffer implementations.
+   * @return Always succeeds.
    */
-  constexpr void flush() noexcept {
+  constexpr result<void> flush() noexcept {
     // Nothing.
+    return success;
   }
 
   /**
@@ -1944,7 +1942,7 @@ class iterator_buffer<std::back_insert_iterator<Container>> final : public buffe
  public:
   /**
    * Constructs and initializes the buffer with the given back-insert iterator.
-   * @param it The output iterator.
+   * @param it The back-insert iterator.
    */
   constexpr explicit iterator_buffer(std::back_insert_iterator<Container> it) noexcept
       : container_{detail::get_container(it)} {
@@ -1955,19 +1953,15 @@ class iterator_buffer<std::back_insert_iterator<Container>> final : public buffe
   iterator_buffer(iterator_buffer&&) = delete;
   iterator_buffer& operator=(const iterator_buffer&) = delete;
   iterator_buffer& operator=(iterator_buffer&&) = delete;
-
-  /**
-   * At destruction, the back-insert iterator will be flushed.
-   */
-  constexpr ~iterator_buffer() override {
-    flush();
-  }
+  ~iterator_buffer() override = default;
 
   /**
    * Flushes the back-insert iterator by adjusting the size.
+   * @return Always succeeds.
    */
-  constexpr void flush() noexcept {
+  constexpr result<void> flush() noexcept {
     container_.resize(used_ + this->get_used_count());
+    return success;
   }
 
   /**
@@ -1975,7 +1969,7 @@ class iterator_buffer<std::back_insert_iterator<Container>> final : public buffe
    * @return The back-insert iterator.
    */
   constexpr std::back_insert_iterator<Container> out() noexcept {
-    flush();
+    flush().assume_value();  // Will never fail.
     return std::back_inserter(container_);
   }
 
@@ -2015,7 +2009,7 @@ class file_buffer : public buffer {
   file_buffer(file_buffer&&) = delete;
   file_buffer& operator=(const file_buffer&) = delete;
   file_buffer& operator=(file_buffer&&) = delete;
-  ~file_buffer() override = default;  // Doesn't flush because it could fail!
+  ~file_buffer() override = default;
 
   /**
    * Flushes the internal cache to the file stream.
@@ -2045,6 +2039,74 @@ class file_buffer : public buffer {
   std::FILE* file_;
   std::array<char, detail::internal_buffer_size> cache_;
 };
+
+/**
+ * This class fulfills the buffer API by using a primary buffer and an internal cache.
+ * Only a limited amount of characters is written to the primary buffer. The remaining characters are truncated.
+ */
+class truncating_buffer : public buffer {
+ public:
+  /**
+   * Constructs and initializes the buffer with the given primary buffer and limit.
+   * @param primary The primary buffer.
+   * @param limit The limit.
+   */
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): cache_ can be left uninitialized.
+  constexpr explicit truncating_buffer(buffer& primary, size_t limit) : primary_{primary}, limit_{limit} {
+    this->set_write_area(cache_);
+  }
+
+  truncating_buffer(const truncating_buffer&) = delete;
+  truncating_buffer(truncating_buffer&&) = delete;
+  truncating_buffer& operator=(const truncating_buffer&) = delete;
+  truncating_buffer& operator=(truncating_buffer&&) = delete;
+  constexpr ~truncating_buffer() noexcept override;
+
+  /**
+   * Returns the count of the total (not truncated) written characters.
+   * @return The count.
+   */
+  [[nodiscard]] constexpr size_t count() const noexcept {
+    return used_ + this->get_used_count();
+  }
+
+  /**
+   * Flushes the internal cache to the primary buffer.
+   */
+  [[nodiscard]] constexpr result<void> flush() noexcept {
+    size_t bytes_to_write = get_used_count();
+    used_ += bytes_to_write;
+    while (written_ < limit_ && bytes_to_write > 0) {
+      EMIO_TRY(const auto area, primary_.get_write_area_of_max(std::min(bytes_to_write, limit_ - written_)));
+      detail::copy_n(cache_.begin(), area.size(), area.data());
+      written_ += area.size();
+      bytes_to_write -= area.size();
+    }
+    this->set_write_area(cache_);
+    return success;
+  }
+
+ protected:
+  constexpr result<std::span<char>> request_write_area(const size_t /*used*/, const size_t size) noexcept override {
+    EMIO_TRYV(flush());
+    const std::span<char> area{cache_};
+    this->set_write_area(area);
+    if (size > cache_.size()) {
+      return area;
+    }
+    return area.subspan(0, size);
+  }
+
+ private:
+  buffer& primary_;
+  size_t limit_;
+  size_t written_{};
+  size_t used_{};
+  std::array<char, detail::internal_buffer_size> cache_;
+};
+
+// Explicit out-of-class definition because of GCC bug: <destructor> used before its definition.
+constexpr truncating_buffer::~truncating_buffer() noexcept = default;
 
 namespace detail {
 
@@ -5371,7 +5433,7 @@ class truncating_iterator_base {
   }
 
   /**
-   * Returns the count of actual passed elements to the wrapped output iterator.
+   * Returns the count of the total (not truncated) outputted elements.
    * @return The count.
    */
   [[nodiscard]] constexpr std::iter_difference_t<OutputIt> count() const noexcept {
@@ -5560,9 +5622,7 @@ constexpr result<size_t> formatted_size(T format_str, const Args&... args) noexc
  * @param args The format args with the format string.
  * @return Success or EOF if the buffer is to small or invalid_format if the format string validation failed.
  */
-template <typename Buffer>
-  requires(std::is_base_of_v<buffer, Buffer>)
-result<void> vformat_to(Buffer& buf, const format_args& args) noexcept {
+inline result<void> vformat_to(buffer& buf, const format_args& args) noexcept {
   EMIO_TRYV(detail::format::vformat_to(buf, args));
   return success;
 }
@@ -5600,9 +5660,8 @@ constexpr result<OutputIt> vformat_to(OutputIt out, const format_args& args) noe
  * @param args The arguments to be formatted.
  * @return Success or EOF if the buffer is to small or invalid_format if the format string validation failed.
  */
-template <typename Buffer, typename... Args>
-  requires(std::is_base_of_v<buffer, Buffer>)
-constexpr result<void> format_to(Buffer& buf, format_string<Args...> format_str, const Args&... args) noexcept {
+template <typename... Args>
+constexpr result<void> format_to(buffer& buf, format_string<Args...> format_str, const Args&... args) noexcept {
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::format::format_to(buf, format_str, args...));
   } else {
@@ -5700,7 +5759,7 @@ struct format_to_n_result {
  * Formats arguments according to the format string, and writes the result to the output iterator. At most n characters
  * are written.
  * @param out The output iterator.
- * @param n The maximum number of characters to be written to the buffer.
+ * @param n The maximum number of characters to be written to the output iterator.
  * @param args The format args with the format string.
  * @return The format_to_n_result on success or invalid_format if the format string validation failed.
  */
@@ -5711,15 +5770,33 @@ result<format_to_n_result<OutputIt>> vformat_to_n(OutputIt out, std::iter_differ
   truncating_iterator tout{out, static_cast<size_t>(n)};
   iterator_buffer buf{tout};
   EMIO_TRYV(detail::format::vformat_to(buf, args));
+  EMIO_TRYV(buf.flush());
   tout = buf.out();
   return format_to_n_result<OutputIt>{tout.out(), tout.count()};
+}
+
+/**
+ * Formats arguments according to the format string, and writes the result to the buffer. At most n characters are
+ * written.
+ * @param buf The buffer.
+ * @param n The maximum number of characters to be written to the buffer.
+ * @param args The format args with the format string.
+ * @return The total number (not truncated) output size on success or EOF if the buffer is to small or invalid_format if
+ * the format string validation failed.
+ */
+template <typename... Args>
+result<size_t> vformat_to_n(buffer& buf, size_t n, const format_args& args) noexcept {
+  truncating_buffer trunc_buf{buf, n};
+  EMIO_TRYV(detail::format::vformat_to(trunc_buf, args));
+  EMIO_TRYV(trunc_buf.flush());
+  return trunc_buf.count();
 }
 
 /**
  * Formats arguments according to the format string, and writes the result to the output iterator. At most n characters
  * are written.
  * @param out The output iterator.
- * @param n The maximum number of characters to be written to the buffer.
+ * @param n The maximum number of characters to be written to the output iterator.
  * @param format_str The format string.
  * @param args The arguments to be formatted.
  * @return The format_to_n_result on success or invalid_format if the format string validation failed.
@@ -5736,8 +5813,32 @@ constexpr result<format_to_n_result<OutputIt>> format_to_n(OutputIt out, std::it
   } else {
     EMIO_TRYV(detail::format::vformat_to(buf, make_format_args(format_str, args...)));
   }
+  EMIO_TRYV(buf.flush());
   tout = buf.out();
   return format_to_n_result<OutputIt>{tout.out(), tout.count()};
+}
+
+/**
+ * Formats arguments according to the format string, and writes the result to the buffer. At most n characters are
+ * written.
+ * @param buf The buffer.
+ * @param n The maximum number of characters to be written to the buffer.
+ * @param format_str The format string.
+ * @param args The arguments to be formatted.
+ * @return The total number (not truncated) output size on success or EOF if the buffer is to small or invalid_format if
+ * the format string validation failed.
+ */
+template <typename... Args>
+constexpr result<size_t> format_to_n(buffer& buf, size_t n, format_string<Args...> format_str,
+                                     const Args&... args) noexcept {
+  truncating_buffer trunc_buf{buf, n};
+  if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
+    EMIO_TRYV(detail::format::format_to(trunc_buf, format_str, args...));
+  } else {
+    EMIO_TRYV(detail::format::vformat_to(trunc_buf, make_format_args(format_str, args...)));
+  }
+  EMIO_TRYV(trunc_buf.flush());
+  return trunc_buf.count();
 }
 
 /**
@@ -5752,7 +5853,7 @@ inline result<void> vprint(std::FILE* file, const format_args& args) noexcept {
   }
 
   file_buffer buf{file};
-  EMIO_TRYV(vformat_to(buf, args));
+  EMIO_TRYV(detail::format::vformat_to(buf, args));
   return buf.flush();
 }
 
@@ -5803,7 +5904,7 @@ inline result<void> vprintln(std::FILE* file, const format_args& args) noexcept 
   }
 
   file_buffer buf{file};
-  EMIO_TRYV(vformat_to(buf, args));
+  EMIO_TRYV(detail::format::vformat_to(buf, args));
   EMIO_TRY(auto area, buf.get_write_area_of(1));
   area[0] = '\n';
   return buf.flush();
