@@ -93,3 +93,44 @@ TEST_CASE("emio::vformat_to_n with output iterator", "[format_to_n]") {
     CHECK(s == "4");
   }
 }
+
+TEST_CASE("emio::vformat_to_n with buffer", "[format_to_n]") {
+  // Test strategy:
+  // * Write a longer message than the specified limit into a buffer.
+  // Expected: The buffer only has a subset of the message and can later be used independently.
+  emio::static_buffer<13> buf;
+
+  emio::result<size_t> count = emio::vformat_to_n(buf, 10, emio::make_format_args("Hello {}!", 123456789));
+
+  CHECK(count == 16U);
+  CHECK(buf.view() == "Hello 1234");
+
+  REQUIRE(emio::format_to(buf, "..."));
+  CHECK(buf.view() == "Hello 1234...");
+}
+
+TEST_CASE("emio::format_to_n with buffer", "[format_to_n]") {
+  // Test strategy:
+  // * Write a longer message than the specified limit into a truncating buffer.
+  // Expected: The primary buffer only has a subset of the message and can later be used independently.
+
+  SECTION("runtime") {
+    emio::static_buffer<13> buf;
+
+    const emio::result<size_t> count = emio::format_to_n(buf, 10, "Hello {}!", 123456789);
+
+    CHECK(count == 16U);
+    CHECK(buf.view() == "Hello 1234");
+
+    REQUIRE(emio::format_to(buf, "..."));
+    CHECK(buf.view() == "Hello 1234...");
+  }
+  SECTION("compile-time") {
+    constexpr bool success = [] {
+      emio::static_buffer<10> buf{};
+      const emio::result<size_t> count = emio::format_to_n(buf, 1, "{}", 42);
+      return count == 2U && buf.view() == "4";
+    }();
+    STATIC_CHECK(success);
+  }
+}

@@ -191,6 +191,7 @@ emio::iterator_buffer buf{std::back_inserter(storage)};
 
 emio::result<std::span<char>> area = buf.get_write_area_of(50);
 assert(area);
+assert(buf.flush());
 ```
 
 ### file_buffer
@@ -204,6 +205,7 @@ emio::file_buffer buf{file};
 
 emio::result<std::span<char>> area = buf.get_write_area_of(50);
 assert(area);
+assert(buf.flush());
 ```
 
 ### truncating_buffer
@@ -502,7 +504,7 @@ assert(res == "Good by 42!");
 
 `format_to(out, format_str, ...args) -> result<Output>`
 
-- Formats arguments according to the format string, and writes the result to the output. 
+- Formats arguments according to the format string, and writes the result to the output iterator/buffer. 
 **Note** If a raw output pointer or simple output iterator is used, no range checking can take place!
 
 *Example*
@@ -516,8 +518,8 @@ assert(out == "Hello 42!");
 
 `format_to_n(out, n, format_str, ...args) -> result<format_to_n_result<Output>>`
 
-- Formats arguments according to the format string, and writes the result to the output iterator. At most *n* characters
-  are written.
+- Formats arguments according to the format string, and writes the result to the output iterator/buffer. At most *n*
+  characters are written.
 
 *Example*
 ```cpp

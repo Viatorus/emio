@@ -96,9 +96,7 @@ constexpr result<size_t> formatted_size(T format_str, const Args&... args) noexc
  * @param args The format args with the format string.
  * @return Success or EOF if the buffer is to small or invalid_format if the format string validation failed.
  */
-template <typename Buffer>
-  requires(std::is_base_of_v<buffer, Buffer>)
-result<void> vformat_to(Buffer& buf, const format_args& args) noexcept {
+inline result<void> vformat_to(buffer& buf, const format_args& args) noexcept {
   EMIO_TRYV(detail::format::vformat_to(buf, args));
   return success;
 }
@@ -136,9 +134,8 @@ constexpr result<OutputIt> vformat_to(OutputIt out, const format_args& args) noe
  * @param args The arguments to be formatted.
  * @return Success or EOF if the buffer is to small or invalid_format if the format string validation failed.
  */
-template <typename Buffer, typename... Args>
-  requires(std::is_base_of_v<buffer, Buffer>)
-constexpr result<void> format_to(Buffer& buf, format_string<Args...> format_str, const Args&... args) noexcept {
+template <typename... Args>
+constexpr result<void> format_to(buffer& buf, format_string<Args...> format_str, const Args&... args) noexcept {
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::format::format_to(buf, format_str, args...));
   } else {
@@ -247,8 +244,26 @@ result<format_to_n_result<OutputIt>> vformat_to_n(OutputIt out, std::iter_differ
   truncating_iterator tout{out, static_cast<size_t>(n)};
   iterator_buffer buf{tout};
   EMIO_TRYV(detail::format::vformat_to(buf, args));
+  EMIO_TRYV(buf.flush());
   tout = buf.out();
   return format_to_n_result<OutputIt>{tout.out(), tout.count()};
+}
+
+/**
+ * Formats arguments according to the format string, and writes the result to the buffer. At most n characters are
+ * written.
+ * @param buf The buffer.
+ * @param n The maximum number of characters to be written to the buffer.
+ * @param args The format args with the format string.
+ * @return The total number (not truncated) output size on success or EOF if the buffer is to small or invalid_format if
+ * the format string validation failed.
+ */
+template <typename... Args>
+result<size_t> vformat_to_n(buffer& buf, size_t n, const format_args& args) noexcept {
+  truncating_buffer trunc_buf{buf, n};
+  EMIO_TRYV(detail::format::vformat_to(trunc_buf, args));
+  EMIO_TRYV(trunc_buf.flush());
+  return trunc_buf.count();
 }
 
 /**
@@ -272,8 +287,32 @@ constexpr result<format_to_n_result<OutputIt>> format_to_n(OutputIt out, std::it
   } else {
     EMIO_TRYV(detail::format::vformat_to(buf, make_format_args(format_str, args...)));
   }
+  EMIO_TRYV(buf.flush());
   tout = buf.out();
   return format_to_n_result<OutputIt>{tout.out(), tout.count()};
+}
+
+/**
+ * Formats arguments according to the format string, and writes the result to the buffer. At most n characters are
+ * written.
+ * @param buf The buffer.
+ * @param n The maximum number of characters to be written to the buffer.
+ * @param format_str The format string.
+ * @param args The arguments to be formatted.
+ * @return The total number (not truncated) output size on success or EOF if the buffer is to small or invalid_format if
+ * the format string validation failed.
+ */
+template <typename... Args>
+constexpr result<size_t> format_to_n(buffer& buf, size_t n, format_string<Args...> format_str,
+                                     const Args&... args) noexcept {
+  truncating_buffer trunc_buf{buf, n};
+  if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
+    EMIO_TRYV(detail::format::format_to(trunc_buf, format_str, args...));
+  } else {
+    EMIO_TRYV(detail::format::vformat_to(trunc_buf, make_format_args(format_str, args...)));
+  }
+  EMIO_TRYV(trunc_buf.flush());
+  return trunc_buf.count();
 }
 
 /**
@@ -288,7 +327,7 @@ inline result<void> vprint(std::FILE* file, const format_args& args) noexcept {
   }
 
   file_buffer buf{file};
-  EMIO_TRYV(vformat_to(buf, args));
+  EMIO_TRYV(detail::format::vformat_to(buf, args));
   return buf.flush();
 }
 
@@ -339,7 +378,7 @@ inline result<void> vprintln(std::FILE* file, const format_args& args) noexcept 
   }
 
   file_buffer buf{file};
-  EMIO_TRYV(vformat_to(buf, args));
+  EMIO_TRYV(detail::format::vformat_to(buf, args));
   EMIO_TRY(auto area, buf.get_write_area_of(1));
   area[0] = '\n';
   return buf.flush();

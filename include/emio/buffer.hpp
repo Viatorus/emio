@@ -28,7 +28,7 @@ class buffer {
   buffer(buffer&& other) = delete;
   buffer& operator=(const buffer& other) = delete;
   buffer& operator=(buffer&& other) = delete;
-  virtual constexpr ~buffer() = default;
+  virtual constexpr ~buffer() noexcept = default;
 
   /**
    * Returns a write area with the requested size on success.
@@ -313,20 +313,16 @@ class iterator_buffer<Iterator> final : public buffer {
   iterator_buffer(iterator_buffer&&) = delete;
   iterator_buffer& operator=(const iterator_buffer&) = delete;
   iterator_buffer& operator=(iterator_buffer&&) = delete;
-
-  /**
-   * At destruction, the internal cache will be flushed to the output iterator.
-   */
-  constexpr ~iterator_buffer() override {
-    flush();
-  }
+  ~iterator_buffer() override = default;
 
   /**
    * Flushes the internal cache to the output iterator.
+   * @return Always success.
    */
-  constexpr void flush() noexcept {
+  constexpr result<void> flush() noexcept {
     it_ = detail::copy_str(cache_.data(), cache_.data() + this->get_used_count(), it_);
     this->set_write_area(cache_);
+    return success;
   }
 
   /**
@@ -334,13 +330,13 @@ class iterator_buffer<Iterator> final : public buffer {
    * @return The output iterator.
    */
   constexpr Iterator out() noexcept {
-    flush();
+    flush().assume_value();  // Will never fail.
     return it_;
   }
 
  protected:
   constexpr result<std::span<char>> request_write_area(const size_t /*used*/, const size_t size) noexcept override {
-    flush();
+    flush().assume_value();  // Will never fail.
     const std::span<char> area{cache_};
     this->set_write_area(area);
     if (size > cache_.size()) {
@@ -379,9 +375,11 @@ class iterator_buffer<OutputPtr*> final : public buffer {
 
   /**
    * Does nothing. Kept for uniformity with other iterator_buffer implementations.
+   * @return Always success.
    */
-  constexpr void flush() noexcept {
+  constexpr result<void> flush() noexcept {
     // Nothing.
+    return success;
   }
 
   /**
@@ -417,19 +415,15 @@ class iterator_buffer<std::back_insert_iterator<Container>> final : public buffe
   iterator_buffer(iterator_buffer&&) = delete;
   iterator_buffer& operator=(const iterator_buffer&) = delete;
   iterator_buffer& operator=(iterator_buffer&&) = delete;
-
-  /**
-   * At destruction, the back-insert iterator will be flushed.
-   */
-  constexpr ~iterator_buffer() override {
-    flush();
-  }
+  ~iterator_buffer() override = default;
 
   /**
    * Flushes the back-insert iterator by adjusting the size.
+   * @return Always success.
    */
-  constexpr void flush() noexcept {
+  constexpr result<void> flush() noexcept {
     container_.resize(used_ + this->get_used_count());
+    return success;
   }
 
   /**
@@ -437,7 +431,7 @@ class iterator_buffer<std::back_insert_iterator<Container>> final : public buffe
    * @return The back-insert iterator.
    */
   constexpr std::back_insert_iterator<Container> out() noexcept {
-    flush();
+    flush().assume_value();  // Will never fail.
     return std::back_inserter(container_);
   }
 
@@ -477,7 +471,7 @@ class file_buffer : public buffer {
   file_buffer(file_buffer&&) = delete;
   file_buffer& operator=(const file_buffer&) = delete;
   file_buffer& operator=(file_buffer&&) = delete;
-  ~file_buffer() override = default;  // Doesn't flush because it could fail!
+  ~file_buffer() override = default;
 
   /**
    * Flushes the internal cache to the file stream.
@@ -524,6 +518,12 @@ class truncating_buffer : public buffer {
     this->set_write_area(cache_);
   }
 
+  truncating_buffer(const truncating_buffer&) = delete;
+  truncating_buffer(truncating_buffer&&) = delete;
+  truncating_buffer& operator=(const truncating_buffer&) = delete;
+  truncating_buffer& operator=(truncating_buffer&&) = delete;
+  constexpr ~truncating_buffer() noexcept override;
+
   /**
    * Returns the count of the total (not truncated) written characters.
    * @return The count.
@@ -539,7 +539,7 @@ class truncating_buffer : public buffer {
     size_t bytes_to_write = get_used_count();
     used_ += bytes_to_write;
     while (written_ < limit_ && bytes_to_write > 0) {
-      EMIO_TRY(auto area, primary_.get_write_area_of_max(std::min(bytes_to_write, limit_ - written_)));
+      EMIO_TRY(const auto area, primary_.get_write_area_of_max(std::min(bytes_to_write, limit_ - written_)));
       detail::copy_n(cache_.begin(), area.size(), area.data());
       written_ += area.size();
       bytes_to_write -= area.size();
@@ -566,6 +566,9 @@ class truncating_buffer : public buffer {
   size_t used_{};
   std::array<char, detail::internal_buffer_size> cache_;
 };
+
+// Explicit out-of-class definition because of GCC bug: <destructor> used before its definition.
+constexpr truncating_buffer::~truncating_buffer() noexcept = default;
 
 namespace detail {
 
