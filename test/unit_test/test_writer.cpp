@@ -119,17 +119,15 @@ TEST_CASE("writer", "[writer]") {
 TEST_CASE("writer with cached buffer", "[writer]") {
   // Test strategy:
   // * Construct a writer from a cached buffer (output iterator).
-  // * Write long strings (> internal_buffer_size) with the writer into the buffer.
+  // * Write long strings (> emio::default_cache_size) with the writer into the buffer.
   // Expected: The string methods work as expected because the string is written in chunks.
 
-  using emio::detail::internal_buffer_size;
-
-  const std::string expected_str_part_1(internal_buffer_size + 1, 'x');
-  const std::string expected_str_part_2(internal_buffer_size + 2, 'y');
-  const std::string expected_str_part_3(internal_buffer_size + 3, 'z');
+  const std::string expected_str_part_1(emio::default_cache_size + 1, 'x');
+  const std::string expected_str_part_2(emio::default_cache_size + 2, 'y');
+  const std::string expected_str_part_3(emio::default_cache_size + 3, 'z');
 
   std::string storage;
-  storage.resize(5 * internal_buffer_size);
+  storage.resize(5 * emio::default_cache_size);
   emio::iterator_buffer buf{storage.begin()};
 
   emio::writer writer{buf};
