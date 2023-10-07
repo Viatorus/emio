@@ -22,7 +22,7 @@ constexpr std::tuple<bool, int32_t, int64_t, uint32_t, uint64_t, char, std::stri
     {true, 4589, 4986498846, 176598, 985486, 'y', "gneqo nvqoqno", 1.59879, std::numeric_limits<double>::infinity()};
 
 template <typename... Args>
-void format(emio::runtime_format_string format_string, Args&&... args) {
+void format(emio::runtime_string format_string, Args&&... args) {
   static_cast<void>(emio::format(format_string, args...));
   if constexpr (sizeof...(Args) < 3) {  // Unpack tuple 3 times.
     std::apply(
@@ -34,7 +34,7 @@ void format(emio::runtime_format_string format_string, Args&&... args) {
 }
 
 template <typename Arg>
-void random_format(emio::runtime_format_string format_string, int64_t storage, Arg arg) {
+void random_format(emio::runtime_string format_string, int64_t storage, Arg arg) {
   if constexpr (std::is_same_v<Arg, std::string_view>) {
     arg = format_string.view();
   } else {
