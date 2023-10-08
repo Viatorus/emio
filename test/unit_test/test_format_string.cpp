@@ -110,3 +110,19 @@ TEST_CASE("runtime format_string", "[format_string]") {
   REQUIRE(res);
   CHECK(res->get() == "{} {}");
 }
+
+TEST_CASE("is_plain_str", "[format_string]") {
+  CHECK(emio::format_string<>{"abc 123"}.is_plain_str());
+  CHECK(emio::format_string<>{emio::runtime("abc 123")}.is_plain_str());
+
+  CHECK_FALSE(emio::format_string<>{"abc 123 {{"}.is_plain_str());
+  CHECK_FALSE(emio::format_string<>{emio::runtime("abc 123 {{")}.is_plain_str());
+
+  CHECK_FALSE(emio::format_string<>{"abc }} 123"}.is_plain_str());
+  CHECK_FALSE(emio::format_string<>{emio::runtime("abc }} 123")}.is_plain_str());
+
+  CHECK_FALSE(emio::format_string<>{emio::runtime("abc {} 123")}.is_plain_str());
+
+  CHECK_FALSE(precompiled_format_str.is_plain_str());
+  CHECK_FALSE(emio::format_string<>{emio::runtime(format_str)}.is_plain_str());
+}
