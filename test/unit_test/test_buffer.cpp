@@ -21,7 +21,7 @@ TEST_CASE("memory_buffer", "[buffer]") {
 
   constexpr size_t first_size{15};
   constexpr size_t second_size{55};
-  constexpr size_t third_size{emio::detail::internal_buffer_size};
+  constexpr size_t third_size{emio::default_cache_size};
 
   const std::string expected_str_part_1(first_size, 'x');
   const std::string expected_str_part_2(second_size, 'y');
@@ -144,7 +144,7 @@ TEST_CASE("span_buffer", "[buffer]") {
 
   constexpr size_t first_size{15};
   constexpr size_t second_size{55};
-  constexpr size_t third_size{emio::detail::internal_buffer_size};
+  constexpr size_t third_size{emio::default_cache_size};
 
   std::array<char, first_size + second_size + third_size> storage{};
   emio::span_buffer buf{storage};
@@ -254,9 +254,9 @@ TEST_CASE("counting_buffer", "[buffer]") {
 
   constexpr size_t first_size{15};
   constexpr size_t second_size{55};
-  constexpr size_t third_size{emio::detail::internal_buffer_size};
+  constexpr size_t third_size{emio::default_cache_size};
 
-  using emio::detail::internal_buffer_size;
+  using emio::default_cache_size;
 
   emio::detail::counting_buffer buf;
   CHECK(buf.count() == 0);
@@ -279,13 +279,13 @@ TEST_CASE("counting_buffer", "[buffer]") {
 
   CHECK(buf.count() == (first_size + second_size + third_size));
 
-  area = buf.get_write_area_of(internal_buffer_size);
+  area = buf.get_write_area_of(default_cache_size);
   REQUIRE(area);
-  REQUIRE(area->size() == internal_buffer_size);
+  REQUIRE(area->size() == default_cache_size);
 
-  CHECK(buf.count() == (first_size + second_size + third_size + internal_buffer_size));
+  CHECK(buf.count() == (first_size + second_size + third_size + default_cache_size));
 
-  area = buf.get_write_area_of(internal_buffer_size + 1);
+  area = buf.get_write_area_of(default_cache_size + 1);
   CHECK(!area);
   CHECK(buf.count() == (first_size + second_size + 2 * third_size));
 }
@@ -328,11 +328,9 @@ TEST_CASE("iterator_buffer<iterator>", "[buffer]") {
   // * Write different data lengths into the buffer to test the internal buffer and flush mechanism.
   // Expected: At the end (final flush/destruction), everything is written into the string.
 
-  using emio::detail::internal_buffer_size;
-
-  const std::string expected_str_part_1(internal_buffer_size, 'x');
+  const std::string expected_str_part_1(emio::default_cache_size, 'x');
   const std::string expected_str_part_2(2, 'y');
-  const std::string expected_str_part_3(internal_buffer_size, 'z');
+  const std::string expected_str_part_3(emio::default_cache_size, 'z');
   const std::string expected_str_part_4(3, 'x');
   const std::string expected_str_part_5(2, 'y');
   const std::string expected_str_part_6(42, 'z');
@@ -345,11 +343,11 @@ TEST_CASE("iterator_buffer<iterator>", "[buffer]") {
 
   CHECK(it_buf.out() == s.begin());
   CHECK(it_buf.get_write_area_of(std::numeric_limits<size_t>::max()) == emio::err::eof);
-  CHECK(it_buf.get_write_area_of(internal_buffer_size + 1) == emio::err::eof);
+  CHECK(it_buf.get_write_area_of(emio::default_cache_size + 1) == emio::err::eof);
 
-  emio::result<std::span<char>> area = it_buf.get_write_area_of(internal_buffer_size);
+  emio::result<std::span<char>> area = it_buf.get_write_area_of(emio::default_cache_size);
   REQUIRE(area);
-  REQUIRE(area->size() == internal_buffer_size);
+  REQUIRE(area->size() == emio::default_cache_size);
   fill(area, 'x');
 
   // No flush yet.
@@ -363,9 +361,9 @@ TEST_CASE("iterator_buffer<iterator>", "[buffer]") {
   // 1. flush.
   CHECK(s.starts_with(expected_str_part_1));
 
-  area = it_buf.get_write_area_of(internal_buffer_size);
+  area = it_buf.get_write_area_of(emio::default_cache_size);
   REQUIRE(area);
-  REQUIRE(area->size() == internal_buffer_size);
+  REQUIRE(area->size() == emio::default_cache_size);
   fill(area, 'z');
 
   // 2. flush.
@@ -465,17 +463,15 @@ TEST_CASE("file_buffer", "[buffer]") {
   // * Write into the buffer, flush (or not) and read out again.
   // Expected: Everything is written to the file stream after flush.
 
-  using emio::detail::internal_buffer_size;
-
   // Open a temporary file.
   std::FILE* tmpf = std::tmpfile();
   REQUIRE(tmpf);
 
   emio::file_buffer file_buf{tmpf};
-  std::array<char, 2 * internal_buffer_size> read_out_buf{};
+  std::array<char, 2 * emio::default_cache_size> read_out_buf{};
 
   // Write area is limited.
-  CHECK(file_buf.get_write_area_of(internal_buffer_size + 1) == emio::err::eof);
+  CHECK(file_buf.get_write_area_of(emio::default_cache_size + 1) == emio::err::eof);
 
   // Write into.
   emio::result<std::span<char>> area = file_buf.get_write_area_of(2);
@@ -514,11 +510,11 @@ TEST_CASE("file_buffer", "[buffer]") {
   CHECK(std::fgets(read_out_buf.data(), read_out_buf.size(), tmpf));
   CHECK(std::string_view{read_out_buf.data(), 6} == "yyzzzz");
 
-  const std::string expected_long_str_part(internal_buffer_size, 'x');
+  const std::string expected_long_str_part(emio::default_cache_size, 'x');
 
-  area = file_buf.get_write_area_of(internal_buffer_size);
+  area = file_buf.get_write_area_of(emio::default_cache_size);
   REQUIRE(area);
-  REQUIRE(area->size() == internal_buffer_size);
+  REQUIRE(area->size() == emio::default_cache_size);
   fill(area, 'x');
 
   // Internal flush should have happened.
@@ -529,7 +525,7 @@ TEST_CASE("file_buffer", "[buffer]") {
 
   std::rewind(tmpf);
   CHECK(std::fgets(read_out_buf.data(), read_out_buf.size(), tmpf));
-  CHECK(std::string_view{read_out_buf.data(), 6 + internal_buffer_size} == "yyzzzz" + expected_long_str_part);
+  CHECK(std::string_view{read_out_buf.data(), 6 + emio::default_cache_size} == "yyzzzz" + expected_long_str_part);
 }
 
 TEST_CASE("truncating_buffer", "[buffer]") {
@@ -570,10 +566,10 @@ TEST_CASE("truncating_buffer", "[buffer]") {
       }
 
       SECTION("request more than limit (3)") {
-        area = buf.get_write_area_of(emio::detail::internal_buffer_size);
+        area = buf.get_write_area_of(emio::default_cache_size);
         REQUIRE(area);
         fill(area, 'c');
-        CHECK(buf.count() == 48 + emio::detail::internal_buffer_size);
+        CHECK(buf.count() == 48 + emio::default_cache_size);
 
         // not flushed
         CHECK(primary_buf.view().size() == 48);
@@ -585,10 +581,10 @@ TEST_CASE("truncating_buffer", "[buffer]") {
       }
     }
     SECTION("request more than limit (2)") {
-      area = buf.get_write_area_of(emio::detail::internal_buffer_size);
+      area = buf.get_write_area_of(emio::default_cache_size);
       REQUIRE(area);
       fill(area, 'b');
-      CHECK(buf.count() == 40 + emio::detail::internal_buffer_size);
+      CHECK(buf.count() == 40 + emio::default_cache_size);
 
       // not flushed
       CHECK(primary_buf.view().size() == 40);
@@ -603,10 +599,10 @@ TEST_CASE("truncating_buffer", "[buffer]") {
     const std::string expected_string = std::string(48, 'a');
     emio::truncating_buffer buf{primary_buf, 48};
 
-    emio::result<std::span<char>> area = buf.get_write_area_of(emio::detail::internal_buffer_size);
+    emio::result<std::span<char>> area = buf.get_write_area_of(emio::default_cache_size);
     REQUIRE(area);
     fill(area, 'a');
-    CHECK(buf.count() == emio::detail::internal_buffer_size);
+    CHECK(buf.count() == emio::default_cache_size);
 
     // not flushed
     CHECK(primary_buf.view().size() == 0);
@@ -618,8 +614,8 @@ TEST_CASE("truncating_buffer", "[buffer]") {
     }
 
     SECTION("request more than limit (2)") {
-      CHECK(buf.get_write_area_of(emio::detail::internal_buffer_size));
-      CHECK(buf.count() == 2 * emio::detail::internal_buffer_size);
+      CHECK(buf.get_write_area_of(emio::default_cache_size));
+      CHECK(buf.count() == 2 * emio::default_cache_size);
 
       // not flushed
       CHECK(primary_buf.view().size() == 48);
@@ -657,7 +653,7 @@ TEST_CASE("truncating_buffer", "[buffer]") {
         CHECK(buf.count() == 68);
 
         // Requesting more will fail because primary buffer is too small.
-        CHECK_FALSE(buf.get_write_area_of(emio::detail::internal_buffer_size));
+        CHECK_FALSE(buf.get_write_area_of(emio::default_cache_size));
 
         CHECK(primary_buf.view().size() == 64);
         CHECK(primary_buf.view() == expected_string);
@@ -684,9 +680,9 @@ TEST_CASE("truncating_buffer", "[buffer]") {
     const std::string expected_string = std::string(64, 'a');
     emio::truncating_buffer buf{primary_buf, 64};
 
-    emio::result<std::span<char>> area = buf.get_write_area_of_max(emio::detail::internal_buffer_size + 10);
+    emio::result<std::span<char>> area = buf.get_write_area_of_max(emio::default_cache_size + 10);
     REQUIRE(area);
-    CHECK(area->size() == emio::detail::internal_buffer_size);
+    CHECK(area->size() == emio::default_cache_size);
     fill(area, 'a');
 
     // not flushed

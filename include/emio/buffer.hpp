@@ -18,6 +18,9 @@
 
 namespace emio {
 
+/// The default cache size of buffers with an internal cache.
+inline constexpr size_t default_cache_size{128};
+
 /**
  * This class provides the basic API and functionality for receiving a contiguous memory region of chars to write into.
  * @note Use a specific subclass for a concrete instantiation.
@@ -119,9 +122,9 @@ class buffer {
 
 /**
  * This class fulfills the buffer API by providing an endless growing buffer.
- * @tparam StorageSize The size of the inlined storage for small buffer optimization.
+ * @tparam StorageSize The size of the internal storage used for small buffer optimization.
  */
-template <size_t StorageSize = 128>
+template <size_t StorageSize = default_cache_size>
 class memory_buffer final : public buffer {
  public:
   /**
@@ -224,7 +227,7 @@ class span_buffer : public buffer {
  * @tparam StorageSize The size of the storage.
  */
 template <size_t StorageSize>
-class static_buffer : private std::array<char, StorageSize>, public span_buffer {
+class static_buffer final : private std::array<char, StorageSize>, public span_buffer {
  public:
   /**
    * Constructs and initializes the buffer with the storage.
@@ -242,8 +245,6 @@ class static_buffer : private std::array<char, StorageSize>, public span_buffer 
 };
 
 namespace detail {
-
-inline constexpr size_t internal_buffer_size{128};
 
 // Extracts a reference to the container from back_insert_iterator.
 template <typename Container>
@@ -288,17 +289,18 @@ constexpr auto copy_str(InputIt it, InputIt end, OutputIt out) -> OutputIt {
 /**
  * This class template is used to create a buffer around different iterator types.
  */
-template <typename Iterator>
+template <typename Iterator, size_t CacheSize = default_cache_size>
 class iterator_buffer;
 
 /**
  * This class fulfills the buffer API by using an output iterator and an internal cache.
  * @tparam Iterator The output iterator type.
+ * @tparam CacheSize The size of the internal cache.
  */
-template <typename Iterator>
+template <typename Iterator, size_t CacheSize>
   requires(std::input_or_output_iterator<Iterator> &&
            std::output_iterator<Iterator, detail::get_value_type_t<Iterator>>)
-class iterator_buffer<Iterator> final : public buffer {
+class iterator_buffer<Iterator, CacheSize> final : public buffer {
  public:
   /**
    * Constructs and initializes the buffer with the given output iterator.
@@ -347,7 +349,7 @@ class iterator_buffer<Iterator> final : public buffer {
 
  private:
   Iterator it_;
-  std::array<char, detail::internal_buffer_size> cache_;
+  std::array<char, CacheSize> cache_;
 };
 
 /**
@@ -397,10 +399,11 @@ class iterator_buffer<OutputPtr*> final : public buffer {
 /**
  * This class fulfills the buffer API by using the container of an contiguous back-insert iterator.
  * @tparam Container The container type of the back-insert iterator.
+ * @tparam Capacity The minimum initial requested capacity of the container.
  */
-template <typename Container>
+template <typename Container, size_t Capacity>
   requires std::contiguous_iterator<typename Container::iterator>
-class iterator_buffer<std::back_insert_iterator<Container>> final : public buffer {
+class iterator_buffer<std::back_insert_iterator<Container>, Capacity> final : public buffer {
  public:
   /**
    * Constructs and initializes the buffer with the given back-insert iterator.
@@ -408,7 +411,7 @@ class iterator_buffer<std::back_insert_iterator<Container>> final : public buffe
    */
   constexpr explicit iterator_buffer(std::back_insert_iterator<Container> it) noexcept
       : container_{detail::get_container(it)} {
-    static_cast<void>(request_write_area(0, std::min(container_.capacity(), detail::internal_buffer_size)));
+    static_cast<void>(request_write_area(0, std::min(container_.capacity(), Capacity)));
   }
 
   iterator_buffer(const iterator_buffer&) = delete;
@@ -455,8 +458,10 @@ iterator_buffer(Iterator&&) -> iterator_buffer<std::decay_t<Iterator>>;
 
 /**
  * This class fulfills the buffer API by using a file stream and an internal cache.
+ * @tparam CacheSize The size of the internal cache.
  */
-class file_buffer : public buffer {
+template <size_t CacheSize = default_cache_size>
+class file_buffer final : public buffer {
  public:
   /**
    * Constructs and initializes the buffer with the given file stream.
@@ -499,14 +504,16 @@ class file_buffer : public buffer {
 
  private:
   std::FILE* file_;
-  std::array<char, detail::internal_buffer_size> cache_;
+  std::array<char, CacheSize> cache_;
 };
 
 /**
  * This class fulfills the buffer API by using a primary buffer and an internal cache.
  * Only a limited amount of characters is written to the primary buffer. The remaining characters are truncated.
+ * @tparam CacheSize The size of the internal cache.
  */
-class truncating_buffer : public buffer {
+template <size_t CacheSize = default_cache_size>
+class truncating_buffer final : public buffer {
  public:
   /**
    * Constructs and initializes the buffer with the given primary buffer and limit.
@@ -522,7 +529,7 @@ class truncating_buffer : public buffer {
   truncating_buffer(truncating_buffer&&) = delete;
   truncating_buffer& operator=(const truncating_buffer&) = delete;
   truncating_buffer& operator=(truncating_buffer&&) = delete;
-  constexpr ~truncating_buffer() noexcept override;
+  constexpr ~truncating_buffer() noexcept override = default;
 
   /**
    * Returns the count of the total (not truncated) written characters.
@@ -564,18 +571,17 @@ class truncating_buffer : public buffer {
   size_t limit_;
   size_t written_{};
   size_t used_{};
-  std::array<char, detail::internal_buffer_size> cache_;
+  std::array<char, CacheSize> cache_;
 };
-
-// Explicit out-of-class definition because of GCC bug: <destructor> used before its definition.
-constexpr truncating_buffer::~truncating_buffer() noexcept = default;
 
 namespace detail {
 
 /**
  * A buffer that counts the number of characters written. Discards the output.
+ * @tparam CacheSize The size of the internal cache.
  */
 // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): cache_ can be left uninitialized.
+template <size_t CacheSize = default_cache_size>
 class counting_buffer final : public buffer {
  public:
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init): cache_ can be left uninitialized.
@@ -584,7 +590,7 @@ class counting_buffer final : public buffer {
   constexpr counting_buffer(counting_buffer&&) noexcept = delete;
   constexpr counting_buffer& operator=(const counting_buffer&) = delete;
   constexpr counting_buffer& operator=(counting_buffer&&) noexcept = delete;
-  constexpr ~counting_buffer() override;
+  constexpr ~counting_buffer() noexcept override = default;
 
   /**
    * Calculates the number of Char's that were written.
@@ -607,10 +613,8 @@ class counting_buffer final : public buffer {
 
  private:
   size_t used_{};
-  std::array<char, detail::internal_buffer_size> cache_;
+  std::array<char, CacheSize> cache_;
 };
-
-constexpr counting_buffer::~counting_buffer() = default;
 
 }  // namespace detail
 
