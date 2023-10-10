@@ -2,7 +2,8 @@
 
 [![Continuous Integration](https://github.com/Viatorus/emio/actions/workflows/ci.yml/badge.svg)](https://github.com/Viatorus/emio/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/Viatorus/emio/branch/main/graph/badge.svg?token=7BQFK1PNLX)](https://codecov.io/gh/Viatorus/emio)
-![Conan Center](https://img.shields.io/conan/v/emio)
+[![fuzzing](https://img.shields.io/badge/AFL++-fuzzing-green)](https://github.com/Viatorus/emio/tree/test/fuzzy_format/test/fuzzing)
+[![Conan Center](https://img.shields.io/conan/v/emio)](https://conan.io/center/recipes/emio)
 
 **em{io}** is a safe and fast high-level and low-level character input/output library for bare-metal and RTOS based
 embedded systems with a very small binary footprint.
