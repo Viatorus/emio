@@ -5,7 +5,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <climits>
 #include <cmath>
-#include <memory>
 
 using namespace std::string_view_literals;
 
