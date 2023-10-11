@@ -84,6 +84,7 @@ class writer {
       EMIO_TRY(const auto area, buf_.get_write_area_of_max(remaining_size));
       detail::copy_n(ptr, area.size(), area.data());
       remaining_size -= area.size();
+      ptr += area.size();
     }
     return success;
   }

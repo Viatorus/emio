@@ -123,8 +123,15 @@ TEST_CASE("writer with cached buffer", "[writer]") {
   // Expected: The string methods work as expected because the string is written in chunks.
 
   const std::string expected_str_part_1(emio::default_cache_size + 1, 'x');
-  const std::string expected_str_part_2(emio::default_cache_size + 2, 'y');
-  const std::string expected_str_part_3(emio::default_cache_size + 3, 'z');
+  const std::string expected_str_part_2{
+      "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et "
+      "dolor e magna aliquyam erat, sed diam voluptua."};
+  const std::string expected_str_part_3{
+      "At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est "
+      "Lorem ipsum do lor sit amet."};
+
+  REQUIRE(expected_str_part_2.size() > emio::default_cache_size);
+  REQUIRE(expected_str_part_3.size() > emio::default_cache_size);
 
   std::string storage;
   storage.resize(5 * emio::default_cache_size);
