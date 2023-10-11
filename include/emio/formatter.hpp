@@ -64,7 +64,7 @@ class formatter {
  * - boolean
  * - char
  * - string_view
- * - void* / nullptr
+ * - void* / const void* / nullptr
  * - integral, floating-point types
  * @tparam T The type.
  */
@@ -79,7 +79,8 @@ class formatter<T> {
       EMIO_TRYV(check_bool_specs(specs));
     } else if constexpr (std::is_same_v<T, char>) {
       EMIO_TRYV(check_char_specs(specs));
-    } else if constexpr (std::is_same_v<T, std::nullptr_t> || std::is_same_v<T, void*>) {
+    } else if constexpr (std::is_same_v<T, std::nullptr_t> || std::is_same_v<T, void*> ||
+                         std::is_same_v<T, const void*>) {
       EMIO_TRYV(check_pointer_specs(specs));
     } else if constexpr (std::is_integral_v<T>) {
       EMIO_TRYV(check_integral_specs(specs));

@@ -503,7 +503,7 @@ constexpr result<void> write_arg(writer& out, format_specs& specs, const Arg arg
 }
 
 template <typename Arg>
-  requires(std::is_same_v<Arg, void*> || std::is_same_v<Arg, std::nullptr_t>)
+  requires(std::is_same_v<Arg, void*> || std::is_same_v<Arg, const void*> || std::is_same_v<Arg, std::nullptr_t>)
 constexpr result<void> write_arg(writer& out, format_specs& specs, Arg arg) noexcept {
   specs.alternate_form = true;
   specs.type = 'x';
@@ -794,7 +794,8 @@ template <typename T>
 inline constexpr bool is_core_type_v =
     std::is_same_v<T, bool> || std::is_same_v<T, char> || std::is_same_v<T, int32_t> || std::is_same_v<T, uint32_t> ||
     std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t> || std::is_same_v<T, double> ||
-    std::is_same_v<T, std::nullptr_t> || std::is_same_v<T, void*> || std::is_same_v<T, std::string_view>;
+    std::is_same_v<T, std::nullptr_t> || std::is_same_v<T, void*> || std::is_same_v<T, const void*> ||
+    std::is_same_v<T, std::string_view>;
 
 template <typename T>
 concept has_format_as = requires(T arg) { format_as(arg); };
@@ -831,7 +832,7 @@ struct unified_type<T> {
 
 template <typename T>
   requires(std::is_same_v<T, char> || std::is_same_v<T, bool> || std::is_same_v<T, void*> ||
-           std::is_same_v<T, std::nullptr_t>)
+           std::is_same_v<T, const void*> || std::is_same_v<T, std::nullptr_t>)
 struct unified_type<T> {
   using type = T;
 };
