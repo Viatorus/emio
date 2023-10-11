@@ -606,6 +606,14 @@ emio::format("{}", spec.with(3.141592653));  // 3.1
 There exists formatter for builtin types like bool, char, string, integers, floats, void* and non-scoped enums, ranges
 and tuple like types. Support for other standard types (e.g. chrono duration, optional) is planned.
 
+For formatting values of pointer-like types, simply use `emio::ptr(p)`.
+
+*Example*
+```cpp
+int* value = get();
+emio::format("{}", emio::ptr(value));
+```
+
 Use `is_formattable_v<Type>` to check if a type is formattable.
 
 A formatter exists of one optional function `validate` and two mandatory functions `parse` and `format`. If `validate`
