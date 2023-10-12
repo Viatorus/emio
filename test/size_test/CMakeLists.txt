@@ -40,6 +40,9 @@ create_size_test(emio/scan_all.cpp)
 create_size_test(emio/scan_int.cpp)
 create_size_test(emio/write_int.cpp)
 
+create_size_test(floff/floff.cpp)
+create_size_test(floff/floff_small.cpp)
+
 create_size_test(fmt/doFormat_a.cpp)
 create_size_test(fmt/fmt_dragon.cpp)
 create_size_test(fmt/fmt_grisu.cpp)
