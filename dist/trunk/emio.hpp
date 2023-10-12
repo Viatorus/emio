@@ -3264,6 +3264,8 @@ inline constexpr runtime_string runtime(const std::string_view& s) noexcept {
 //
 // For the license information refer to emio.hpp
 
+#include <memory>
+
 //
 // Copyright (c) 2021 - present, Toni Neubert
 // All rights reserved.
@@ -4624,16 +4626,19 @@ constexpr result<void> write_arg(writer& out, format_specs& specs, const Arg arg
   });
 }
 
+template <typename T>
+inline constexpr bool is_void_pointer_v =
+    std::is_pointer_v<T> && std::is_same_v<std::remove_cv_t<std::remove_pointer_t<T>>, void>;
+
 template <typename Arg>
-  requires(std::is_same_v<Arg, void*> || std::is_same_v<Arg, std::nullptr_t>)
+  requires(is_void_pointer_v<Arg> || std::is_null_pointer_v<Arg>)
 constexpr result<void> write_arg(writer& out, format_specs& specs, Arg arg) noexcept {
   specs.alternate_form = true;
   specs.type = 'x';
-  if constexpr (std::is_same_v<Arg, std::nullptr_t>) {
+  if constexpr (std::is_null_pointer_v<Arg>) {
     return write_arg(out, specs, uintptr_t{0});
   } else {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast): valid cast
-    return write_arg(out, specs, reinterpret_cast<uintptr_t>(arg));
+    return write_arg(out, specs, std::bit_cast<uintptr_t>(arg));
   }
 }
 
@@ -4916,7 +4921,7 @@ template <typename T>
 inline constexpr bool is_core_type_v =
     std::is_same_v<T, bool> || std::is_same_v<T, char> || std::is_same_v<T, int32_t> || std::is_same_v<T, uint32_t> ||
     std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t> || std::is_same_v<T, double> ||
-    std::is_same_v<T, std::nullptr_t> || std::is_same_v<T, void*> || std::is_same_v<T, std::string_view>;
+    std::is_null_pointer_v<T> || is_void_pointer_v<T> || std::is_same_v<T, std::string_view>;
 
 template <typename T>
 concept has_format_as = requires(T arg) { format_as(arg); };
@@ -4934,7 +4939,7 @@ struct unified_type {
 };
 
 template <typename T>
-  requires(!std::is_integral_v<T> && !std::is_same_v<T, std::nullptr_t> && std::is_constructible_v<std::string_view, T>)
+  requires(!std::is_integral_v<T> && !std::is_null_pointer_v<T> && std::is_constructible_v<std::string_view, T>)
 struct unified_type<T> {
   using type = std::string_view;
 };
@@ -4952,8 +4957,7 @@ struct unified_type<T> {
 };
 
 template <typename T>
-  requires(std::is_same_v<T, char> || std::is_same_v<T, bool> || std::is_same_v<T, void*> ||
-           std::is_same_v<T, std::nullptr_t>)
+  requires(std::is_same_v<T, char> || std::is_same_v<T, bool> || is_void_pointer_v<T> || std::is_null_pointer_v<T>)
 struct unified_type<T> {
   using type = T;
 };
@@ -5041,7 +5045,7 @@ class formatter<T> {
       EMIO_TRYV(check_bool_specs(specs));
     } else if constexpr (std::is_same_v<T, char>) {
       EMIO_TRYV(check_char_specs(specs));
-    } else if constexpr (std::is_same_v<T, std::nullptr_t> || std::is_same_v<T, void*>) {
+    } else if constexpr (detail::format::is_void_pointer_v<T> || std::is_null_pointer_v<T>) {
       EMIO_TRYV(check_pointer_specs(specs));
     } else if constexpr (std::is_integral_v<T>) {
       EMIO_TRYV(check_integral_specs(specs));
@@ -5238,6 +5242,31 @@ class formatter<detail::format_spec_with_value<T>> {
 
   formatter<T> underlying_{};
 };
+
+/**
+ * Converts a value of a pointer-like type to const void * for pointer formatting.
+ * @param p The value of the pointer.
+ * @return The const void* version of the pointer.
+ */
+template <typename T>
+  requires(std::is_pointer_v<T>)
+constexpr auto ptr(T p) noexcept {
+  if constexpr (std::is_volatile_v<std::remove_pointer_t<T>>) {
+    return static_cast<const volatile void*>(p);
+  } else {
+    return static_cast<const void*>(p);
+  }
+}
+
+template <typename T, typename Deleter>
+constexpr const void* ptr(const std::unique_ptr<T, Deleter>& p) {
+  return p.get();
+}
+
+template <typename T>
+const void* ptr(const std::shared_ptr<T>& p) {
+  return p.get();
+}
 
 }  // namespace emio
 
