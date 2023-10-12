@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include "detail/format/formatter.hpp"
 
 namespace emio {
@@ -79,7 +81,7 @@ class formatter<T> {
       EMIO_TRYV(check_bool_specs(specs));
     } else if constexpr (std::is_same_v<T, char>) {
       EMIO_TRYV(check_char_specs(specs));
-    } else if constexpr (std::is_same_v<T, std::nullptr_t> || std::is_same_v<T, void*>) {
+    } else if constexpr (detail::format::is_void_pointer_v<T> || std::is_null_pointer_v<T>) {
       EMIO_TRYV(check_pointer_specs(specs));
     } else if constexpr (std::is_integral_v<T>) {
       EMIO_TRYV(check_integral_specs(specs));
@@ -276,5 +278,30 @@ class formatter<detail::format_spec_with_value<T>> {
 
   formatter<T> underlying_{};
 };
+
+/**
+ * Converts a value of a pointer-like type to const void * for pointer formatting.
+ * @param p The value of the pointer.
+ * @return The const void* version of the pointer.
+ */
+template <typename T>
+  requires(std::is_pointer_v<T>)
+constexpr auto ptr(T p) noexcept {
+  if constexpr (std::is_volatile_v<std::remove_pointer_t<T>>) {
+    return static_cast<const volatile void*>(p);
+  } else {
+    return static_cast<const void*>(p);
+  }
+}
+
+template <typename T, typename Deleter>
+constexpr const void* ptr(const std::unique_ptr<T, Deleter>& p) {
+  return p.get();
+}
+
+template <typename T>
+const void* ptr(const std::shared_ptr<T>& p) {
+  return p.get();
+}
 
 }  // namespace emio

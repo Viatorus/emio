@@ -754,6 +754,27 @@ TEST_CASE("format_pointer") {
   // EXPECT_EQ(fmt::format("{}", fmt::detail::bit_cast<const void*>(&function_pointer_test)), fmt::format("{}",
   // fmt::ptr(function_pointer_test)));
   CHECK(emio::format("{}", nullptr) == "0x0");
+
+  // Const and/or volatile.
+  static_assert(std::is_same_v<std::remove_cv_t<void* const>, void*>);
+  CHECK(emio::format("{}", reinterpret_cast<const void*>(0x456)) == "0x456");
+  CHECK(emio::format("{}", reinterpret_cast<volatile void*>(0x789)) == "0x789");
+  CHECK(emio::format("{}", reinterpret_cast<const volatile void*>(0x101112)) == "0x101112");
+
+  // With emio::ptr
+  int* i1{};
+  volatile int* i2{};
+  const int* i3{};
+  const volatile int* i4{};
+  std::unique_ptr<int> u;
+  std::shared_ptr<int> s;
+
+  CHECK(emio::format("{}", emio::ptr(i1)) == "0x0");
+  CHECK(emio::format("{}", emio::ptr(i2)) == "0x0");
+  CHECK(emio::format("{}", emio::ptr(i3)) == "0x0");
+  CHECK(emio::format("{}", emio::ptr(i4)) == "0x0");
+  CHECK(emio::format("{}", emio::ptr(u)) == "0x0");
+  CHECK(emio::format("{}", emio::ptr(s)) == "0x0");
 }
 
 enum color { red, green, blue };
