@@ -24,6 +24,7 @@ macro(create_size_test NAME)
 endmacro()
 
 create_size_test(base.cpp) # Base file must be the first one.
+create_size_test(emio/dragon4.cpp)
 create_size_test(emio/doFormat_a.cpp)
 create_size_test(emio/format_int.cpp)
 create_size_test(emio/format_all.cpp)
