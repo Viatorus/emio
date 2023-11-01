@@ -19,6 +19,11 @@ jobs:
           echo "CC=gcc-11" >> $GITHUB_ENV
           echo "CXX=g++-11" >> $GITHUB_ENV
 
+      - name: Install cppcheck
+        run: |
+          sudo apt update && sudo apt install -y cppcheck
+          cppcheck --version
+
       - name: Install clang-format and clang-tidy
         run: |
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
@@ -34,24 +39,8 @@ jobs:
       - name: Run clang-format
         run: cmake -D FORMAT_COMMAND=clang-format -P cmake/lint.cmake
 
-      - name: Run clang-tidy
+      - name: Run cppcheck and clang-tidy
         if: ${{ !cancelled() }}
-        run: |
-          cmake --preset=ci-checks
-          cmake --build build/test/static_analysis -j $(nproc)
-
-  cppcheck:
-    runs-on: ubuntu-22.04
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Install cppcheck
-        run: |
-          sudo apt update && sudo apt install -y cppcheck
-          cppcheck --version
-
-      - name: Run cppcheck
         run: |
           cmake --preset=ci-checks
           cmake --build build/test/static_analysis -j $(nproc)
