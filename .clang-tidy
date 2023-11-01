@@ -155,4 +155,6 @@ CheckOptions:
     value: 'lower_case'
   - key: readability-identifier-naming.VirtualMethodCase
     value: 'lower_case'
+  - key: cppcoreguidelines-avoid-do-while.IgnoreMacros
+    value: 'true'
 ...
