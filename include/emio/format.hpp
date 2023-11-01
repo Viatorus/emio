@@ -15,7 +15,7 @@ namespace emio {
 
 /**
  * Provides access to the format string and the arguments to format.
- * @note This type should only be "constructed" via make_format_args(format_str, args...) and passed directly to a
+ * @note This type should only be "constructed" via emio::make_format_args(format_str, args...) and passed directly to a
  * formatting function.
  */
 using format_args = detail::format::format_args;
@@ -69,7 +69,7 @@ template <typename... Args>
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     detail::format::format_to(buf, format_str, args...).value();
   } else {
-    detail::format::vformat_to(buf, make_format_args(format_str, args...)).value();
+    detail::format::vformat_to(buf, emio::make_format_args(format_str, args...)).value();
   }
   return buf.count();
 }
@@ -139,7 +139,7 @@ constexpr result<void> format_to(buffer& buf, emio::format_string<Args...> forma
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::format::format_to(buf, format_str, args...));
   } else {
-    EMIO_TRYV(detail::format::vformat_to(buf, make_format_args(format_str, args...)));
+    EMIO_TRYV(detail::format::vformat_to(buf, emio::make_format_args(format_str, args...)));
   }
   return success;
 }
@@ -156,7 +156,7 @@ constexpr result<void> format_to(writer& out, emio::format_string<Args...> forma
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::format::format_to(out.get_buffer(), format_str, args...));
   } else {
-    EMIO_TRYV(detail::format::vformat_to(out.get_buffer(), make_format_args(format_str, args...)));
+    EMIO_TRYV(detail::format::vformat_to(out.get_buffer(), emio::make_format_args(format_str, args...)));
   }
   return success;
 }
@@ -176,7 +176,7 @@ constexpr result<OutputIt> format_to(OutputIt out, emio::format_string<Args...> 
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::format::format_to(buf, format_str, args...));
   } else {
-    EMIO_TRYV(detail::format::vformat_to(buf, make_format_args(format_str, args...)));
+    EMIO_TRYV(detail::format::vformat_to(buf, emio::make_format_args(format_str, args...)));
   }
   return buf.out();
 }
@@ -286,7 +286,7 @@ constexpr result<format_to_n_result<OutputIt>> format_to_n(OutputIt out, std::it
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::format::format_to(buf, format_str, args...));
   } else {
-    EMIO_TRYV(detail::format::vformat_to(buf, make_format_args(format_str, args...)));
+    EMIO_TRYV(detail::format::vformat_to(buf, emio::make_format_args(format_str, args...)));
   }
   EMIO_TRYV(buf.flush());
   tout = buf.out();
@@ -310,7 +310,7 @@ constexpr result<size_t> format_to_n(buffer& buf, size_t n, emio::format_string<
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::format::format_to(trunc_buf, format_str, args...));
   } else {
-    EMIO_TRYV(detail::format::vformat_to(trunc_buf, make_format_args(format_str, args...)));
+    EMIO_TRYV(detail::format::vformat_to(trunc_buf, emio::make_format_args(format_str, args...)));
   }
   EMIO_TRYV(trunc_buf.flush());
   return trunc_buf.count();
@@ -339,7 +339,7 @@ inline result<void> vprint(std::FILE* file, const format_args& args) noexcept {
  */
 template <typename... Args>
 void print(emio::valid_format_string<Args...> format_str, const Args&... args) noexcept {
-  vprint(stdout, make_format_args(format_str, args...)).value();  // Should never fail.
+  vprint(stdout, emio::make_format_args(format_str, args...)).value();  // Should never fail.
 }
 
 /**
@@ -351,7 +351,7 @@ void print(emio::valid_format_string<Args...> format_str, const Args&... args) n
 template <typename T, typename... Args>
   requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, emio::format_string<Args...>>)
 result<void> print(T format_str, const Args&... args) noexcept {
-  return vprint(stdout, make_format_args(format_str, args...));
+  return vprint(stdout, emio::make_format_args(format_str, args...));
 }
 
 /**
@@ -363,7 +363,7 @@ result<void> print(T format_str, const Args&... args) noexcept {
  */
 template <typename... Args>
 result<void> print(std::FILE* file, emio::format_string<Args...> format_str, const Args&... args) noexcept {
-  return vprint(file, make_format_args(format_str, args...));
+  return vprint(file, emio::make_format_args(format_str, args...));
 }
 
 /**
@@ -393,7 +393,7 @@ inline result<void> vprintln(std::FILE* file, const format_args& args) noexcept 
  */
 template <typename... Args>
 void println(emio::valid_format_string<Args...> format_str, const Args&... args) noexcept {
-  vprintln(stdout, make_format_args(format_str, args...)).value();  // Should never fail.
+  vprintln(stdout, emio::make_format_args(format_str, args...)).value();  // Should never fail.
 }
 
 /**
@@ -407,7 +407,7 @@ void println(emio::valid_format_string<Args...> format_str, const Args&... args)
 template <typename T, typename... Args>
   requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, emio::format_string<Args...>>)
 result<void> println(T format_str, const Args&... args) noexcept {
-  return vprintln(stdout, make_format_args(format_str, args...));
+  return vprintln(stdout, emio::make_format_args(format_str, args...));
 }
 
 /**
@@ -419,7 +419,7 @@ result<void> println(T format_str, const Args&... args) noexcept {
  */
 template <typename... Args>
 result<void> println(std::FILE* file, emio::format_string<Args...> format_str, const Args&... args) noexcept {
-  return vprintln(file, make_format_args(format_str, args...));
+  return vprintln(file, emio::make_format_args(format_str, args...));
 }
 
 }  // namespace emio
