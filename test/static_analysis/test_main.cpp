@@ -1,5 +1,5 @@
 // Include all.
-#include <emio/emio.hpp>  // NOLINT(misc-include-cleaner): required to parse all headers with static analysers
+#include <emio/emio.hpp>
 
 consteval emio::result<void> compile_time_test() {
   emio::static_buffer<128> buf;
@@ -18,20 +18,9 @@ emio::result<void> test() {
   return emio::format(emio::runtime("abc {}"), 13);
 }
 
-struct A {
-  A(int i) {}
-};
-
-int g(A f) {
-    char a[10];
-    a[10] = 0;
-    return 0;
-}
-
 int main() {
   if (test().has_error()) {
     return 1;
   }
-  A a(1);
-  return 2 + g(5);
+  return 0;
 }
