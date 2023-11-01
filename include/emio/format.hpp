@@ -15,7 +15,7 @@ namespace emio {
 
 /**
  * Provides access to the format string and the arguments to format.
- * @note This type should only be "constructed" via emio::make_format_args(format_str, args...) and passed directly to a
+ * @note This type should only be "constructed" via make_format_args(format_str, args...) and passed directly to a
  * formatting function.
  */
 using format_args = detail::format::format_args;
@@ -204,7 +204,7 @@ inline result<std::string> vformat(const format_args& args) noexcept {
 template <typename... Args>
 [[nodiscard]] std::string format(emio::valid_format_string<Args...> format_str,
                                  const Args&... args) noexcept(detail::exceptions_disabled) {
-  return vformat(make_format_args(format_str, args...)).value();  // Should never fail.
+  return emio::vformat(emio::make_format_args(format_str, args...)).value();  // Should never fail.
 }
 
 /**
@@ -217,7 +217,7 @@ template <typename... Args>
 template <typename T, typename... Args>
   requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, emio::format_string<Args...>>)
 result<std::string> format(T format_str, const Args&... args) noexcept {
-  return vformat(make_format_args(format_str, args...));
+  return emio::vformat(emio::make_format_args(format_str, args...));
 }
 
 /**
