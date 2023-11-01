@@ -22,8 +22,10 @@ struct A {
   A(int i) {}
 };
 
-int g(A a) {
-
+int g(A f) {
+    char a[10];
+    a[10] = 0;
+    return 0;
 }
 
 int main() {
@@ -31,6 +33,5 @@ int main() {
     return 1;
   }
   A a(1);
-  g(5);
-  return 0;
+  return 2 + g(5);
 }
