@@ -210,11 +210,11 @@ constexpr size_t count_digits(T number) noexcept {
   if constexpr (Base == 10) {
     return count_digits_10(number);
   } else if constexpr (Base == 2) {
-    return std::bit_width(number);
+    return static_cast<size_t>(std::bit_width(number));
   } else if constexpr (Base == 8) {
-    return (std::bit_width(number) + 2) / 3;
+    return static_cast<size_t>((std::bit_width(number) + 2) / 3);
   } else if constexpr (Base == 16) {
-    return (std::bit_width(number) + 3) / 4;
+    return static_cast<size_t>(((std::bit_width(number) + 3) / 4));
   } else {
     size_t digit_cnt{1};
     for (number /= static_cast<T>(Base); number; number /= static_cast<T>(Base)) {
@@ -1025,7 +1025,7 @@ class reader {
   constexpr reader() = default;
 
   // Don't allow temporary strings or any nullptr.
-  constexpr reader(std::string&&) = delete;
+  constexpr reader(std::string&&) = delete;  // NOLINT(cppcoreguidelines-rvalue-reference-param-not-moved): as intended
   constexpr reader(std::nullptr_t) = delete;
   constexpr reader(int) = delete;
 
@@ -1036,7 +1036,7 @@ class reader {
   template <typename Arg>
     requires(std::is_constructible_v<std::string_view, Arg> && !std::is_same_v<Arg, std::string_view>)
   // NOLINTNEXTLINE(bugprone-forwarding-reference-overload): Is guarded by require clause.
-  constexpr explicit reader(Arg&& input) noexcept : reader{std::string_view{input}} {}
+  constexpr explicit reader(Arg&& input) noexcept : reader{std::string_view{std::forward<Arg>(input)}} {}
 
   /**
    * Constructs the reader from a string view.
@@ -1262,10 +1262,9 @@ class reader {
    */
   template <typename Predicate>
     requires(std::is_invocable_r_v<bool, Predicate, char>)
-  constexpr result<std::string_view> read_until(
-      Predicate&& predicate,
-      const read_until_options& options =
-          default_read_until_options()) noexcept(std::is_nothrow_invocable_r_v<bool, Predicate, char>) {
+  constexpr result<std::string_view>
+  read_until(const Predicate& predicate, const read_until_options& options = default_read_until_options()) noexcept(
+      std::is_nothrow_invocable_r_v<bool, Predicate, char>) {
     return read_until_match(std::find_if(it_, end_, predicate), options);
   }
 
@@ -3127,6 +3126,7 @@ class runtime_string {
   constexpr runtime_string() = default;
 
   // Don't allow temporary strings or any nullptr.
+  // NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved): as intended
   constexpr runtime_string(std::string&&) = delete;
   constexpr runtime_string(std::nullptr_t) = delete;
   constexpr runtime_string(int) = delete;
@@ -4184,7 +4184,7 @@ inline constexpr result<void> write_padding_right(writer& out, format_specs& spe
 }
 
 template <alignment DefaultAlign, typename Func>
-constexpr result<void> write_padded(writer& out, format_specs& specs, size_t width, Func&& func) noexcept {
+constexpr result<void> write_padded(writer& out, format_specs& specs, size_t width, const Func& func) noexcept {
   if (specs.align == alignment::none) {
     specs.align = DefaultAlign;
   }
@@ -4829,8 +4829,9 @@ inline constexpr result<void> check_integral_specs(const format_specs& specs) no
   case 'o':
   case 'O':
     return success;
+  default:
+    return err::invalid_format;
   }
-  return err::invalid_format;
 }
 
 inline constexpr result<void> check_unsigned_specs(const format_specs& specs) noexcept {
@@ -4886,8 +4887,9 @@ inline constexpr result<void> check_floating_point_specs(const format_specs& spe
     //  case 'a': Not supported yet.
     //  case 'A':
     return success;
+  default:
+    return err::invalid_format;
   }
-  return err::invalid_format;
 }
 
 inline constexpr result<void> check_string_specs(const format_specs& specs) noexcept {
@@ -4909,8 +4911,8 @@ inline constexpr bool has_formatter_v = std::is_constructible_v<formatter<Arg>>;
 
 template <typename T>
 concept has_validate_function_v = requires {
-                                    { formatter<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
-                                  };
+  { formatter<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
+};
 
 template <typename T>
 concept has_any_validate_function_v =
@@ -5216,9 +5218,9 @@ class formatter<detail::format_spec_with_value<T>> {
  private:
   template <typename F>
     requires requires(F x) {
-               x.set_width(1);
-               x.set_precision(1);
-             }
+      x.set_width(1);
+      x.set_precision(1);
+    }
   static constexpr F& get_core_formatter(F& formatter) noexcept {
     return formatter;
   }
@@ -5600,7 +5602,7 @@ using valid_format_string = detail::format::valid_format_string<Args...>;
  */
 template <typename... Args>
 [[nodiscard]] detail::args_storage<detail::format::format_arg, sizeof...(Args)> make_format_args(
-    format_string<Args...> format_str, const Args&... args) noexcept {
+    emio::format_string<Args...> format_str, const Args&... args) noexcept {
   return {format_str, args...};
 }
 
@@ -5610,7 +5612,7 @@ template <typename... Args>
  * @return The total number of characters in the formatted string or invalid_format if the format string validation
  * failed.
  */
-inline result<size_t> vformatted_size(format_args&& args) noexcept {
+inline result<size_t> vformatted_size(const format_args& args) noexcept {
   detail::counting_buffer buf{};
   EMIO_TRYV(detail::format::vformat_to(buf, args));
   return buf.count();
@@ -5629,7 +5631,7 @@ template <typename... Args>
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     detail::format::format_to(buf, format_str, args...).value();
   } else {
-    detail::format::vformat_to(buf, make_format_args(format_str, args...)).value();
+    detail::format::vformat_to(buf, emio::make_format_args(format_str, args...)).value();
   }
   return buf.count();
 }
@@ -5642,10 +5644,10 @@ template <typename... Args>
  * validation failed.
  */
 template <typename T, typename... Args>
-  requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, format_string<Args...>>)
+  requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, emio::format_string<Args...>>)
 constexpr result<size_t> formatted_size(T format_str, const Args&... args) noexcept {
   detail::counting_buffer buf{};
-  format_string<Args...> str{format_str};
+  emio::format_string<Args...> str{format_str};
   EMIO_TRYV(detail::format::format_to(buf, str, args...));
   return buf.count();
 }
@@ -5695,11 +5697,11 @@ constexpr result<OutputIt> vformat_to(OutputIt out, const format_args& args) noe
  * @return Success or EOF if the buffer is to small or invalid_format if the format string validation failed.
  */
 template <typename... Args>
-constexpr result<void> format_to(buffer& buf, format_string<Args...> format_str, const Args&... args) noexcept {
+constexpr result<void> format_to(buffer& buf, emio::format_string<Args...> format_str, const Args&... args) noexcept {
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::format::format_to(buf, format_str, args...));
   } else {
-    EMIO_TRYV(detail::format::vformat_to(buf, make_format_args(format_str, args...)));
+    EMIO_TRYV(detail::format::vformat_to(buf, emio::make_format_args(format_str, args...)));
   }
   return success;
 }
@@ -5712,11 +5714,11 @@ constexpr result<void> format_to(buffer& buf, format_string<Args...> format_str,
  * @return Success or EOF if the buffer is to small or invalid_format if the format string validation failed.
  */
 template <typename... Args>
-constexpr result<void> format_to(writer& out, format_string<Args...> format_str, const Args&... args) noexcept {
+constexpr result<void> format_to(writer& out, emio::format_string<Args...> format_str, const Args&... args) noexcept {
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::format::format_to(out.get_buffer(), format_str, args...));
   } else {
-    EMIO_TRYV(detail::format::vformat_to(out.get_buffer(), make_format_args(format_str, args...)));
+    EMIO_TRYV(detail::format::vformat_to(out.get_buffer(), emio::make_format_args(format_str, args...)));
   }
   return success;
 }
@@ -5730,12 +5732,13 @@ constexpr result<void> format_to(writer& out, format_string<Args...> format_str,
  */
 template <typename OutputIt, typename... Args>
   requires(std::output_iterator<OutputIt, char>)
-constexpr result<OutputIt> format_to(OutputIt out, format_string<Args...> format_str, const Args&... args) noexcept {
+constexpr result<OutputIt> format_to(OutputIt out, emio::format_string<Args...> format_str,
+                                     const Args&... args) noexcept {
   iterator_buffer buf{out};
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::format::format_to(buf, format_str, args...));
   } else {
-    EMIO_TRYV(detail::format::vformat_to(buf, make_format_args(format_str, args...)));
+    EMIO_TRYV(detail::format::vformat_to(buf, emio::make_format_args(format_str, args...)));
   }
   return buf.out();
 }
@@ -5761,9 +5764,9 @@ inline result<std::string> vformat(const format_args& args) noexcept {
  * @return The string.
  */
 template <typename... Args>
-[[nodiscard]] std::string format(valid_format_string<Args...> format_str,
+[[nodiscard]] std::string format(emio::valid_format_string<Args...> format_str,
                                  const Args&... args) noexcept(detail::exceptions_disabled) {
-  return vformat(make_format_args(format_str, args...)).value();  // Should never fail.
+  return emio::vformat(emio::make_format_args(format_str, args...)).value();  // Should never fail.
 }
 
 /**
@@ -5774,9 +5777,9 @@ template <typename... Args>
  * failed.
  */
 template <typename T, typename... Args>
-  requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, format_string<Args...>>)
+  requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, emio::format_string<Args...>>)
 result<std::string> format(T format_str, const Args&... args) noexcept {
-  return vformat(make_format_args(format_str, args...));
+  return emio::vformat(emio::make_format_args(format_str, args...));
 }
 
 /**
@@ -5838,14 +5841,14 @@ result<size_t> vformat_to_n(buffer& buf, size_t n, const format_args& args) noex
 template <typename OutputIt, typename... Args>
   requires(std::output_iterator<OutputIt, char>)
 constexpr result<format_to_n_result<OutputIt>> format_to_n(OutputIt out, std::iter_difference_t<OutputIt> n,
-                                                           format_string<Args...> format_str,
+                                                           emio::format_string<Args...> format_str,
                                                            const Args&... args) noexcept {
   truncating_iterator tout{out, static_cast<size_t>(n)};
   iterator_buffer buf{tout};
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::format::format_to(buf, format_str, args...));
   } else {
-    EMIO_TRYV(detail::format::vformat_to(buf, make_format_args(format_str, args...)));
+    EMIO_TRYV(detail::format::vformat_to(buf, emio::make_format_args(format_str, args...)));
   }
   EMIO_TRYV(buf.flush());
   tout = buf.out();
@@ -5863,13 +5866,13 @@ constexpr result<format_to_n_result<OutputIt>> format_to_n(OutputIt out, std::it
  * the format string validation failed.
  */
 template <typename... Args>
-constexpr result<size_t> format_to_n(buffer& buf, size_t n, format_string<Args...> format_str,
+constexpr result<size_t> format_to_n(buffer& buf, size_t n, emio::format_string<Args...> format_str,
                                      const Args&... args) noexcept {
   truncating_buffer trunc_buf{buf, n};
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::format::format_to(trunc_buf, format_str, args...));
   } else {
-    EMIO_TRYV(detail::format::vformat_to(trunc_buf, make_format_args(format_str, args...)));
+    EMIO_TRYV(detail::format::vformat_to(trunc_buf, emio::make_format_args(format_str, args...)));
   }
   EMIO_TRYV(trunc_buf.flush());
   return trunc_buf.count();
@@ -5897,8 +5900,8 @@ inline result<void> vprint(std::FILE* file, const format_args& args) noexcept {
  * @param args The format args with the format string.
  */
 template <typename... Args>
-void print(valid_format_string<Args...> format_str, const Args&... args) noexcept {
-  vprint(stdout, make_format_args(format_str, args...)).value();  // Should never fail.
+void print(emio::valid_format_string<Args...> format_str, const Args&... args) noexcept {
+  vprint(stdout, emio::make_format_args(format_str, args...)).value();  // Should never fail.
 }
 
 /**
@@ -5908,9 +5911,9 @@ void print(valid_format_string<Args...> format_str, const Args&... args) noexcep
  * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
  */
 template <typename T, typename... Args>
-  requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, format_string<Args...>>)
+  requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, emio::format_string<Args...>>)
 result<void> print(T format_str, const Args&... args) noexcept {
-  return vprint(stdout, make_format_args(format_str, args...));
+  return vprint(stdout, emio::make_format_args(format_str, args...));
 }
 
 /**
@@ -5921,8 +5924,8 @@ result<void> print(T format_str, const Args&... args) noexcept {
  * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
  */
 template <typename... Args>
-result<void> print(std::FILE* file, format_string<Args...> format_str, const Args&... args) noexcept {
-  return vprint(file, make_format_args(format_str, args...));
+result<void> print(std::FILE* file, emio::format_string<Args...> format_str, const Args&... args) noexcept {
+  return vprint(file, emio::make_format_args(format_str, args...));
 }
 
 /**
@@ -5951,8 +5954,8 @@ inline result<void> vprintln(std::FILE* file, const format_args& args) noexcept 
  * @param args The arguments to be formatted.
  */
 template <typename... Args>
-void println(valid_format_string<Args...> format_str, const Args&... args) noexcept {
-  vprintln(stdout, make_format_args(format_str, args...)).value();  // Should never fail.
+void println(emio::valid_format_string<Args...> format_str, const Args&... args) noexcept {
+  vprintln(stdout, emio::make_format_args(format_str, args...)).value();  // Should never fail.
 }
 
 /**
@@ -5964,9 +5967,9 @@ void println(valid_format_string<Args...> format_str, const Args&... args) noexc
  * failed.
  */
 template <typename T, typename... Args>
-  requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, format_string<Args...>>)
+  requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, emio::format_string<Args...>>)
 result<void> println(T format_str, const Args&... args) noexcept {
-  return vprintln(stdout, make_format_args(format_str, args...));
+  return vprintln(stdout, emio::make_format_args(format_str, args...));
 }
 
 /**
@@ -5977,8 +5980,8 @@ result<void> println(T format_str, const Args&... args) noexcept {
  * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
  */
 template <typename... Args>
-result<void> println(std::FILE* file, format_string<Args...> format_str, const Args&... args) noexcept {
-  return vprintln(file, make_format_args(format_str, args...));
+result<void> println(std::FILE* file, emio::format_string<Args...> format_str, const Args&... args) noexcept {
+  return vprintln(file, emio::make_format_args(format_str, args...));
 }
 
 }  // namespace emio
@@ -6018,10 +6021,10 @@ concept advanceable = requires(T x) { ++x; };
 
 template <typename T>
 concept is_iterable = std::is_array_v<T> || requires(T x) {
-                                              { begin(x) } -> advanceable;
-                                              requires !std::is_same_v<decltype(*begin(x)), void>;
-                                              { static_cast<bool>(begin(x) != end(x)) };
-                                            };
+  { begin(x) } -> advanceable;
+  requires !std::is_same_v<decltype(*begin(x)), void>;
+  { static_cast<bool>(begin(x) != end(x)) };
+};
 
 template <typename T>
 using element_type_t = std::remove_cvref_t<decltype(*begin(std::declval<std::remove_reference_t<T>&>()))>;
@@ -6036,8 +6039,7 @@ template <typename T>
 concept is_string_like = std::is_constructible_v<std::string_view, T>;
 
 template <typename T>
-concept is_valid_range = is_iterable<T> && !
-is_string_like<T>&& is_formattable_v<element_type_t<T>>;
+concept is_valid_range = is_iterable<T> && !is_string_like<T> && is_formattable_v<element_type_t<T>>;
 
 template <typename T>
 struct is_span : std::false_type {};
@@ -6046,12 +6048,11 @@ template <typename T, size_t N>
 struct is_span<std::span<T, N>> : std::true_type {};
 
 template <typename T>
-concept is_contiguous_but_not_span =
-    std::is_array_v<T> || requires(T x) {
-                            requires !is_span<T>::value;
-                            requires std::is_same_v<std::remove_cvref_t<decltype(*data(x))>, element_type_t<T>>;
-                            { size(x) } -> std::same_as<size_t>;
-                          };
+concept is_contiguous_but_not_span = std::is_array_v<T> || requires(T x) {
+  requires !is_span<T>::value;
+  requires std::is_same_v<std::remove_cvref_t<decltype(*data(x))>, element_type_t<T>>;
+  { size(x) } -> std::same_as<size_t>;
+};
 
 struct ranges_specs {
   std::string_view opening_bracket{};
@@ -6075,9 +6076,9 @@ using std::get;
 // From https://stackoverflow.com/a/68444475/1611317
 template <class T, std::size_t N>
 concept has_tuple_element = requires(T t) {
-                              typename std::tuple_element_t<N, std::remove_const_t<T>>;
-                              { get<N>(t) } -> std::convertible_to<const std::tuple_element_t<N, T>&>;
-                            };
+  typename std::tuple_element_t<N, std::remove_const_t<T>>;
+  { get<N>(t) } -> std::convertible_to<const std::tuple_element_t<N, T>&>;
+};
 
 template <typename T, size_t... Ns>
 constexpr auto has_tuple_element_unpack(std::index_sequence<Ns...> /*unused*/) noexcept {
@@ -6085,12 +6086,10 @@ constexpr auto has_tuple_element_unpack(std::index_sequence<Ns...> /*unused*/) n
 }
 
 template <class T>
-concept is_tuple_like = !
-std::is_reference_v<T>&& requires(T t) {
-                           typename std::tuple_size<T>::type;
-                           requires std::derived_from<std::tuple_size<T>,
-                                                      std::integral_constant<std::size_t, std::tuple_size_v<T>>>;
-                         } && has_tuple_element_unpack<T>(std::make_index_sequence<std::tuple_size_v<T>>());
+concept is_tuple_like = !std::is_reference_v<T> && requires(T t) {
+  typename std::tuple_size<T>::type;
+  requires std::derived_from<std::tuple_size<T>, std::integral_constant<std::size_t, std::tuple_size_v<T>>>;
+} && has_tuple_element_unpack<T>(std::make_index_sequence<std::tuple_size_v<T>>());
 
 template <typename T, size_t... Ns>
 constexpr auto is_formattable_unpack(std::index_sequence<Ns...> /*unused*/) noexcept {
@@ -6098,8 +6097,8 @@ constexpr auto is_formattable_unpack(std::index_sequence<Ns...> /*unused*/) noex
 }
 
 template <typename T>
-concept is_valid_tuple = !
-is_valid_range<T>&& is_tuple_like<T>&& is_formattable_unpack<T>(std::make_index_sequence<std::tuple_size_v<T>>());
+concept is_valid_tuple = !is_valid_range<T> && is_tuple_like<T> &&
+                         is_formattable_unpack<T>(std::make_index_sequence<std::tuple_size_v<T>>());
 
 template <typename T, std::size_t... Ns>
 auto get_tuple_formatters(std::index_sequence<Ns...> /*unused*/)
@@ -6462,9 +6461,10 @@ inline constexpr int get_base(char type) noexcept {
     return 10;
   case 'x':
     return 16;
+  default:
+    EMIO_Z_DEV_ASSERT(false);
+    EMIO_Z_INTERNAL_UNREACHABLE;
   }
-  EMIO_Z_DEV_ASSERT(false);
-  EMIO_Z_INTERNAL_UNREACHABLE;
 }
 
 inline constexpr result<void> parse_alternate_form(reader& in, int base) noexcept {
@@ -6707,8 +6707,9 @@ inline constexpr result<void> check_integral_specs(const format_specs& specs) no
   case 'o':
   case 'x':
     return success;
+  default:
+    return err::invalid_format;
   }
-  return err::invalid_format;
 }
 
 inline constexpr result<void> check_string_specs(const format_specs& specs) noexcept {
@@ -6728,8 +6729,8 @@ inline constexpr bool has_scanner_v = std::is_constructible_v<scanner<Arg>>;
 
 template <typename T>
 concept has_validate_function_v = requires {
-                                    { scanner<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
-                                  };
+  { scanner<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
+};
 
 template <typename T>
 concept has_any_validate_function_v =
