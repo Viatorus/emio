@@ -60,7 +60,7 @@ inline constexpr result<void> write_padding_right(writer& out, format_specs& spe
 }
 
 template <alignment DefaultAlign, typename Func>
-constexpr result<void> write_padded(writer& out, format_specs& specs, size_t width, Func&& func) noexcept {
+constexpr result<void> write_padded(writer& out, format_specs& specs, size_t width, const Func& func) noexcept {
   if (specs.align == alignment::none) {
     specs.align = DefaultAlign;
   }
@@ -705,8 +705,9 @@ inline constexpr result<void> check_integral_specs(const format_specs& specs) no
   case 'o':
   case 'O':
     return success;
+  default:
+    return err::invalid_format;
   }
-  return err::invalid_format;
 }
 
 inline constexpr result<void> check_unsigned_specs(const format_specs& specs) noexcept {
@@ -762,8 +763,9 @@ inline constexpr result<void> check_floating_point_specs(const format_specs& spe
     //  case 'a': Not supported yet.
     //  case 'A':
     return success;
+  default:
+    return err::invalid_format;
   }
-  return err::invalid_format;
 }
 
 inline constexpr result<void> check_string_specs(const format_specs& specs) noexcept {
@@ -785,8 +787,8 @@ inline constexpr bool has_formatter_v = std::is_constructible_v<formatter<Arg>>;
 
 template <typename T>
 concept has_validate_function_v = requires {
-                                    { formatter<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
-                                  };
+  { formatter<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
+};
 
 template <typename T>
 concept has_any_validate_function_v =

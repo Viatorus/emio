@@ -60,9 +60,10 @@ inline constexpr int get_base(char type) noexcept {
     return 10;
   case 'x':
     return 16;
+  default:
+    EMIO_Z_DEV_ASSERT(false);
+    EMIO_Z_INTERNAL_UNREACHABLE;
   }
-  EMIO_Z_DEV_ASSERT(false);
-  EMIO_Z_INTERNAL_UNREACHABLE;
 }
 
 inline constexpr result<void> parse_alternate_form(reader& in, int base) noexcept {
@@ -305,8 +306,9 @@ inline constexpr result<void> check_integral_specs(const format_specs& specs) no
   case 'o':
   case 'x':
     return success;
+  default:
+    return err::invalid_format;
   }
-  return err::invalid_format;
 }
 
 inline constexpr result<void> check_string_specs(const format_specs& specs) noexcept {
@@ -326,8 +328,8 @@ inline constexpr bool has_scanner_v = std::is_constructible_v<scanner<Arg>>;
 
 template <typename T>
 concept has_validate_function_v = requires {
-                                    { scanner<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
-                                  };
+  { scanner<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
+};
 
 template <typename T>
 concept has_any_validate_function_v =

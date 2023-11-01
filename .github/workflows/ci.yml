@@ -22,12 +22,12 @@ jobs:
       - name: Install clang-format and clang-tidy
         run: |
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          sudo add-apt-repository 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-15 main'
-          sudo apt update && sudo apt install -y clang-format-15 clang-tidy-15
+          sudo add-apt-repository 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main'
+          sudo apt update && sudo apt install -y clang-format-17 clang-tidy-17
           sudo update-alternatives --remove-all clang-format || true
           sudo update-alternatives --remove-all clang-tidy || true
-          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-15 1000
-          sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-15 1000
+          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-17 1000
+          sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-17 1000
           clang-tidy --version
           clang-format --version
 
@@ -43,7 +43,7 @@ jobs:
   unit-tests:
     strategy:
       matrix:
-        compiler: [ gcc, clang ]
+        compiler: [ gcc-11, gcc-12, gcc-13, clang-16, clang-17 ]
         build_type: [ Debug, Release ]
 
     runs-on: ubuntu-22.04
@@ -53,16 +53,32 @@ jobs:
 
       - name: Install Compiler
         run: |
-          if [[ "$compiler" == "gcc" ]]; then
+          if [[ "$compiler" == "gcc-11" ]]; then
             sudo apt update && sudo apt install -y gcc-11 g++-11
             echo "CC=gcc-11" >> $GITHUB_ENV
             echo "CXX=g++-11" >> $GITHUB_ENV
-          else
+          elif [[ "$compiler" == "gcc-12" ]]; then
+            sudo apt update && sudo apt install -y gcc-12 g++-12
+            echo "CC=gcc-12" >> $GITHUB_ENV
+            echo "CXX=g++-12" >> $GITHUB_ENV
+          elif [[ "$compiler" == "gcc-13" ]]; then
+            sudo apt-get install build-essential software-properties-common -y
+            sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+            sudo apt update && sudo apt install -y gcc-13 g++-13
+            echo "CC=gcc-13" >> $GITHUB_ENV
+            echo "CXX=g++-13" >> $GITHUB_ENV
+          elif [[ "$compiler" == "clang-16" ]]; then
             wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-            sudo add-apt-repository 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-15 main'
-            sudo apt update && sudo apt install -y clang-15
-            echo "CC=clang-15" >> $GITHUB_ENV
-            echo "CXX=clang++-15" >> $GITHUB_ENV
+            sudo add-apt-repository 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-16 main'
+            sudo apt update && sudo apt install -y clang-16
+            echo "CC=clang-16" >> $GITHUB_ENV
+            echo "CXX=clang++-16" >> $GITHUB_ENV
+          elif [[ "$compiler" == "clang-17" ]]; then
+            wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+            sudo add-apt-repository 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main'
+            sudo apt update && sudo apt install -y clang-17
+            echo "CC=clang-17" >> $GITHUB_ENV
+            echo "CXX=clang++-17" >> $GITHUB_ENV
           fi
         env:
           compiler: ${{ matrix.compiler }}

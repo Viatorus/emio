@@ -50,7 +50,7 @@ class reader {
   constexpr reader() = default;
 
   // Don't allow temporary strings or any nullptr.
-  constexpr reader(std::string&&) = delete;
+  constexpr reader(std::string&&) = delete;  // NOLINT(cppcoreguidelines-rvalue-reference-param-not-moved): as intended
   constexpr reader(std::nullptr_t) = delete;
   constexpr reader(int) = delete;
 
@@ -61,7 +61,7 @@ class reader {
   template <typename Arg>
     requires(std::is_constructible_v<std::string_view, Arg> && !std::is_same_v<Arg, std::string_view>)
   // NOLINTNEXTLINE(bugprone-forwarding-reference-overload): Is guarded by require clause.
-  constexpr explicit reader(Arg&& input) noexcept : reader{std::string_view{input}} {}
+  constexpr explicit reader(Arg&& input) noexcept : reader{std::string_view{std::forward<Arg>(input)}} {}
 
   /**
    * Constructs the reader from a string view.
@@ -287,10 +287,9 @@ class reader {
    */
   template <typename Predicate>
     requires(std::is_invocable_r_v<bool, Predicate, char>)
-  constexpr result<std::string_view> read_until(
-      Predicate&& predicate,
-      const read_until_options& options =
-          default_read_until_options()) noexcept(std::is_nothrow_invocable_r_v<bool, Predicate, char>) {
+  constexpr result<std::string_view>
+  read_until(const Predicate& predicate, const read_until_options& options = default_read_until_options()) noexcept(
+      std::is_nothrow_invocable_r_v<bool, Predicate, char>) {
     return read_until_match(std::find_if(it_, end_, predicate), options);
   }
 

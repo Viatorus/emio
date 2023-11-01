@@ -135,7 +135,9 @@ void check_shortest(double d, std::string_view expected_str, int16_t expected_k)
 }
 
 #define CHECK_SHORTEST(d, exp_str, exp_k) \
-  SECTION(#d) { check_shortest(d, exp_str, exp_k); }
+  SECTION(#d) {                           \
+    check_shortest(d, exp_str, exp_k);    \
+  }
 
 TEST_CASE("format_shortest") {
   // 0.0999999999999999777955395074968691915273...
