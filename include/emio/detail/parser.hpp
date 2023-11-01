@@ -182,8 +182,7 @@ class parser_base<input_validation::disabled> {
 template <typename T>
 int is_arg_span2(const args_span<T>& t);
 
-template <typename... Args>
-bool is_arg_span2(Args&&...);
+bool is_arg_span2(...); // 
 
 template <typename T>
 constexpr bool is_args_span = sizeof(is_arg_span2(std::declval<T>())) == sizeof(int);

@@ -71,7 +71,8 @@ class validated_string : public validated_string_storage {
   template <typename S>
     requires(std::is_constructible_v<std::string_view, S>)
   consteval validated_string(const S& s) noexcept
-      : validated_string_storage{validated_string_storage::from<Trait, Args...>(std::string_view{s})} {
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-array-to-pointer-decay): can construct a std::string_view
+      : validated_string_storage{validated_string_storage::from<Trait, Args...>(s)} {
     if (get().has_error()) {
       std::terminate();
     }
