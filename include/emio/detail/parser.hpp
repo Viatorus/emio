@@ -182,9 +182,10 @@ class parser_base<input_validation::disabled> {
 template <typename T>
 int is_arg_span2(const args_span<T>& t);
 
-bool is_arg_span2(...);  // NOLINT(cppcoreguidelines-pro-type-vararg): only used within type traits
+bool is_arg_span2(...);
 
 template <typename T>
+// NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg): only used within type traits
 constexpr bool is_args_span = sizeof(is_arg_span2(std::declval<T>())) == sizeof(int);
 
 template <typename CRTP, input_validation Validation>
