@@ -171,9 +171,8 @@ class formatter<T> {
   static constexpr result<void> validate_for_each(std::index_sequence<Ns...> /*unused*/, reader& format_rdr) noexcept {
     size_t reader_pos = 0;
     result<void> res = success;
-    const auto validate = [&reader_pos, &res]<typename U>(std::type_identity<U> /*unused*/,
-                                                          reader r /*copy!*/) noexcept {
-      res = U::validate(r);
+    const auto validate = [&reader_pos, &res](const auto type_identity, reader r /*copy!*/) noexcept {
+      res = decltype(type_identity)::type::validate(r);
       if (res.has_error()) {
         return false;
       }
