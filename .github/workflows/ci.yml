@@ -22,12 +22,12 @@ jobs:
       - name: Install clang-format and clang-tidy
         run: |
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          sudo add-apt-repository 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-15 main'
-          sudo apt update && sudo apt install -y clang-format-15 clang-tidy-15
+          sudo add-apt-repository 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main'
+          sudo apt update && sudo apt install -y clang-format-17 clang-tidy-17
           sudo update-alternatives --remove-all clang-format || true
           sudo update-alternatives --remove-all clang-tidy || true
-          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-15 1000
-          sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-15 1000
+          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-17 1000
+          sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-17 1000
           clang-tidy --version
           clang-format --version
 
@@ -59,10 +59,10 @@ jobs:
             echo "CXX=g++-11" >> $GITHUB_ENV
           else
             wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-            sudo add-apt-repository 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-15 main'
-            sudo apt update && sudo apt install -y clang-15
-            echo "CC=clang-15" >> $GITHUB_ENV
-            echo "CXX=clang++-15" >> $GITHUB_ENV
+            sudo add-apt-repository 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main'
+            sudo apt update && sudo apt install -y clang-17
+            echo "CC=clang-17" >> $GITHUB_ENV
+            echo "CXX=clang++-17" >> $GITHUB_ENV
           fi
         env:
           compiler: ${{ matrix.compiler }}
