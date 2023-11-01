@@ -34,7 +34,7 @@ if (BUILD_TESTING)
     Include(FetchContent)
     FetchContent_Declare(
             Catch2
-            GIT_TAG v3.1.0
+            GIT_TAG v3.4.0
             GIT_REPOSITORY https://github.com/catchorg/Catch2.git
             GIT_SHALLOW TRUE
     )
