@@ -95,11 +95,11 @@ constexpr size_t count_digits(T number) noexcept {
   if constexpr (Base == 10) {
     return count_digits_10(number);
   } else if constexpr (Base == 2) {
-    return std::bit_width(number);
+    return static_cast<size_t>(std::bit_width(number));
   } else if constexpr (Base == 8) {
-    return (std::bit_width(number) + 2) / 3;
+    return static_cast<size_t>((std::bit_width(number) + 2) / 3);
   } else if constexpr (Base == 16) {
-    return (std::bit_width(number) + 3) / 4;
+    return static_cast<size_t>(((std::bit_width(number) + 3) / 4));
   } else {
     size_t digit_cnt{1};
     for (number /= static_cast<T>(Base); number; number /= static_cast<T>(Base)) {
