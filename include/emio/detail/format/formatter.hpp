@@ -785,8 +785,8 @@ inline constexpr bool has_formatter_v = std::is_constructible_v<formatter<Arg>>;
 
 template <typename T>
 concept has_validate_function_v = requires {
-                                    { formatter<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
-                                  };
+  { formatter<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
+};
 
 template <typename T>
 concept has_any_validate_function_v =

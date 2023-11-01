@@ -252,9 +252,9 @@ class formatter<detail::format_spec_with_value<T>> {
  private:
   template <typename F>
     requires requires(F x) {
-               x.set_width(1);
-               x.set_precision(1);
-             }
+      x.set_width(1);
+      x.set_precision(1);
+    }
   static constexpr F& get_core_formatter(F& formatter) noexcept {
     return formatter;
   }
