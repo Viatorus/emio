@@ -40,6 +40,8 @@ jobs:
         run: cmake -D FORMAT_COMMAND=clang-format -P cmake/lint.cmake
 
       - name: Run cppcheck and clang-tidy
+        # Cppcheck's checks are disabled. They are mostly redundant to clang-tidy and there are too many false positives.
+        # But the parsing of cppcheck is kept to be compatible with its compiler frontend.
         if: ${{ !cancelled() }}
         run: |
           cmake --preset=ci-checks

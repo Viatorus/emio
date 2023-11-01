@@ -33,7 +33,7 @@
       "name": "cppcheck",
       "hidden": true,
       "cacheVariables": {
-        "CMAKE_CXX_CPPCHECK": "cppcheck;--enable=all;--inconclusive;--inline-suppr"
+        "CMAKE_CXX_CPPCHECK": "cppcheck;--inline-suppr"
       }
     },
     {
@@ -170,6 +170,7 @@
       "inherits": [
         "ci-build",
         "ci-unix",
+        "clang-tidy",
         "cppcheck",
         "dev-mode"
       ]
