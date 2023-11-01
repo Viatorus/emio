@@ -60,7 +60,7 @@ inline constexpr result<void> write_padding_right(writer& out, format_specs& spe
 }
 
 template <alignment DefaultAlign, typename Func>
-constexpr result<void> write_padded(writer& out, format_specs& specs, size_t width, Func&& func) noexcept {
+constexpr result<void> write_padded(writer& out, format_specs& specs, size_t width, const Func& func) noexcept {
   if (specs.align == alignment::none) {
     specs.align = DefaultAlign;
   }

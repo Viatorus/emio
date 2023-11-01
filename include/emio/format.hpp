@@ -52,7 +52,7 @@ template <typename... Args>
  */
 inline result<size_t> vformatted_size(format_args&& args) noexcept {
   detail::counting_buffer buf{};
-  EMIO_TRYV(detail::format::vformat_to(buf, args));
+  EMIO_TRYV(detail::format::vformat_to(buf, std::move(args)));
   return buf.count();
 }
 

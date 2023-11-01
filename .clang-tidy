@@ -45,6 +45,9 @@ Checks: >
   -bugprone-exception-escape,
   -cppcoreguidelines-pro-bounds-pointer-arithmetic,
   -cppcoreguidelines-pro-bounds-constant-array-index,
+  -cppcoreguidelines-avoid-do-while,
+  -cppcoreguidelines-avoid-const-or-ref-data-members,
+  
 
 WarningsAsErrors: ''
 
@@ -155,6 +158,4 @@ CheckOptions:
     value: 'lower_case'
   - key: readability-identifier-naming.VirtualMethodCase
     value: 'lower_case'
-  - key: cppcoreguidelines-avoid-do-while.IgnoreMacros
-    value: 'true'
 ...
