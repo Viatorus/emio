@@ -69,7 +69,7 @@ template <typename... Args>
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     detail::format::format_to(buf, format_str, args...).value();
   } else {
-    detail::format::vformat_to(buf, make_format_args(format_str, args...)).value();
+    detail::format::vformat_to(buf, emio::make_format_args(format_str, args...)).value();
   }
   return buf.count();
 }
