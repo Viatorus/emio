@@ -705,8 +705,9 @@ inline constexpr result<void> check_integral_specs(const format_specs& specs) no
   case 'o':
   case 'O':
     return success;
+  default:
+    return err::invalid_format;
   }
-  return err::invalid_format;
 }
 
 inline constexpr result<void> check_unsigned_specs(const format_specs& specs) noexcept {
@@ -762,8 +763,9 @@ inline constexpr result<void> check_floating_point_specs(const format_specs& spe
     //  case 'a': Not supported yet.
     //  case 'A':
     return success;
+  default:
+    return err::invalid_format;
   }
-  return err::invalid_format;
 }
 
 inline constexpr result<void> check_string_specs(const format_specs& specs) noexcept {
