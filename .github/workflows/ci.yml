@@ -40,6 +40,22 @@ jobs:
           cmake --preset=ci-checks
           cmake --build build/test/static_analysis -j $(nproc)
 
+  cppcheck:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install cppcheck
+        run: |
+          sudo apt update && sudo apt install -y cppcheck
+          cppcheck --version
+
+      - name: Run cppcheck
+        run: |
+          cmake --preset=ci-checks
+          cmake --build build/test/static_analysis -j $(nproc)
+
   unit-tests:
     strategy:
       matrix:
