@@ -50,7 +50,7 @@ template <typename... Args>
  * @return The total number of characters in the formatted string or invalid_format if the format string validation
  * failed.
  */
-inline result<size_t> vformatted_size(format_args args) noexcept {
+inline result<size_t> vformatted_size(const format_args& args) noexcept {
   detail::counting_buffer buf{};
   EMIO_TRYV(detail::format::vformat_to(buf, args));
   return buf.count();

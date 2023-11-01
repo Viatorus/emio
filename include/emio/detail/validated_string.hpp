@@ -27,6 +27,7 @@ class runtime_string {
   constexpr runtime_string() = default;
 
   // Don't allow temporary strings or any nullptr.
+  // NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved): as intended
   constexpr runtime_string(std::string&&) = delete;
   constexpr runtime_string(std::nullptr_t) = delete;
   constexpr runtime_string(int) = delete;
