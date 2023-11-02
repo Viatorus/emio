@@ -71,6 +71,7 @@ class validated_string : public validated_string_storage {
   template <typename S>
     requires(std::is_constructible_v<std::string_view, S>)
   consteval validated_string(const S& s) noexcept
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-array-to-pointer-decay): can construct a std::string_view
       : validated_string_storage{validated_string_storage::from<Trait, Args...>(s)} {
     if (get().has_error()) {
       std::terminate();
@@ -88,6 +89,7 @@ class validated_string : public validated_string_storage {
    * Returns format/scan string as valid one.
    * @return The valid format/scan string or invalid_format if the validation failed.
    */
+  // NOLINTNEXTLINE(modernize-use-nodiscard): result<...> is already declared with nodiscard
   constexpr result<valid_string<Trait, Args...>> as_valid() const noexcept {
     if (get().has_value()) {
       return valid_string<Trait, Args...>{*this};

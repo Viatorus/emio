@@ -33,7 +33,7 @@
       "name": "cppcheck",
       "hidden": true,
       "cacheVariables": {
-        "CMAKE_CXX_CPPCHECK": "cppcheck;--inline-suppr"
+        "CMAKE_CXX_CPPCHECK": "cppcheck;--error-exitcode=13"
       }
     },
     {
@@ -171,6 +171,7 @@
         "ci-build",
         "ci-unix",
         "clang-tidy",
+        "cppcheck",
         "dev-mode"
       ]
     },

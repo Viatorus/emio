@@ -47,6 +47,7 @@ Checks: >
   -cppcoreguidelines-pro-bounds-constant-array-index,
   -cppcoreguidelines-avoid-do-while,
   -cppcoreguidelines-avoid-const-or-ref-data-members,
+  -misc-include-cleaner,
   
 
 WarningsAsErrors: ''

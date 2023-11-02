@@ -332,9 +332,15 @@ concept has_validate_function_v = requires {
 };
 
 template <typename T>
+concept has_static_validate_function_v = requires { &scanner<T>::validate; };
+
+template <typename T>
+concept has_member_validate_function_v = requires { std::declval<scanner<T>>().validate(std::declval<reader&>()); };
+
+template <typename T>
 concept has_any_validate_function_v =
-    requires { &scanner<T>::validate; } || std::is_member_function_pointer_v<decltype(&scanner<T>::validate)> ||
-    requires { std::declval<scanner<T>>().validate(std::declval<reader&>()); };
+    has_static_validate_function_v<T> || std::is_member_function_pointer_v<decltype(&scanner<T>::validate)> ||
+    has_member_validate_function_v<T>;
 
 template <typename T>
 inline constexpr bool is_core_type_v =
