@@ -3028,6 +3028,7 @@ int is_arg_span2(const args_span<T>& t);
 bool is_arg_span2(...);
 
 template <typename T>
+// NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg): only used within type traits
 constexpr bool is_args_span = sizeof(is_arg_span2(std::declval<T>())) == sizeof(int);
 
 template <typename CRTP, input_validation Validation>
@@ -3170,6 +3171,7 @@ class validated_string : public validated_string_storage {
   template <typename S>
     requires(std::is_constructible_v<std::string_view, S>)
   consteval validated_string(const S& s) noexcept
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-array-to-pointer-decay): can construct a std::string_view
       : validated_string_storage{validated_string_storage::from<Trait, Args...>(s)} {
     if (get().has_error()) {
       std::terminate();
@@ -3187,6 +3189,7 @@ class validated_string : public validated_string_storage {
    * Returns format/scan string as valid one.
    * @return The valid format/scan string or invalid_format if the validation failed.
    */
+  // NOLINTNEXTLINE(modernize-use-nodiscard): result<...> is already declared with nodiscard
   constexpr result<valid_string<Trait, Args...>> as_valid() const noexcept {
     if (get().has_value()) {
       return valid_string<Trait, Args...>{*this};
@@ -4915,9 +4918,15 @@ concept has_validate_function_v = requires {
 };
 
 template <typename T>
+concept has_static_validate_function_v = requires { &formatter<T>::validate; };
+
+template <typename T>
+concept has_member_validate_function_v = requires { std::declval<formatter<T>>().validate(std::declval<reader&>()); };
+
+template <typename T>
 concept has_any_validate_function_v =
-    requires { &formatter<T>::validate; } || std::is_member_function_pointer_v<decltype(&formatter<T>::validate)> ||
-    requires { std::declval<formatter<T>>().validate(std::declval<reader&>()); };
+    has_static_validate_function_v<T> || std::is_member_function_pointer_v<decltype(&formatter<T>::validate)> ||
+    has_member_validate_function_v<T>;
 
 template <typename T>
 inline constexpr bool is_core_type_v =
@@ -6269,9 +6278,8 @@ class formatter<T> {
   static constexpr result<void> validate_for_each(std::index_sequence<Ns...> /*unused*/, reader& format_rdr) noexcept {
     size_t reader_pos = 0;
     result<void> res = success;
-    const auto validate = [&reader_pos, &res]<typename U>(std::type_identity<U> /*unused*/,
-                                                          reader r /*copy!*/) noexcept {
-      res = U::validate(r);
+    const auto validate = [&reader_pos, &res](const auto type_identity, reader r /*copy!*/) noexcept {
+      res = decltype(type_identity)::type::validate(r);
       if (res.has_error()) {
         return false;
       }
@@ -6733,9 +6741,15 @@ concept has_validate_function_v = requires {
 };
 
 template <typename T>
+concept has_static_validate_function_v = requires { &scanner<T>::validate; };
+
+template <typename T>
+concept has_member_validate_function_v = requires { std::declval<scanner<T>>().validate(std::declval<reader&>()); };
+
+template <typename T>
 concept has_any_validate_function_v =
-    requires { &scanner<T>::validate; } || std::is_member_function_pointer_v<decltype(&scanner<T>::validate)> ||
-    requires { std::declval<scanner<T>>().validate(std::declval<reader&>()); };
+    has_static_validate_function_v<T> || std::is_member_function_pointer_v<decltype(&scanner<T>::validate)> ||
+    has_member_validate_function_v<T>;
 
 template <typename T>
 inline constexpr bool is_core_type_v =
