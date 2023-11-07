@@ -164,8 +164,7 @@ constexpr result<void> write_arg(writer& out, format_specs& specs, const Arg& ar
   }
 
   return write_padded<alignment::right>(out, specs, total_width, [&, &opt = options]() noexcept -> result<void> {
-    const size_t area_size =
-        num_digits + static_cast<size_t>(sign_to_write != no_sign) + prefix_to_write.size();
+    const size_t area_size = num_digits + static_cast<size_t>(sign_to_write != no_sign) + prefix_to_write.size();
     EMIO_TRY(auto area, out.get_buffer().get_write_area_of(area_size));
     auto* it = area.data();
     if (sign_to_write != no_sign) {
