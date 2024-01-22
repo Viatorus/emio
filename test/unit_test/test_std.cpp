@@ -53,7 +53,7 @@ std::string_view format_as(const throws_on_move&) {
 TEST_CASE("std::variant") {
   STATIC_CHECK(emio::is_formattable_v<std::string>);
 
-  std::variant<std::monostate, int, double, char, nullptr_t, std::string> v{};
+  std::variant<std::monostate, int, double, char, std::nullptr_t, std::string> v{};
   CHECK(emio::format("{}", v) == "variant(monostate)");
   v = 42;
   CHECK(emio::format("{}", v) == "variant(42)");
