@@ -12,6 +12,7 @@ TEST_CASE("std::optional") {
   CHECK(emio::format("{}", std::optional<int>{}) == "none");
   CHECK(emio::format("{:x}", std::optional<int>{42}) == "optional(2a)");
   CHECK(emio::format("{:x}", std::optional<int>{42}) == "optional(2a)");
+  CHECK(emio::format(emio::runtime("{:x}"), std::optional<int>{42}) == "optional(2a)");
   CHECK(emio::format("{}", std::optional{std::vector{'h', 'e', 'l', 'l', 'o'}}) ==
         "optional(['h', 'e', 'l', 'l', 'o'])");
   CHECK(emio::format("{::d}", std::optional{std::vector{'h', 'e', 'l', 'l', 'o'}}) ==
@@ -33,6 +34,7 @@ TEST_CASE("std::filesystem::path") {
   CHECK(emio::format("{}", path{"/abc/dev"}) == "/abc/dev");
   CHECK(emio::format("{:x>11}", path{"/abc/dev"}) == "xxx/abc/dev");
   CHECK(emio::format("{:x<11?}", path{"/abc/dev"}) == "\"/abc/dev\"x");
+  CHECK(emio::format(emio::runtime("{:x<11?}"), path{"/abc/dev"}) == "\"/abc/dev\"x");
 }
 
 namespace {
@@ -55,6 +57,7 @@ TEST_CASE("std::variant") {
 
   std::variant<std::monostate, int, double, char, std::nullptr_t, std::string> v{};
   CHECK(emio::format("{}", v) == "variant(monostate)");
+  CHECK(emio::format(emio::runtime("{}"), v) == "variant(monostate)");
   v = 42;
   CHECK(emio::format("{}", v) == "variant(42)");
   v = 4.2;
