@@ -3291,6 +3291,14 @@ struct always_false : std::false_type {};
 template <typename T>
 inline constexpr bool always_false_v = always_false<T>::value;
 
+template <typename... Ts>
+struct overload : Ts... {
+  using Ts::operator()...;
+};
+
+template <class... Ts>
+overload(Ts...) -> overload<Ts...>;
+
 }  // namespace emio::detail
 
 //
@@ -4675,7 +4683,6 @@ inline constexpr result<void> validate_format_specs(reader& format_rdr, format_s
     return err::invalid_format;
   }
 
-  bool fill_aligned = false;
   {
     // Parse for alignment specifier.
     EMIO_TRY(const char c2, format_rdr.peek());
@@ -4687,7 +4694,6 @@ inline constexpr result<void> validate_format_specs(reader& format_rdr, format_s
       } else {
         specs.align = alignment::right;
       }
-      fill_aligned = true;
       specs.fill = c;
       format_rdr.pop();
       EMIO_TRY(c, format_rdr.read_char());
@@ -4699,7 +4705,6 @@ inline constexpr result<void> validate_format_specs(reader& format_rdr, format_s
       } else {
         specs.align = alignment::right;
       }
-      fill_aligned = true;
       EMIO_TRY(c, format_rdr.read_char());
     }
   }
@@ -4711,8 +4716,8 @@ inline constexpr result<void> validate_format_specs(reader& format_rdr, format_s
     specs.alternate_form = true;
     EMIO_TRY(c, format_rdr.read_char());
   }
-  if (c == '0') {         // Zero flag.
-    if (!fill_aligned) {  // If fill/align is used, the zero flag is ignored.
+  if (c == '0') {                          // Zero flag.
+    if (specs.align == alignment::none) {  // If fill/align is used, the zero flag is ignored.
       specs.fill = '0';
       specs.align = alignment::right;
       specs.zero_flag = true;
@@ -4756,7 +4761,6 @@ inline constexpr result<void> parse_format_specs(reader& format_rdr, format_spec
     return success;
   }
 
-  bool fill_aligned = false;
   {
     // Parse for alignment specifier.
     const char c2 = format_rdr.peek().assume_value();
@@ -4768,7 +4772,6 @@ inline constexpr result<void> parse_format_specs(reader& format_rdr, format_spec
       } else {
         specs.align = alignment::right;
       }
-      fill_aligned = true;
       specs.fill = c;
       format_rdr.pop();
       c = format_rdr.read_char().assume_value();
@@ -4780,7 +4783,6 @@ inline constexpr result<void> parse_format_specs(reader& format_rdr, format_spec
       } else {
         specs.align = alignment::right;
       }
-      fill_aligned = true;
       c = format_rdr.read_char().assume_value();
     }
   }
@@ -4792,8 +4794,8 @@ inline constexpr result<void> parse_format_specs(reader& format_rdr, format_spec
     specs.alternate_form = true;
     c = format_rdr.read_char().assume_value();
   }
-  if (c == '0') {         // Zero flag.
-    if (!fill_aligned) {  // Ignoreable.
+  if (c == '0') {                          // Zero flag.
+    if (specs.align == alignment::none) {  // Ignoreable.
       specs.fill = '0';
       specs.align = alignment::right;
       specs.zero_flag = true;
@@ -4926,6 +4928,24 @@ template <typename T>
 concept has_any_validate_function_v =
     has_static_validate_function_v<T> || std::is_member_function_pointer_v<decltype(&formatter<T>::validate)> ||
     has_member_validate_function_v<T>;
+
+template <typename Arg>
+constexpr result<void> validate_trait(reader& format_rdr) {
+  // Check if a formatter exist and a correct validate method is implemented. If not, use the parse method.
+  if constexpr (has_formatter_v<Arg>) {
+    if constexpr (has_validate_function_v<Arg>) {
+      return formatter<Arg>::validate(format_rdr);
+    } else {
+      static_assert(!has_any_validate_function_v<Arg>,
+                    "Formatter seems to have a validate property which doesn't fit the desired signature.");
+      return formatter<Arg>{}.parse(format_rdr);
+    }
+  } else {
+    static_assert(has_formatter_v<Arg>,
+                  "Cannot format an argument. To make type T formattable provide a formatter<T> specialization.");
+    return err::invalid_format;
+  }
+}
 
 template <typename T>
 inline constexpr bool is_core_type_v =
@@ -5287,20 +5307,7 @@ struct format_arg_trait {
   using unified_type = format::unified_type_t<std::remove_const_t<Arg>>;
 
   static constexpr result<void> validate(reader& format_rdr) noexcept {
-    // Check if a formatter exist and a correct validate method is implemented. If not, use the parse method.
-    if constexpr (has_formatter_v<Arg>) {
-      if constexpr (has_validate_function_v<Arg>) {
-        return formatter<Arg>::validate(format_rdr);
-      } else {
-        static_assert(!has_any_validate_function_v<Arg>,
-                      "Formatter seems to have a validate property which doesn't fit the desired signature.");
-        return formatter<Arg>{}.parse(format_rdr);
-      }
-    } else {
-      static_assert(has_formatter_v<Arg>,
-                    "Cannot format an argument. To make type T formattable provide a formatter<T> specialization.");
-      return err::invalid_format;
-    }
+    return detail::format::validate_trait<Arg>(format_rdr);
   }
 
   static constexpr result<void> process_arg(writer& out, reader& format_rdr, const Arg& arg) noexcept {
@@ -7152,6 +7159,147 @@ constexpr result<void> scan(std::string_view input, format_scan_string<Args...> 
   }
   return err::invalid_format;
 }
+
+}  // namespace emio
+
+//
+// Copyright (c) 2024 - present, Toni Neubert
+// All rights reserved.
+//
+// For the license information refer to emio.hpp
+
+#include <exception>
+#include <filesystem>
+#include <optional>
+#include <variant>
+
+namespace emio {
+
+/**
+ * Formatter for std::optional.
+ * @tparam T The type to format.
+ */
+template <typename T>
+  requires is_formattable_v<T>
+class formatter<std::optional<T>> {
+ public:
+  static constexpr result<void> validate(reader& format_rdr) noexcept {
+    return detail::format::validate_trait<T>(format_rdr);
+  }
+
+  constexpr result<void> parse(reader& format_rdr) noexcept {
+    return underlying_.parse(format_rdr);
+  }
+
+  constexpr result<void> format(writer& out, const std::optional<T>& arg) const noexcept {
+    if (!arg.has_value()) {
+      return out.write_str(detail::sv("none"));
+    } else {
+      EMIO_TRYV(out.write_str(detail::sv("optional(")));
+      EMIO_TRYV(underlying_.format(out, *arg));
+      return out.write_char(')');
+    }
+  }
+
+ private:
+  formatter<T> underlying_;
+};
+
+/**
+ * Formatter for std::exception.
+ * @tparam T The type.
+ */
+template <typename T>
+  requires std::is_base_of_v<std::exception, T>
+class formatter<T> : public formatter<std::string_view> {
+ public:
+  result<void> format(writer& out, const std::exception& arg) const noexcept {
+    return formatter<std::string_view>::format(out, arg.what());
+  }
+};
+
+/**
+ * Formatter for std::filesystem::path.
+ */
+template <>
+class formatter<std::filesystem::path> : public formatter<std::string_view> {
+ public:
+  result<void> format(writer& out, const std::filesystem::path& arg) const noexcept {
+    return formatter<std::string_view>::format(out, arg.native());
+  }
+};
+
+/**
+ * Formatter for std::monostate.
+ */
+template <>
+class formatter<std::monostate> {
+ public:
+  static constexpr result<void> validate(reader& format_rdr) noexcept {
+    return format_rdr.read_if_match_char('}');
+  }
+
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static): API requests this to be a member function.
+  constexpr result<void> parse(reader& format_rdr) noexcept {
+    return format_rdr.read_if_match_char('}');
+  }
+
+  // NOLINTNEXTLINE(readability-convert-member-functions-to-static): API requests this to be a member function.
+  constexpr result<void> format(writer& out, const std::monostate& /*arg*/) const noexcept {
+    return out.write_str(detail::sv("monostate"));
+  }
+};
+
+/**
+ * Formatter for std::variant.
+ * @tparam Ts The types to format.
+ */
+template <typename... Ts>
+  requires(is_formattable_v<Ts> && ...)
+class formatter<std::variant<Ts...>> {
+ public:
+  static constexpr result<void> validate(reader& format_rdr) noexcept {
+    return format_rdr.read_if_match_char('}');
+  }
+
+  constexpr result<void> parse(reader& format_rdr) noexcept {
+    return format_rdr.read_if_match_char('}');
+  }
+
+  constexpr result<void> format(writer& out, const std::variant<Ts...>& arg) noexcept {
+    EMIO_TRYV(out.write_str(detail::sv("variant(")));
+#ifdef __EXCEPTIONS
+    try {
+#endif
+      EMIO_TRYV(std::visit(detail::overload{
+                               [&](const char& val) -> result<void> {
+                                 return out.write_char_escaped(val);
+                               },
+                               [&](const std::string_view& val) -> result<void> {
+                                 return out.write_str_escaped(val);
+                               },
+                               [&](const auto& val) -> result<void> {
+                                 using T = std::decay_t<decltype(val)>;
+                                 if constexpr (!std::is_null_pointer_v<T> &&
+                                               std::is_constructible_v<std::string_view, T>) {
+                                   return out.write_str_escaped(std::string_view{val});
+                                 } else {
+                                   formatter<T> fmt;
+                                   emio::reader rdr{detail::sv("}")};
+                                   EMIO_TRYV(fmt.parse(rdr));
+                                   return fmt.format(out, val);
+                                 }
+                               },
+                           },
+                           arg));
+#ifdef __EXCEPTIONS
+    } catch (const std::bad_variant_access&) {
+      EMIO_TRYV(out.write_str(detail::sv("valueless by exception")));
+    }
+#endif
+    return out.write_char(')');
+  }  // namespace emio
+};
 
 }  // namespace emio
 
