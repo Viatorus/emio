@@ -548,7 +548,6 @@ inline constexpr result<void> validate_format_specs(reader& format_rdr, format_s
     return err::invalid_format;
   }
 
-  bool fill_aligned = false;
   {
     // Parse for alignment specifier.
     EMIO_TRY(const char c2, format_rdr.peek());
@@ -560,7 +559,6 @@ inline constexpr result<void> validate_format_specs(reader& format_rdr, format_s
       } else {
         specs.align = alignment::right;
       }
-      fill_aligned = true;
       specs.fill = c;
       format_rdr.pop();
       EMIO_TRY(c, format_rdr.read_char());
@@ -572,7 +570,6 @@ inline constexpr result<void> validate_format_specs(reader& format_rdr, format_s
       } else {
         specs.align = alignment::right;
       }
-      fill_aligned = true;
       EMIO_TRY(c, format_rdr.read_char());
     }
   }
@@ -584,8 +581,8 @@ inline constexpr result<void> validate_format_specs(reader& format_rdr, format_s
     specs.alternate_form = true;
     EMIO_TRY(c, format_rdr.read_char());
   }
-  if (c == '0') {         // Zero flag.
-    if (!fill_aligned) {  // If fill/align is used, the zero flag is ignored.
+  if (c == '0') {                          // Zero flag.
+    if (specs.align == alignment::none) {  // If fill/align is used, the zero flag is ignored.
       specs.fill = '0';
       specs.align = alignment::right;
       specs.zero_flag = true;
@@ -629,7 +626,6 @@ inline constexpr result<void> parse_format_specs(reader& format_rdr, format_spec
     return success;
   }
 
-  bool fill_aligned = false;
   {
     // Parse for alignment specifier.
     const char c2 = format_rdr.peek().assume_value();
@@ -641,7 +637,6 @@ inline constexpr result<void> parse_format_specs(reader& format_rdr, format_spec
       } else {
         specs.align = alignment::right;
       }
-      fill_aligned = true;
       specs.fill = c;
       format_rdr.pop();
       c = format_rdr.read_char().assume_value();
@@ -653,7 +648,6 @@ inline constexpr result<void> parse_format_specs(reader& format_rdr, format_spec
       } else {
         specs.align = alignment::right;
       }
-      fill_aligned = true;
       c = format_rdr.read_char().assume_value();
     }
   }
@@ -665,8 +659,8 @@ inline constexpr result<void> parse_format_specs(reader& format_rdr, format_spec
     specs.alternate_form = true;
     c = format_rdr.read_char().assume_value();
   }
-  if (c == '0') {         // Zero flag.
-    if (!fill_aligned) {  // Ignoreable.
+  if (c == '0') {                          // Zero flag.
+    if (specs.align == alignment::none) {  // Ignoreable.
       specs.fill = '0';
       specs.align = alignment::right;
       specs.zero_flag = true;
@@ -799,6 +793,24 @@ template <typename T>
 concept has_any_validate_function_v =
     has_static_validate_function_v<T> || std::is_member_function_pointer_v<decltype(&formatter<T>::validate)> ||
     has_member_validate_function_v<T>;
+
+template <typename Arg>
+constexpr result<void> validate_trait(reader& format_rdr) {
+  // Check if a formatter exist and a correct validate method is implemented. If not, use the parse method.
+  if constexpr (has_formatter_v<Arg>) {
+    if constexpr (has_validate_function_v<Arg>) {
+      return formatter<Arg>::validate(format_rdr);
+    } else {
+      static_assert(!has_any_validate_function_v<Arg>,
+                    "Formatter seems to have a validate property which doesn't fit the desired signature.");
+      return formatter<Arg>{}.parse(format_rdr);
+    }
+  } else {
+    static_assert(has_formatter_v<Arg>,
+                  "Cannot format an argument. To make type T formattable provide a formatter<T> specialization.");
+    return err::invalid_format;
+  }
+}
 
 template <typename T>
 inline constexpr bool is_core_type_v =

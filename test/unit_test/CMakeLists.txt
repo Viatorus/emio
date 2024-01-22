@@ -35,6 +35,7 @@ add_executable(emio_test
         test_reader.cpp
         test_result.cpp
         test_scan.cpp
+        test_std.cpp
         test_writer.cpp
 )
 

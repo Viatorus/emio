@@ -16,4 +16,12 @@ struct always_false : std::false_type {};
 template <typename T>
 inline constexpr bool always_false_v = always_false<T>::value;
 
+template <typename... Ts>
+struct overload : Ts... {
+  using Ts::operator()...;
+};
+
+template <class... Ts>
+overload(Ts...) -> overload<Ts...>;
+
 }  // namespace emio::detail
