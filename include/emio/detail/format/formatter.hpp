@@ -671,7 +671,7 @@ inline constexpr result<void> parse_format_specs(reader& format_rdr, format_spec
     specs.alternate_form = true;
     c = format_rdr.read_char().assume_value();
   }
-  if (c == '0') {         // Zero flag.
+  if (c == '0') {                          // Zero flag.
     if (specs.align == alignment::none) {  // Ignoreable.
       specs.fill = '0';
       specs.align = alignment::right;
