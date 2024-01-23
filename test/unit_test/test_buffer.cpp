@@ -55,6 +55,11 @@ TEST_CASE("memory_buffer", "[buffer]") {
   CHECK(buf.view() == buf.str());
   CHECK(buf.view().size() == first_size + second_size + third_size);
   CHECK(buf.view() == expected_str);
+
+  buf.reset();
+  area = buf.get_write_area_of(first_size);
+  REQUIRE(area);
+  CHECK(area->size() == first_size);
 }
 
 TEST_CASE("memory_buffer regression bug 1", "[buffer]") {
@@ -181,6 +186,16 @@ TEST_CASE("span_buffer", "[buffer]") {
   area = buf.get_write_area_of(0);
   REQUIRE(area);
   CHECK(area->empty());
+
+  buf.reset();
+  area = buf.get_write_area_of(first_size);
+  REQUIRE(area);
+  CHECK(area->size() == first_size);
+
+  buf.reset();
+  area = buf.get_write_area_of(storage.size());
+  REQUIRE(area);
+  CHECK(area->size() == storage.size());
 }
 
 TEST_CASE("span_buffer check request_write_area", "[buffer]") {
@@ -526,6 +541,46 @@ TEST_CASE("file_buffer", "[buffer]") {
   std::rewind(tmpf);
   CHECK(std::fgets(read_out_buf.data(), read_out_buf.size(), tmpf));
   CHECK(std::string_view{read_out_buf.data(), 6 + emio::default_cache_size} == "yyzzzz" + expected_long_str_part);
+}
+
+TEST_CASE("file_buffer reset", "[buffer]") {
+  std::FILE* tmpf = std::tmpfile();
+  REQUIRE(tmpf);
+
+  emio::file_buffer file_buf{tmpf};
+  std::array<char, 2 * emio::default_cache_size> read_out_buf{};
+
+  // Write into.
+  emio::result<std::span<char>> area = file_buf.get_write_area_of(4);
+  REQUIRE(area);
+  REQUIRE(area->size() == 4);
+  fill(area, 'x');
+
+  // Nothing should be written.
+  file_buf.reset();
+  CHECK(file_buf.flush());
+
+  CHECK(std::fgets(read_out_buf.data(), read_out_buf.size(), tmpf) == nullptr);
+
+  area = file_buf.get_write_area_of(4);
+  REQUIRE(area);
+  REQUIRE(area->size() == 4);
+  fill(area, 'y');
+
+  // Nothing should be written.
+  file_buf.reset();
+
+  area = file_buf.get_write_area_of(4);
+  REQUIRE(area);
+  REQUIRE(area->size() == 4);
+  fill(area, 'z');
+
+  // Flush and then reset.
+  CHECK(file_buf.flush());
+  file_buf.reset();
+
+  CHECK(std::fgets(read_out_buf.data(), read_out_buf.size(), tmpf));
+  CHECK(std::string_view{read_out_buf.data(), 4} == "zzzz");
 }
 
 TEST_CASE("truncating_buffer", "[buffer]") {

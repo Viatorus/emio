@@ -65,6 +65,10 @@ class ct_vector {
     size_ = new_size;
   }
 
+  constexpr void clear() noexcept {
+    size_ = 0;
+  }
+
   [[nodiscard]] constexpr size_t capacity() const noexcept {
     return capacity_;
   }

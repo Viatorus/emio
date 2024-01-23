@@ -163,6 +163,15 @@ class memory_buffer final : public buffer {
     return std::string{view()};
   }
 
+  /**
+   * Resets the buffer's read and write position to the beginning of the internal storage.
+   */
+  constexpr void reset() noexcept {
+    used_ = 0;
+    vec_.clear();
+    static_cast<void>(request_write_area(0, vec_.capacity()));
+  }
+
  protected:
   constexpr result<std::span<char>> request_write_area(const size_t used, const size_t size) noexcept override {
     const size_t new_size = vec_.size() + size;
@@ -216,6 +225,13 @@ class span_buffer : public buffer {
    */
   [[nodiscard]] std::string str() const {
     return std::string{view()};
+  }
+
+  /**
+   * Resets the buffer's read and write position to the beginning of the span.
+   */
+  constexpr void reset() noexcept {
+    this->set_write_area(span_);
   }
 
  private:
@@ -489,6 +505,14 @@ class file_buffer final : public buffer {
     }
     this->set_write_area(cache_);
     return success;
+  }
+
+  /**
+   * Resets the buffer's read and write position to the beginning of the file stream.
+   */
+  constexpr void reset() noexcept {
+    this->set_write_area(cache_);
+    std::fseek(file_, 0, SEEK_SET);
   }
 
  protected:
