@@ -144,7 +144,7 @@ An abstract class which provides functionality for receiving a contiguous memory
 There exist multiple implementation of a buffer, all fulfilling a different use case.
 Some buffers have an internal cache to provide a contiguous memory if the actually output object doesn't provide on.
 
-Additionally, many buffers can be reset to reuse the total capacity of the storage for the next operation.
+Additionally, some buffers can be reset to reuse the total capacity of the storage for the next operation.
 This invalidates any obtaining view!
 
 ### memory_buffer
@@ -210,6 +210,7 @@ emio::iterator_buffer buf{std::back_inserter(storage)};
 emio::result<std::span<char>> area = buf.get_write_area_of(50);
 assert(area);
 assert(buf.flush());
+std::back_insert_iterator<std::string> out = buf.out();
 ```
 
 ### file_buffer

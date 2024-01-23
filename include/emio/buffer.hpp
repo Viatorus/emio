@@ -512,7 +512,7 @@ class file_buffer final : public buffer {
    */
   constexpr void reset() noexcept {
     this->set_write_area(cache_);
-    std::rewind(file_);
+    std::fseek(file_, 0, SEEK_SET);
   }
 
  protected:
