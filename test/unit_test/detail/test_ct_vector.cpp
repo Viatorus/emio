@@ -62,6 +62,10 @@ TEST_CASE("ct_vector") {
       sv = std::string_view{str.data(), str.size()};
       result &= sv == "\0\0x\0\0\0\0\0y\0\0\0\0\0\0"sv;
 
+      str.clear();
+      result &= str.size() == 0;
+      result &= str.capacity() == 15;
+
       return result;
     }();
     STATIC_CHECK(success);
@@ -128,5 +132,9 @@ TEST_CASE("ct_vector") {
     CHECK(str.capacity() == get_capacity(15));
     sv = std::string_view{str.data(), str.size()};
     CHECK(sv == "\0\0x\0\0\0\0\0y\0\0\0z\0\0"sv);
+
+    str.clear();
+    CHECK(str.size() == 0);
+    CHECK(str.capacity() == 15);
   }
 }
