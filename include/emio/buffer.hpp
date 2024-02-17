@@ -172,6 +172,14 @@ class memory_buffer final : public buffer {
     static_cast<void>(request_write_area(0, vec_.capacity()));
   }
 
+  /**
+   * Returns the number of chars that the buffer has currently allocated space for.
+   * @return The capacity.
+   */
+  [[nodiscard]] constexpr size_t capacity() const noexcept {
+    return vec_.capacity();
+  }
+
  protected:
   constexpr result<std::span<char>> request_write_area(const size_t used, const size_t size) noexcept override {
     const size_t new_size = vec_.size() + size;
@@ -232,6 +240,14 @@ class span_buffer : public buffer {
    */
   constexpr void reset() noexcept {
     this->set_write_area(span_);
+  }
+
+  /**
+   * Returns the number of chars that the buffer has space for.
+   * @return The capacity.
+   */
+   [[nodiscard]] constexpr size_t capacity() const noexcept {
+    return span_.size();
   }
 
  private:

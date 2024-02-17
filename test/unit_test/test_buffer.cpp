@@ -32,6 +32,7 @@ TEST_CASE("memory_buffer", "[buffer]") {
   INFO("Default constructed: " << default_constructed);
 
   emio::memory_buffer<15> buf = default_constructed ? emio::memory_buffer<15>{} : emio::memory_buffer<15>{18};
+  CHECK(buf.capacity() == (default_constructed ? 15 : 18));
   CHECK(buf.view().empty());
 
   emio::result<std::span<char>> area = buf.get_write_area_of(first_size);
@@ -56,7 +57,11 @@ TEST_CASE("memory_buffer", "[buffer]") {
   CHECK(buf.view().size() == first_size + second_size + third_size);
   CHECK(buf.view() == expected_str);
 
+  const size_t curr_capacity = buf.capacity();
+  CHECK(curr_capacity >= buf.view().size());
   buf.reset();
+  CHECK(buf.capacity() == curr_capacity);
+
   area = buf.get_write_area_of(first_size);
   REQUIRE(area);
   CHECK(area->size() == first_size);
@@ -82,6 +87,7 @@ TEST_CASE("memory_buffer regression bug 1", "[buffer]") {
   }();
 
   emio::memory_buffer buf;
+  CHECK(buf.capacity() == emio::default_cache_size);
 
   // Write a.
   for (size_t i = 0; i < default_capacity + 1U; i++) {
@@ -116,6 +122,7 @@ TEST_CASE("memory_buffer at compile-time", "[buffer]") {
     bool result = true;
 
     emio::memory_buffer<1> buf{};
+    result &= buf.capacity() == 1;
     result &= buf.view().empty();
 
     emio::result<std::span<char>> area = buf.get_write_area_of(first_size);
@@ -135,6 +142,7 @@ TEST_CASE("memory_buffer at compile-time", "[buffer]") {
     fill(area, 'z');
     result &= buf.view().size() == first_size + second_size + third_size;
     result &= buf.view() == "xxxxxxxyyyyyzzzzzzzz";
+    result &= buf.capacity() >= buf.view().size();
 
     return result;
   }();
@@ -153,6 +161,7 @@ TEST_CASE("span_buffer", "[buffer]") {
 
   std::array<char, first_size + second_size + third_size> storage{};
   emio::span_buffer buf{storage};
+  CHECK(buf.capacity() == storage.size());
   CHECK(buf.view().empty());
 
   emio::result<std::span<char>> area = buf.get_write_area_of(first_size);
@@ -187,7 +196,9 @@ TEST_CASE("span_buffer", "[buffer]") {
   REQUIRE(area);
   CHECK(area->empty());
 
+  CHECK(buf.capacity() == storage.size());
   buf.reset();
+  CHECK(buf.capacity() == storage.size());
   area = buf.get_write_area_of(first_size);
   REQUIRE(area);
   CHECK(area->size() == first_size);
