@@ -159,6 +159,7 @@ emio::memory_buffer buf;
 emio::result<std::span<char>> area = buf.get_write_area_of(50);
 assert(area);
 std::string_view view = buf.view();
+assert(buf.capacity() >= view.size());
 std::string str = buf.str();
 buf.reset();
 ```
@@ -172,6 +173,7 @@ buf.reset();
 ```cpp
 std::array<char, 512> storage;
 emio::span_buffer buf{storage};
+assert(buf.capacity() == 512);
 
 emio::result<std::span<char>> area = buf.get_write_area_of(50);
 assert(area);
@@ -188,6 +190,7 @@ buf.reset();
 
 ```cpp
 emio::static_buffer<512> buf{storage}; 
+assert(buf.capacity() == 512);
 
 emio::result<std::span<char>> area = buf.get_write_area_of(50);
 assert(area);
