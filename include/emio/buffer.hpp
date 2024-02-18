@@ -246,7 +246,7 @@ class span_buffer : public buffer {
    * Returns the number of chars that the buffer has space for.
    * @return The capacity.
    */
-   [[nodiscard]] constexpr size_t capacity() const noexcept {
+  [[nodiscard]] constexpr size_t capacity() const noexcept {
     return span_.size();
   }
 
