@@ -77,4 +77,4 @@ See the [CONTRIBUTING](docs/CONTRIBUTING.md) document.
 
 ## Licensing
 
-em{io} is distributed under the [MIT license](LICENSE.md).
+em{io} is distributed under the [MIT license](LICENSE).
