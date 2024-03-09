@@ -760,3 +760,24 @@ TEST_CASE("truncating_buffer", "[buffer]") {
     CHECK(primary_buf.view() == expected_string);
   }
 }
+
+namespace {
+
+consteval auto created_with_span_buffer() {
+  std::array<char, 5> storage{};
+  emio::span_buffer buf{storage};
+  emio::result<std::span<char>> area = buf.get_write_area_of(4);
+  fill(area, 'x');
+  return storage;
+}
+
+}
+
+TEST_CASE("buffer at compile-time", "[buffer]") {
+  // Test strategy:
+  // * Create a string at compile time using different buffers.
+  // Expected: Everything compiles and is correctly written.
+
+  std::array<char, 5> i = created_with_span_buffer();
+  CHECK(i == std::array<char, 5>{'x', 'x', 'x', 'x', '\0'});
+}
