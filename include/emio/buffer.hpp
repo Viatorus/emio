@@ -217,7 +217,7 @@ class span_buffer : public buffer {
   constexpr span_buffer(span_buffer&&) noexcept = delete;
   constexpr span_buffer& operator=(const span_buffer&) = delete;
   constexpr span_buffer& operator=(span_buffer&&) noexcept = delete;
-  constexpr ~span_buffer() override = default;
+  constexpr ~span_buffer() override;
 
   /**
    * Obtains a view over the underlying string object.
@@ -253,6 +253,9 @@ class span_buffer : public buffer {
  private:
   std::span<char> span_;
 };
+
+// Out-of-line definition because of a GCC bug (93413). Fixed in GCC 13.
+inline constexpr span_buffer::~span_buffer() = default;
 
 /**
  * This class fulfills the buffer API by providing a fixed-size storage.
