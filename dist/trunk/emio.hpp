@@ -450,7 +450,9 @@ inline consteval std::string_view sv(std::string_view sv) noexcept {
 #include <concepts>
 #include <cstdint>
 #include <optional>
-#include <stdexcept>
+#if __STDC_HOSTED__
+#  include <stdexcept>
+#endif
 #include <type_traits>
 
 /**
@@ -521,14 +523,32 @@ inline constexpr struct {
  * - "no value" -> a value should be accessed but result<T> held an error
  * - "no error" -> a error should be accessed but result<T> held an value
  */
+#if __STDC_HOSTED__
 class bad_result_access : public std::logic_error {
  public:
   /**
    * Constructs the bad result access from a message.
    * @param msg The exception message.
    */
-  explicit bad_result_access(const std::string_view& msg) : logic_error{msg.data()} {}
+  explicit bad_result_access(const std::string_view& msg) : logic_error{std::string{msg}} {}
 };
+#else
+class bad_result_access : public std::exception {
+ public:
+  /**
+   * Constructs the bad result access from a message.
+   * @param msg The exception message.
+   */
+  explicit bad_result_access(const std::string_view& msg) : msg_{msg} {}
+
+  [[nodiscard]] const char* what() const noexcept override {
+    return msg_.data();
+  }
+
+ private:
+  std::string_view msg_;
+};
+#endif
 
 namespace detail {
 
@@ -1025,9 +1045,11 @@ class reader {
   constexpr reader() = default;
 
   // Don't allow temporary strings or any nullptr.
-  constexpr reader(std::string&&) = delete;  // NOLINT(cppcoreguidelines-rvalue-reference-param-not-moved): as intended
   constexpr reader(std::nullptr_t) = delete;
   constexpr reader(int) = delete;
+#if __STDC_HOSTED__
+  constexpr reader(std::string&&) = delete;  // NOLINT(cppcoreguidelines-rvalue-reference-param-not-moved): as intended
+#endif
 
   /**
    * Constructs the reader from any suitable char sequence.
@@ -1458,7 +1480,11 @@ constexpr result<T> parse_int(reader& in, const int base, const bool is_negative
 #include <iterator>
 #include <limits>
 #include <span>
-#include <string>
+
+#if __STDC_HOSTED__
+#  include <string>
+#endif
+
 #include <string_view>
 #include <type_traits>
 
@@ -1471,7 +1497,6 @@ constexpr result<T> parse_int(reader& in, const int base, const bool is_negative
 #include <algorithm>
 #include <array>
 #include <cstddef>
-#include <string>
 
 namespace emio::detail {
 
@@ -1696,6 +1721,7 @@ class memory_buffer final : public buffer {
     return {vec_.data(), used_ + this->get_used_count()};
   }
 
+#if __STDC_HOSTED__
   /**
    * Obtains a copy of the underlying string object.
    * @return The string.
@@ -1703,6 +1729,7 @@ class memory_buffer final : public buffer {
   [[nodiscard]] std::string str() const {
     return std::string{view()};
   }
+#endif
 
   /**
    * Resets the buffer's read and write position to the beginning of the internal storage.
@@ -1768,6 +1795,7 @@ class span_buffer : public buffer {
     return {span_.data(), this->get_used_count()};
   }
 
+#if __STDC_HOSTED__
   /**
    * Obtains a copy of the underlying string object.
    * @return The string.
@@ -1775,6 +1803,7 @@ class span_buffer : public buffer {
   [[nodiscard]] std::string str() const {
     return std::string{view()};
   }
+#endif
 
   /**
    * Resets the buffer's read and write position to the beginning of the span.
@@ -1844,10 +1873,12 @@ struct get_value_type<std::back_insert_iterator<Container>> {
   using type = typename Container::value_type;
 };
 
+#if __STDC_HOSTED__
 template <typename Char, typename Traits>
 struct get_value_type<std::ostreambuf_iterator<Char, Traits>> {
   using type = Char;
 };
+#endif
 
 template <typename T>
 using get_value_type_t = typename get_value_type<T>::type;
@@ -3174,10 +3205,12 @@ class runtime_string {
   constexpr runtime_string() = default;
 
   // Don't allow temporary strings or any nullptr.
-  // NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved): as intended
-  constexpr runtime_string(std::string&&) = delete;
   constexpr runtime_string(std::nullptr_t) = delete;
   constexpr runtime_string(int) = delete;
+#if __STDC_HOSTED__
+  // NOLINTNEXTLINE(cppcoreguidelines-rvalue-reference-param-not-moved): as intended
+  constexpr runtime_string(std::string&&) = delete;
+#endif
 
   /**
    * Constructs the runtime format/scan string from any suitable char sequence.
@@ -5340,10 +5373,12 @@ constexpr const void* ptr(const std::unique_ptr<T, Deleter>& p) {
   return p.get();
 }
 
+#if __STDC_HOSTED__
 template <typename T>
 const void* ptr(const std::shared_ptr<T>& p) {
   return p.get();
 }
+#endif
 
 }  // namespace emio
 
@@ -5805,6 +5840,7 @@ constexpr result<OutputIt> format_to(OutputIt out, emio::format_string<Args...> 
   return buf.out();
 }
 
+#if __STDC_HOSTED__
 /**
  * Formats arguments according to the format string, and returns the result as string.
  * @param args The format args with the format string.
@@ -5843,6 +5879,7 @@ template <typename T, typename... Args>
 result<std::string> format(T format_str, const Args&... args) noexcept {
   return emio::vformat(emio::make_format_args(format_str, args...));
 }
+#endif
 
 /**
  * Return type of (v)format_to_n functions.
@@ -6951,6 +6988,7 @@ class scanner<std::string_view> {
   reader format_rdr_;
 };
 
+#if __STDC_HOSTED__
 /**
  * Scanner for std::string.
  */
@@ -6964,6 +7002,7 @@ class scanner<std::string> : public scanner<std::string_view> {
     return success;
   }
 };
+#endif
 
 }  // namespace emio
 
@@ -7216,7 +7255,9 @@ constexpr result<void> scan(std::string_view input, format_scan_string<Args...> 
 // For the license information refer to emio.hpp
 
 #include <exception>
-#include <filesystem>
+#if __STDC_HOSTED__
+#  include <filesystem>
+#endif
 #include <optional>
 #include <variant>
 
@@ -7265,6 +7306,7 @@ class formatter<T> : public formatter<std::string_view> {
   }
 };
 
+#if __STDC_HOSTED__
 /**
  * Formatter for std::filesystem::path.
  */
@@ -7275,6 +7317,7 @@ class formatter<std::filesystem::path> : public formatter<std::string_view> {
     return formatter<std::string_view>::format(out, arg.native());
   }
 };
+#endif
 
 /**
  * Formatter for std::monostate.
