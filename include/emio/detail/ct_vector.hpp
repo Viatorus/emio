@@ -9,7 +9,6 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
-#include <string>
 
 #include "conversion.hpp"
 #include "predef.hpp"

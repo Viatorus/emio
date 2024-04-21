@@ -147,6 +147,7 @@ class scanner<std::string_view> {
   reader format_rdr_;
 };
 
+#if __STDC_HOSTED__
 /**
  * Scanner for std::string.
  */
@@ -160,5 +161,6 @@ class scanner<std::string> : public scanner<std::string_view> {
     return success;
   }
 };
+#endif
 
 }  // namespace emio

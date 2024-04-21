@@ -181,6 +181,7 @@ constexpr result<OutputIt> format_to(OutputIt out, emio::format_string<Args...> 
   return buf.out();
 }
 
+#if __STDC_HOSTED__
 /**
  * Formats arguments according to the format string, and returns the result as string.
  * @param args The format args with the format string.
@@ -219,6 +220,7 @@ template <typename T, typename... Args>
 result<std::string> format(T format_str, const Args&... args) noexcept {
   return emio::vformat(emio::make_format_args(format_str, args...));
 }
+#endif
 
 /**
  * Return type of (v)format_to_n functions.

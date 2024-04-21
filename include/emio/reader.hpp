@@ -50,9 +50,11 @@ class reader {
   constexpr reader() = default;
 
   // Don't allow temporary strings or any nullptr.
-  constexpr reader(std::string&&) = delete;  // NOLINT(cppcoreguidelines-rvalue-reference-param-not-moved): as intended
   constexpr reader(std::nullptr_t) = delete;
   constexpr reader(int) = delete;
+#if __STDC_HOSTED__
+  constexpr reader(std::string&&) = delete;  // NOLINT(cppcoreguidelines-rvalue-reference-param-not-moved): as intended
+#endif
 
   /**
    * Constructs the reader from any suitable char sequence.

@@ -299,9 +299,11 @@ constexpr const void* ptr(const std::unique_ptr<T, Deleter>& p) {
   return p.get();
 }
 
+#if __STDC_HOSTED__
 template <typename T>
 const void* ptr(const std::shared_ptr<T>& p) {
   return p.get();
 }
+#endif
 
 }  // namespace emio

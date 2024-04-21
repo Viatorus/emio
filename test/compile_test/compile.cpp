@@ -1,7 +1,4 @@
-//
-// Created by neubertt on 09.03.2024.
-//
-#include "emio/emio.hpp"
+#include <emio/emio.hpp>
 
 consteval auto created_with_span_buffer() {
   std::array<char, 5> storage{};
@@ -35,9 +32,11 @@ consteval auto created_with_iterator_buffer() {
   return storage;
 }
 
-int main() {
-  created_with_span_buffer();
-  created_with_static_buffer();
-  created_with_memory_buffer();
-  created_with_iterator_buffer();
+extern "C" int main() {
+  const auto a = created_with_span_buffer();
+  const auto b = created_with_static_buffer();
+  const auto c = created_with_memory_buffer();
+  const auto d = created_with_iterator_buffer();
+
+  return a.size() + b.size() + c.size() + d.size();
 }
