@@ -32,11 +32,11 @@ consteval auto created_with_iterator_buffer() {
   return storage;
 }
 
-int main() {
-  created_with_span_buffer();
-  created_with_static_buffer();
-  created_with_memory_buffer();
-  created_with_iterator_buffer();
+extern "C" int main() {
+  const auto a = created_with_span_buffer();
+  const auto b = created_with_static_buffer();
+  const auto c = created_with_memory_buffer();
+  const auto d = created_with_iterator_buffer();
 
-  return 0;
+  return a.size() + b.size() + c.size() + d.size();
 }
