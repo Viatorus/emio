@@ -10,12 +10,21 @@ if (PROJECT_IS_TOP_LEVEL)
     enable_testing()
 endif ()
 
-add_executable(emio_compile ../compile_test/compile.cpp)
+add_executable(emio_compile compile.cpp)
 
 target_link_libraries(emio_compile
         emio::emio
 )
 
 target_compile_features(emio_compile PRIVATE cxx_std_20)
+
+add_executable(emio_compile_freestanding compile.cpp)
+
+target_link_libraries(emio_compile_freestanding
+        emio::emio
+)
+
+target_compile_features(emio_compile_freestanding PRIVATE cxx_std_20)
+target_compile_options(emio_compile_freestanding PRIVATE -ffreestanding)
 
 add_folders(CompileTest)
