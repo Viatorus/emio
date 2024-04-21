@@ -9,7 +9,11 @@
 #include <iterator>
 #include <limits>
 #include <span>
-#include <string>
+
+#if __STDC_HOSTED__
+#  include <string>
+#endif
+
 #include <string_view>
 #include <type_traits>
 
@@ -155,6 +159,7 @@ class memory_buffer final : public buffer {
     return {vec_.data(), used_ + this->get_used_count()};
   }
 
+#if __STDC_HOSTED__
   /**
    * Obtains a copy of the underlying string object.
    * @return The string.
@@ -162,6 +167,7 @@ class memory_buffer final : public buffer {
   [[nodiscard]] std::string str() const {
     return std::string{view()};
   }
+#endif
 
   /**
    * Resets the buffer's read and write position to the beginning of the internal storage.
@@ -227,6 +233,7 @@ class span_buffer : public buffer {
     return {span_.data(), this->get_used_count()};
   }
 
+#if __STDC_HOSTED__
   /**
    * Obtains a copy of the underlying string object.
    * @return The string.
@@ -234,6 +241,7 @@ class span_buffer : public buffer {
   [[nodiscard]] std::string str() const {
     return std::string{view()};
   }
+#endif
 
   /**
    * Resets the buffer's read and write position to the beginning of the span.
