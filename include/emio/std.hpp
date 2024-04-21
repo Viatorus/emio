@@ -7,7 +7,9 @@
 #pragma once
 
 #include <exception>
-#include <filesystem>
+#if __STDC_HOSTED__
+#  include <filesystem>
+#endif
 #include <optional>
 #include <variant>
 
@@ -58,6 +60,7 @@ class formatter<T> : public formatter<std::string_view> {
   }
 };
 
+#if __STDC_HOSTED__
 /**
  * Formatter for std::filesystem::path.
  */
@@ -68,6 +71,7 @@ class formatter<std::filesystem::path> : public formatter<std::string_view> {
     return formatter<std::string_view>::format(out, arg.native());
   }
 };
+#endif
 
 /**
  * Formatter for std::monostate.

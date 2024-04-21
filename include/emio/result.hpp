@@ -9,7 +9,9 @@
 #include <concepts>
 #include <cstdint>
 #include <optional>
-#include <stdexcept>
+#if __STDC_HOSTED__
+#  include <stdexcept>
+#endif
 #include <type_traits>
 
 #include "detail/predef.hpp"
@@ -82,14 +84,32 @@ inline constexpr struct {
  * - "no value" -> a value should be accessed but result<T> held an error
  * - "no error" -> a error should be accessed but result<T> held an value
  */
+#if __STDC_HOSTED__
 class bad_result_access : public std::logic_error {
  public:
   /**
    * Constructs the bad result access from a message.
    * @param msg The exception message.
    */
-  explicit bad_result_access(const std::string_view& msg) : logic_error{msg.data()} {}
+  explicit bad_result_access(const std::string_view& msg) : logic_error{std::string{msg}} {}
 };
+#else
+class bad_result_access : public std::exception {
+ public:
+  /**
+   * Constructs the bad result access from a message.
+   * @param msg The exception message.
+   */
+  explicit bad_result_access(const std::string_view& msg) : msg_{msg} {}
+
+  [[nodiscard]] const char* what() const noexcept override {
+    return msg_.data();
+  }
+
+ private:
+  std::string_view msg_;
+};
+#endif
 
 namespace detail {
 

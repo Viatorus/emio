@@ -311,10 +311,12 @@ struct get_value_type<std::back_insert_iterator<Container>> {
   using type = typename Container::value_type;
 };
 
+#if __STDC_HOSTED__
 template <typename Char, typename Traits>
 struct get_value_type<std::ostreambuf_iterator<Char, Traits>> {
   using type = Char;
 };
+#endif
 
 template <typename T>
 using get_value_type_t = typename get_value_type<T>::type;
