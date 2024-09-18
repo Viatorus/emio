@@ -24,7 +24,7 @@ struct format_trait {
       return validate<format_specs_checker, false>(format_str, sizeof...(Args), std::type_identity<Args>{}...);
     } else {
       return validate<format_specs_checker, true>(format_str, sizeof...(Args),
-                                            make_validation_args<format_validation_arg, Args...>());
+                                                  make_validation_args<format_validation_arg, Args...>());
     }
   }
 };
@@ -47,7 +47,8 @@ inline result<void> vformat_to(buffer& buf, const format_args& args) noexcept {
 
 // Constexpr version.
 template <typename... Args>
-constexpr result<void> format_to(buffer& buf, const format_string<Args...>& format_string, const Args&... args) noexcept {
+constexpr result<void> format_to(buffer& buf, const format_string<Args...>& format_string,
+                                 const Args&... args) noexcept {
   EMIO_TRY(const std::string_view str, format_string.get());
   writer wtr{buf};
   if (format_string.is_plain_str()) {
