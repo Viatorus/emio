@@ -18,10 +18,10 @@ struct scan_trait {
   template <typename... Args>
   [[nodiscard]] static constexpr bool validate_string(std::string_view format_str) noexcept {
     if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
-      return validate<scan_specs_checker>(format_str, sizeof...(Args), std::type_identity<Args>{}...);
+      return validate<scan_specs_checker, false>(format_str, sizeof...(Args), std::type_identity<Args>{}...);
     } else {
-      return validate<scan_specs_checker>(format_str, sizeof...(Args),
-                                          make_validation_args<scan_validation_arg, Args...>());
+      return validate<scan_specs_checker, true>(format_str, sizeof...(Args),
+                                                make_validation_args<scan_validation_arg, Args...>());
     }
   }
 };
@@ -37,7 +37,7 @@ inline result<void> vscan_from(reader& in, const scan_args& args) noexcept {
   if (args.is_plain_str()) {
     return in.read_if_match_str(str);
   }
-  return parse<scan_parser>(str, in, args);
+  return parse<scan_parser, true>(str, in, args);
 }
 
 template <typename... Args>
@@ -46,7 +46,7 @@ constexpr result<void> scan_from(reader& in, const format_string<Args...>& forma
   if (format_str.is_plain_str()) {
     return in.read_if_match_str(str);
   }
-  return parse<scan_parser>(str, in, args...);
+  return parse<scan_parser, false>(str, in, args...);
 }
 
 }  // namespace emio::detail::scan
