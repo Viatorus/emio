@@ -20,6 +20,13 @@ template <typename T>
 inline constexpr bool is_formattable_v = detail::format::has_formatter_v<std::remove_cvref_t<T>>;
 
 /**
+ * Checks if the format function of a formatter of a type could fail, regardless of the provided buffer size.
+ * @tparam T The type to check.
+ */
+template <typename T>
+inline constexpr bool format_can_fail_v = detail::format::format_can_fail_v<std::remove_cvref_t<T>>;
+
+/**
  * Class template that defines formatting rules for a given type.
  * @note This class definition is just a mock-up. See other template specialization for a concrete formatting.
  * @tparam T The type to format.
@@ -58,6 +65,15 @@ class formatter {
   constexpr result<void> format(writer& out, const T& arg) const noexcept {
     return out.write_int(sizeof(arg));
   }
+
+  /**
+   * Optional variable to indicate that the formatting of T could fail (e.g. not all states of T can be formatted)
+   * regardless of the provided buffer size.
+   * If this variable is set to true, some optimized API calls won't be available for this type.
+   * If this variable is not defined, it is assumed that the formatting can never fail, which is true in almost all
+   * cases.
+   */
+  static constexpr bool format_can_fail = false;
 };
 
 /**

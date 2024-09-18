@@ -309,3 +309,32 @@ TEST_CASE("detail::has_validate_function_v checks", "[formatter]") {
   STATIC_CHECK(!emio::detail::format::has_validate_function_v<bazz3>);
   STATIC_CHECK(emio::detail::format::has_any_validate_function_v<bazz3>);
 }
+
+namespace {
+struct f1 {};
+struct f2 {};
+struct f3 {};
+}  // namespace
+
+template <>
+class emio::formatter<f1> {
+ public:
+};
+
+template <>
+class emio::formatter<f2> {
+ public:
+  static constexpr bool format_can_fail = false;
+};
+
+template <>
+class emio::formatter<f3> {
+ public:
+  static constexpr bool format_can_fail = true;
+};
+
+TEST_CASE("emio::format_can_fail checks", "[formatter]") {
+  STATIC_CHECK_FALSE(emio::format_can_fail_v<f1>);
+  STATIC_CHECK_FALSE(emio::format_can_fail_v<f2>);
+  STATIC_CHECK(emio::format_can_fail_v<f3>);
+}

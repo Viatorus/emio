@@ -41,7 +41,7 @@ inline result<void> vscan_from(reader& in, const scan_args& args) noexcept {
 }
 
 template <typename... Args>
-constexpr result<void> scan_from(reader& in, format_string<Args...> format_str, Args&... args) noexcept {
+constexpr result<void> scan_from(reader& in, const format_string<Args...>& format_str, Args&... args) noexcept {
   EMIO_TRY(const std::string_view str, format_str.get());
   if (format_str.is_plain_str()) {
     return in.read_if_match_str(str);

@@ -10,9 +10,12 @@
 #include "../../writer.hpp"
 #include "../validated_string.hpp"
 #include "args.hpp"
+#include "formatter.hpp"
 #include "parser.hpp"
 
-namespace emio::detail::format {
+namespace emio {
+
+namespace detail::format {
 
 struct format_trait {
   template <typename... Args>
@@ -44,13 +47,44 @@ inline result<void> vformat_to(buffer& buf, const format_args& args) noexcept {
 
 // Constexpr version.
 template <typename... Args>
-constexpr result<void> format_to(buffer& buf, format_string<Args...> format_string, const Args&... args) noexcept {
+constexpr result<void> format_to(buffer& buf, const format_string<Args...>& format_string, const Args&... args) noexcept {
   EMIO_TRY(const std::string_view str, format_string.get());
   writer wtr{buf};
+  formatter<int> g;
   if (format_string.is_plain_str()) {
     return wtr.write_str(str);
   }
   return parse<format_parser>(str, wtr, args...);
 }
 
-}  // namespace emio::detail::format
+}  // namespace detail::format
+
+/**
+ * Formatter for format_args.
+ */
+template <>
+class formatter<detail::format::format_args> {
+ public:
+  static constexpr result<void> validate(reader& format_rdr) noexcept {
+    return format_rdr.read_if_match_char('}');
+  }
+
+  constexpr result<void> parse(reader& format_rdr) noexcept {
+    return format_rdr.read_if_match_char('}');
+  }
+
+  result<void> format(writer& out, const detail::format::format_args& arg) const noexcept {
+    return detail::format::vformat_to(out.get_buffer(), arg);
+  }
+
+  static constexpr bool format_can_fail = true;
+};
+
+/**
+ * Formatter for types which inherit from format_args.
+ */
+template <typename T>
+  requires(std::is_base_of_v<detail::format::format_args, T>)
+class formatter<T> : public formatter<detail::format::format_args> {};
+
+}  // namespace emio
