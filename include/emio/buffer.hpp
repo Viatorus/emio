@@ -31,10 +31,10 @@ inline constexpr size_t default_cache_size{128};
  */
 class buffer {
  public:
-  buffer(const buffer& other) = delete;
-  buffer(buffer&& other) = delete;
-  buffer& operator=(const buffer& other) = delete;
-  buffer& operator=(buffer&& other) = delete;
+  buffer(const buffer& other) = default;
+  buffer(buffer&& other) = default;
+  buffer& operator=(const buffer& other) = default;
+  buffer& operator=(buffer&& other) = default;
   virtual constexpr ~buffer() noexcept = default;
 
   /**
@@ -145,7 +145,10 @@ class memory_buffer final : public buffer {
     static_cast<void>(request_write_area(0, std::max(vec_.capacity(), capacity)));
   }
 
-  constexpr memory_buffer(const memory_buffer&) = default;
+  constexpr memory_buffer(const memory_buffer& other) : buffer{other}, used_{other.used_}, vec_{other.vec_} {
+    this->set_write_area({vec_.data() + used_ + this->get_used_count(), vec_.data() + vec_.capacity()});
+  }
+
   constexpr memory_buffer(memory_buffer&&) noexcept = default;
   constexpr memory_buffer& operator=(const memory_buffer&) = default;
   constexpr memory_buffer& operator=(memory_buffer&&) noexcept = default;

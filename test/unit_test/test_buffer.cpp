@@ -65,6 +65,14 @@ TEST_CASE("memory_buffer", "[buffer]") {
   area = buf.get_write_area_of(first_size);
   REQUIRE(area);
   CHECK(area->size() == first_size);
+
+  // Move- and copyable.
+  emio::memory_buffer<15> buf2{buf};
+  area = buf.get_write_area_of(1);
+  emio::result<std::span<char>> area2 = buf2.get_write_area_of(1);
+  REQUIRE(area);
+  REQUIRE(area2);
+  CHECK(area->data() == area2->data());
 }
 
 TEST_CASE("memory_buffer regression bug 1", "[buffer]") {
