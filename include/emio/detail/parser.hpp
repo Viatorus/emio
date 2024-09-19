@@ -185,6 +185,9 @@ struct related_format_args {
   const args_span<Arg>& args;
 };
 
+template <typename Arg>
+related_format_args(const args_span<Arg>&) -> related_format_args<Arg>;
+
 template <typename CRTP, input_validation Validation>
 class parser : public parser_base<Validation> {
  public:
