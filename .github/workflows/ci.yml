@@ -56,8 +56,7 @@ jobs:
                {os: ubuntu-24.04, compiler: gcc-14},
                {os: ubuntu-22.04, compiler: clang-16},
                {os: ubuntu-22.04, compiler: clang-17},
-               {os: ubuntu-24.04, compiler: clang-18},
-               {os: ubuntu-24.04, compiler: clang-19}
+               {os: ubuntu-24.04, compiler: clang-18}
              ]
         build_type: [ Debug, Release ]
 
@@ -98,12 +97,6 @@ jobs:
             sudo apt update && sudo apt install -y clang-18
             echo "CC=clang-18" >> $GITHUB_ENV
             echo "CXX=clang++-18" >> $GITHUB_ENV
-          elif [[ "$compiler" == "clang-19" ]]; then
-            wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-            sudo add-apt-repository 'deb http://apt.llvm.org/noble/ llvm-toolchain-noble-19 main'
-            sudo apt update && sudo apt install -y clang-19
-            echo "CC=clang-19" >> $GITHUB_ENV
-            echo "CXX=clang++-19" >> $GITHUB_ENV
           fi
         env:
           compiler: ${{ matrix.env.compiler }}

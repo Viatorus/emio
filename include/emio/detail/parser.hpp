@@ -179,6 +179,12 @@ class parser_base<input_validation::disabled> {
   uint8_t increment_arg_number_{};
 };
 
+// Wrapper around an args_span of the string to be parsed so that it can be distinguished from a normal argument.
+template <typename Arg>
+struct related_format_args {
+  const args_span<Arg>& args;
+};
+
 template <typename CRTP, input_validation Validation>
 class parser : public parser_base<Validation> {
  public:
@@ -190,9 +196,9 @@ class parser : public parser_base<Validation> {
   parser& operator=(parser&&) = delete;
   constexpr ~parser() noexcept override;  // NOLINT(performance-trivially-destructible): See definition.
 
-  template <typename T>
-  result<void> apply_args(uint8_t arg_nbr, const args_span<T>& args) noexcept {
-    return static_cast<CRTP*>(this)->process_arg(args.get_args()[arg_nbr]);
+  template <typename Arg>
+  result<void> apply(uint8_t arg_nbr, const related_format_args<Arg>& args) noexcept {
+    return static_cast<CRTP*>(this)->process_arg(args.args.get_args()[arg_nbr]);
   }
 
   // NOLINTNEXTLINE(readability-convert-member-functions-to-static): not possible because of template function
@@ -213,7 +219,7 @@ class parser : public parser_base<Validation> {
 template <typename CRTP, input_validation Validation>
 constexpr parser<CRTP, Validation>::~parser() noexcept = default;
 
-template <typename Parser, bool AsFormatArg, typename... Args>
+template <typename Parser, typename... Args>
 constexpr bool validate(std::string_view str, const size_t arg_cnt, const Args&... args) noexcept {
   reader format_rdr{str};
   Parser parser{format_rdr};
@@ -230,23 +236,15 @@ constexpr bool validate(std::string_view str, const size_t arg_cnt, const Args&.
       return false;
     }
     matched.set(arg_nbr);
-    if constexpr (AsFormatArg) {
-      static_assert(sizeof...(Args) == 1);
-      auto res = parser.apply_args(arg_nbr, args...);
-      if (!res) {
-        return false;
-      }
-    } else {
-      auto res = parser.apply(arg_nbr, args...);
-      if (!res) {
-        return false;
-      }
+    auto res = parser.apply(arg_nbr, args...);
+    if (!res) {
+      return false;
     }
   }
   return matched.all_first(arg_cnt);
 }
 
-template <typename Parser, bool AsFormatArg, typename T, typename... Args>
+template <typename Parser, typename T, typename... Args>
 constexpr result<void> parse(std::string_view str, T& input, Args&&... args) noexcept {
   reader format_rdr{str};
   Parser parser{input, format_rdr};
@@ -258,15 +256,8 @@ constexpr result<void> parse(std::string_view str, T& input, Args&&... args) noe
     if (arg_nbr == detail::no_more_args) {
       break;
     }
-    if constexpr (AsFormatArg) {
-      static_assert(sizeof...(Args) == 1);
-      if (auto res = parser.apply_args(arg_nbr, std::forward<Args>(args)...); !res) {
-        return res.assume_error();
-      }
-    } else {
-      if (auto res = parser.apply(arg_nbr, std::forward<Args>(args)...); !res) {
-        return res.assume_error();
-      }
+    if (auto res = parser.apply(arg_nbr, std::forward<Args>(args)...); !res) {
+      return res.assume_error();
     }
   }
   return success;

@@ -21,10 +21,10 @@ struct format_trait {
   template <typename... Args>
   [[nodiscard]] static constexpr bool validate_string(std::string_view format_str) noexcept {
     if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
-      return validate<format_specs_checker, false>(format_str, sizeof...(Args), std::type_identity<Args>{}...);
+      return validate<format_specs_checker>(format_str, sizeof...(Args), std::type_identity<Args>{}...);
     } else {
-      return validate<format_specs_checker, true>(format_str, sizeof...(Args),
-                                                  make_validation_args<format_validation_arg, Args...>());
+      return validate<format_specs_checker>(
+          format_str, sizeof...(Args), related_format_args{make_validation_args<format_validation_arg, Args...>()});
     }
   }
 };
@@ -42,7 +42,7 @@ inline result<void> vformat_to(buffer& buf, const format_args& args) noexcept {
   if (args.is_plain_str()) {
     return wtr.write_str(str);
   }
-  return parse<format_parser, true>(str, wtr, args);
+  return parse<format_parser>(str, wtr, related_format_args{args});
 }
 
 // Constexpr version.
@@ -54,7 +54,7 @@ constexpr result<void> format_to(buffer& buf, const format_string<Args...>& form
   if (format_string.is_plain_str()) {
     return wtr.write_str(str);
   }
-  return parse<format_parser, false>(str, wtr, args...);
+  return parse<format_parser>(str, wtr, args...);
 }
 
 }  // namespace detail::format
