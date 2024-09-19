@@ -255,6 +255,7 @@ class span_buffer : public buffer {
     get_write_area_of(other.get_used_count()).value();
   }
 
+  // NOLINTNEXTLINE(performance-move-constructor-init): optimized move not possible
   constexpr span_buffer(span_buffer&& other) noexcept : span_buffer{std::as_const(other)} {}
 
   constexpr span_buffer& operator=(const span_buffer& other) {
@@ -269,7 +270,8 @@ class span_buffer : public buffer {
   }
 
   constexpr span_buffer& operator=(span_buffer&& other) noexcept {
-    return *this = std::as_const(other);
+    *this = std::as_const(other);
+    return *this;
   }
 
   constexpr ~span_buffer() override;
@@ -331,6 +333,7 @@ class static_buffer final : private std::array<char, StorageSize>, public span_b
     detail::copy_n(other.begin(), area.size(), area.data());
   }
 
+  // NOLINTNEXTLINE(performance-move-constructor-init): optimized move not possible
   constexpr static_buffer(static_buffer&& other) noexcept : static_buffer(std::as_const(other)) {}
 
   constexpr static_buffer& operator=(const static_buffer& other) {
@@ -345,7 +348,8 @@ class static_buffer final : private std::array<char, StorageSize>, public span_b
   }
 
   constexpr static_buffer& operator=(static_buffer&& other) noexcept {
-    return *this = std::as_const(other);
+    *this = std::as_const(other);
+    return *this;
   }
 
   constexpr ~static_buffer() override = default;
