@@ -9,6 +9,7 @@
 #include <iterator>
 #include <limits>
 #include <span>
+#include <utility>
 
 #if __STDC_HOSTED__
 #  include <string>

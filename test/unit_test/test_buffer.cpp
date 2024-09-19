@@ -54,6 +54,18 @@ constexpr bool check_equality_of_buffer(T& expected, T& other, bool data_ptr_is_
 
   result &= expected.view() == other.view();
 
+  area = expected.get_write_area_of(2);
+  area2 = other.get_write_area_of(2);
+
+  fill(area, 'y');
+  fill(area2, 'z');
+
+  if (data_ptr_is_different) {
+    result &= expected.view() != other.view();
+  } else {
+    result &= expected.view() == other.view();
+  }
+
   return result;
 }
 
