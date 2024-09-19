@@ -51,12 +51,19 @@ class ct_vector {
   }
 
   constexpr ct_vector& operator=(const ct_vector& other) {
+    if (&other == this) {
+      return *this;
+    }
     reserve(other.size_);
     copy_n(other.data_, other.size_, data_);
     return *this;
   }
 
   constexpr ct_vector& operator=(ct_vector&& other) noexcept {
+    if (&other == this) {
+      return *this;
+    }
+
     // Free this.
     if (hold_external()) {
       delete[] data_;  // NOLINT(cppcoreguidelines-owning-memory)

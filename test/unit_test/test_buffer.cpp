@@ -96,6 +96,18 @@ void check_gang_of_5(T& buf, bool data_ptr_is_different, bool data_is_different)
       CHECK(check_equality_of_buffer(buf6, buf5, data_ptr_is_different, data_is_different));
     }
   }
+  SECTION("self-assignment copy") {
+    T buf2{buf};
+    T& buf_tmp = buf2;  // Prevent compiler warn about self assignment.
+    buf2 = buf_tmp;
+    CHECK(check_equality_of_buffer(buf, buf2, data_ptr_is_different, data_is_different));
+  }
+  SECTION("self-assignment move") {
+    T buf2{buf};
+    T& buf_tmp = buf2;  // Prevent compiler warn about self assignment.
+    buf2 = std::move(buf_tmp);
+    CHECK(check_equality_of_buffer(buf, buf2, data_ptr_is_different, data_is_different));
+  }
 }
 
 }  // namespace

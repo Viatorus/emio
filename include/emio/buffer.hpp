@@ -31,10 +31,10 @@ inline constexpr size_t default_cache_size{128};
  */
 class buffer {
  public:
-  buffer(const buffer& other) = default;
-  buffer(buffer&& other) = default;
-  buffer& operator=(const buffer& other) = default;
-  buffer& operator=(buffer&& other) = default;
+  constexpr buffer(const buffer& other) = delete;
+  constexpr buffer(buffer&& other) = delete;
+  constexpr buffer& operator=(const buffer& other) = delete;
+  constexpr buffer& operator=(buffer&& other) = delete;
   virtual constexpr ~buffer() noexcept = default;
 
   /**
@@ -146,17 +146,21 @@ class memory_buffer final : public buffer {
   }
 
   constexpr memory_buffer(const memory_buffer& other)
-      : buffer{other}, used_{other.used_ + other.get_used_count()}, vec_{other.vec_} {
+      : buffer{}, used_{other.used_ + other.get_used_count()}, vec_{other.vec_} {
     this->set_write_area({vec_.data() + used_, vec_.data() + vec_.capacity()});
   }
 
   constexpr memory_buffer(memory_buffer&& other) noexcept
-      : buffer(std::move(other)), used_{other.used_ + other.get_used_count()}, vec_{std::move(other).vec_} {
+      : buffer{}, used_{other.used_ + other.get_used_count()}, vec_{std::move(other).vec_} {
     this->set_write_area({vec_.data() + used_, vec_.data() + vec_.capacity()});
+    other.reset();
   }
 
   constexpr memory_buffer& operator=(const memory_buffer& other) {
-    buffer::operator=(other);
+    if (&other == this) {
+      return *this;
+    }
+
     used_ = other.used_ + other.get_used_count();
     vec_ = other.vec_;
     this->set_write_area({vec_.data() + used_, vec_.data() + vec_.capacity()});
@@ -164,10 +168,14 @@ class memory_buffer final : public buffer {
   }
 
   constexpr memory_buffer& operator=(memory_buffer&& other) noexcept {
-    buffer::operator=(std::move(other));
+    if (&other == this) {
+      return *this;
+    }
+
     used_ = other.used_ + other.get_used_count();
     vec_ = std::move(other).vec_;
     this->set_write_area({vec_.data() + used_, vec_.data() + vec_.capacity()});
+    other.reset();
     return *this;
   }
 
@@ -241,16 +249,28 @@ class span_buffer : public buffer {
     this->set_write_area(span_);
   }
 
-  constexpr span_buffer(const span_buffer& other) : buffer{other}, span_{other.span_} {}
+  constexpr span_buffer(const span_buffer& other) : buffer{fixed_size::yes}, span_{other.span_} {
+    this->set_write_area(span_);
+    get_write_area_of(other.get_used_count()).value();
+  }
+
+  constexpr span_buffer(span_buffer&& other) noexcept : span_buffer{std::as_const(other)} {}
 
   constexpr span_buffer& operator=(const span_buffer& other) {
-    buffer::operator=(other);
+    if (&other == this) {
+      return *this;
+    }
+
     span_ = other.span_;
+    this->set_write_area(span_);
+    get_write_area_of(other.get_used_count()).value();
     return *this;
   }
 
-  constexpr span_buffer(span_buffer&& other) noexcept = default;
-  constexpr span_buffer& operator=(span_buffer&& other) noexcept = default;
+  constexpr span_buffer& operator=(span_buffer&& other) noexcept {
+    return *this = std::as_const(other);
+  }
+
   constexpr ~span_buffer() override;
 
   /**
@@ -305,22 +325,28 @@ class static_buffer final : private std::array<char, StorageSize>, public span_b
    */
   constexpr static_buffer() noexcept : span_buffer{std::span{*this}} {}
 
-  constexpr static_buffer(const static_buffer& other) : span_buffer{other} {
-    set_write_area(std::span{*this});
-    const std::span<char> area = get_write_area_of(other.view().size()).value();
+  constexpr static_buffer(const static_buffer& other) : static_buffer() {
+    const std::span<char> area = get_write_area_of(other.get_used_count()).value();
     detail::copy_n(other.begin(), area.size(), area.data());
   }
 
+  constexpr static_buffer(static_buffer&& other) noexcept : static_buffer(std::as_const(other)) {}
+
   constexpr static_buffer& operator=(const static_buffer& other) {
-    span_buffer::operator=(other);
+    if (&other == this) {
+      return *this;
+    }
+
     set_write_area(std::span{*this});
-    const std::span<char> area = get_write_area_of(other.view().size()).value();
+    const std::span<char> area = get_write_area_of(other.get_used_count()).value();
     detail::copy_n(other.begin(), area.size(), area.data());
     return *this;
   }
 
-  constexpr static_buffer(static_buffer&&) noexcept = default;
-  constexpr static_buffer& operator=(static_buffer&&) noexcept = default;
+  constexpr static_buffer& operator=(static_buffer&& other) noexcept {
+    return *this = std::as_const(other);
+  }
+
   constexpr ~static_buffer() override = default;
 
   // Note: We inherit from std::array to put the storage lifetime before span_buffer.
