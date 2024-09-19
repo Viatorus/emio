@@ -83,13 +83,11 @@ class formatter<std::monostate> {
     return format_rdr.read_if_match_char('}');
   }
 
-  // NOLINTNEXTLINE(readability-convert-member-functions-to-static): API requests this to be a member function.
-  constexpr result<void> parse(reader& format_rdr) noexcept {
+  static constexpr result<void> parse(reader& format_rdr) noexcept {
     return format_rdr.read_if_match_char('}');
   }
 
-  // NOLINTNEXTLINE(readability-convert-member-functions-to-static): API requests this to be a member function.
-  constexpr result<void> format(writer& out, const std::monostate& /*arg*/) const noexcept {
+  static constexpr result<void> format(writer& out, const std::monostate& /*arg*/) noexcept {
     return out.write_str(detail::sv("monostate"));
   }
 };

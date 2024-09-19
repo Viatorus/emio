@@ -69,13 +69,11 @@ class formatter<detail::format::format_args> {
     return format_rdr.read_if_match_char('}');
   }
 
-  // NOLINTNEXTLINE(readability-convert-member-functions-to-static): API requests this to be a member function.
   static constexpr result<void> parse(reader& format_rdr) noexcept {
     return format_rdr.read_if_match_char('}');
   }
 
-  // NOLINTNEXTLINE(readability-convert-member-functions-to-static): API requests this to be a member function.
-  result<void> format(writer& out, const detail::format::format_args& arg) const noexcept {
+  static result<void> format(writer& out, const detail::format::format_args& arg) noexcept {
     return detail::format::vformat_to(out.get_buffer(), arg);
   }
 
@@ -88,5 +86,15 @@ class formatter<detail::format::format_args> {
 template <typename T>
   requires(std::is_base_of_v<detail::format::format_args, T>)
 class formatter<T> : public formatter<detail::format::format_args> {};
+
+namespace detail::format {
+
+template <typename T>
+  requires(std::is_base_of_v<detail::format::format_args, T>)
+struct unified_type<T> {
+  using type = const detail::format::format_args&;
+};
+
+}  // namespace detail::format
 
 }  // namespace emio
