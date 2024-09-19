@@ -21,7 +21,7 @@ struct scan_trait {
       return validate<scan_specs_checker>(format_str, sizeof...(Args), std::type_identity<Args>{}...);
     } else {
       return validate<scan_specs_checker>(format_str, sizeof...(Args),
-                                          make_validation_args<scan_validation_arg, Args...>());
+                                          related_format_args{make_validation_args<scan_validation_arg, Args...>()});
     }
   }
 };
@@ -37,11 +37,11 @@ inline result<void> vscan_from(reader& in, const scan_args& args) noexcept {
   if (args.is_plain_str()) {
     return in.read_if_match_str(str);
   }
-  return parse<scan_parser>(str, in, args);
+  return parse<scan_parser>(str, in, related_format_args{args});
 }
 
 template <typename... Args>
-constexpr result<void> scan_from(reader& in, format_string<Args...> format_str, Args&... args) noexcept {
+constexpr result<void> scan_from(reader& in, const format_string<Args...>& format_str, Args&... args) noexcept {
   EMIO_TRY(const std::string_view str, format_str.get());
   if (format_str.is_plain_str()) {
     return in.read_if_match_str(str);

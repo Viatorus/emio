@@ -40,7 +40,7 @@ using valid_format_string = detail::format::valid_format_string<Args...>;
  */
 template <typename... Args>
 [[nodiscard]] detail::args_storage<detail::format::format_arg, sizeof...(Args)> make_format_args(
-    emio::format_string<Args...> format_str, const Args&... args) noexcept {
+    const emio::format_string<Args...>& format_str, const Args&... args) noexcept {
   return {format_str, args...};
 }
 
@@ -58,12 +58,14 @@ inline result<size_t> vformatted_size(const format_args& args) noexcept {
 
 /**
  * Determines the total number of characters in the formatted string by formatting args according to the format string.
+ * @note This is an optimized version where the formatting can never fail.
  * @param format_str The format string
  * @param args The arguments to be formatted.
  * @return The total number of characters in the formatted string.
  */
 template <typename... Args>
-[[nodiscard]] constexpr size_t formatted_size(valid_format_string<Args...> format_str,
+  requires(!format_can_fail_v<Args> && ...)
+[[nodiscard]] constexpr size_t formatted_size(const valid_format_string<Args...>& format_str,
                                               const Args&... args) noexcept(detail::exceptions_disabled) {
   detail::counting_buffer buf{};
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
@@ -78,12 +80,28 @@ template <typename... Args>
  * Determines the total number of characters in the formatted string by formatting args according to the format string.
  * @param format_str The format string
  * @param args The arguments to be formatted.
+ * @return The total number of characters in the formatted string.
+ */
+template <typename... Args>
+  requires(sizeof...(Args) > 0 && (format_can_fail_v<Args> && ...))
+[[nodiscard]] constexpr result<size_t> formatted_size(const valid_format_string<Args...>& format_str,
+                                                      const Args&... args) noexcept(detail::exceptions_disabled) {
+  detail::counting_buffer buf{};
+  emio::format_string<Args...> str{format_str};
+  EMIO_TRYV(detail::format::format_to(buf, str, args...));
+  return buf.count();
+}
+
+/**
+ * Determines the total number of characters in the formatted string by formatting args according to the format string.
+ * @param format_str The format string
+ * @param args The arguments to be formatted.
  * @return The total number of characters in the formatted string on success or invalid_format if the format string
  * validation failed.
  */
 template <typename T, typename... Args>
   requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, emio::format_string<Args...>>)
-constexpr result<size_t> formatted_size(T format_str, const Args&... args) noexcept {
+constexpr result<size_t> formatted_size(const T& format_str, const Args&... args) noexcept {
   detail::counting_buffer buf{};
   emio::format_string<Args...> str{format_str};
   EMIO_TRYV(detail::format::format_to(buf, str, args...));
@@ -135,7 +153,8 @@ constexpr result<OutputIt> vformat_to(OutputIt out, const format_args& args) noe
  * @return Success or EOF if the buffer is to small or invalid_format if the format string validation failed.
  */
 template <typename... Args>
-constexpr result<void> format_to(buffer& buf, emio::format_string<Args...> format_str, const Args&... args) noexcept {
+constexpr result<void> format_to(buffer& buf, const emio::format_string<Args...>& format_str,
+                                 const Args&... args) noexcept {
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::format::format_to(buf, format_str, args...));
   } else {
@@ -152,7 +171,8 @@ constexpr result<void> format_to(buffer& buf, emio::format_string<Args...> forma
  * @return Success or EOF if the buffer is to small or invalid_format if the format string validation failed.
  */
 template <typename... Args>
-constexpr result<void> format_to(writer& out, emio::format_string<Args...> format_str, const Args&... args) noexcept {
+constexpr result<void> format_to(writer& out, const emio::format_string<Args...>& format_str,
+                                 const Args&... args) noexcept {
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
     EMIO_TRYV(detail::format::format_to(out.get_buffer(), format_str, args...));
   } else {
@@ -170,7 +190,7 @@ constexpr result<void> format_to(writer& out, emio::format_string<Args...> forma
  */
 template <typename OutputIt, typename... Args>
   requires(std::output_iterator<OutputIt, char>)
-constexpr result<OutputIt> format_to(OutputIt out, emio::format_string<Args...> format_str,
+constexpr result<OutputIt> format_to(OutputIt out, const emio::format_string<Args...>& format_str,
                                      const Args&... args) noexcept {
   iterator_buffer buf{out};
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
@@ -198,12 +218,14 @@ inline result<std::string> vformat(const format_args& args) noexcept {
 
 /**
  * Formats arguments according to the format string, and returns the result as string.
+ * @note This is an optimized version where the formatting can never fail.
  * @param format_str The format string.
  * @param args The arguments to be formatted.
  * @return The string.
  */
 template <typename... Args>
-[[nodiscard]] std::string format(emio::valid_format_string<Args...> format_str,
+  requires(!format_can_fail_v<Args> && ...)
+[[nodiscard]] std::string format(const emio::valid_format_string<Args...>& format_str,
                                  const Args&... args) noexcept(detail::exceptions_disabled) {
   return emio::vformat(emio::make_format_args(format_str, args...)).value();  // Should never fail.
 }
@@ -212,8 +234,20 @@ template <typename... Args>
  * Formats arguments according to the format string, and returns the result as string.
  * @param format_str The format string.
  * @param args The arguments to be formatted.
- * @return The string on success or invalid_format if the format string validation
- * failed.
+ * @return The string on success or invalid_format if the format string validation failed.
+ */
+template <typename... Args>
+  requires(sizeof...(Args) > 0 && (format_can_fail_v<Args> && ...))
+[[nodiscard]] result<std::string> format(const emio::valid_format_string<Args...>& format_str,
+                                         const Args&... args) noexcept {
+  return emio::vformat(emio::make_format_args(format_str, args...));
+}
+
+/**
+ * Formats arguments according to the format string, and returns the result as string.
+ * @param format_str The format string.
+ * @param args The arguments to be formatted.
+ * @return The string on success or invalid_format if the format string validation failed.
  */
 template <typename T, typename... Args>
   requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, emio::format_string<Args...>>)
@@ -281,7 +315,7 @@ result<size_t> vformat_to_n(buffer& buf, size_t n, const format_args& args) noex
 template <typename OutputIt, typename... Args>
   requires(std::output_iterator<OutputIt, char>)
 constexpr result<format_to_n_result<OutputIt>> format_to_n(OutputIt out, std::iter_difference_t<OutputIt> n,
-                                                           emio::format_string<Args...> format_str,
+                                                           const emio::format_string<Args...>& format_str,
                                                            const Args&... args) noexcept {
   truncating_iterator tout{out, static_cast<size_t>(n)};
   iterator_buffer buf{tout};
@@ -306,7 +340,7 @@ constexpr result<format_to_n_result<OutputIt>> format_to_n(OutputIt out, std::it
  * the format string validation failed.
  */
 template <typename... Args>
-constexpr result<size_t> format_to_n(buffer& buf, size_t n, emio::format_string<Args...> format_str,
+constexpr result<size_t> format_to_n(buffer& buf, size_t n, const emio::format_string<Args...>& format_str,
                                      const Args&... args) noexcept {
   truncating_buffer trunc_buf{buf, n};
   if (EMIO_Z_INTERNAL_IS_CONST_EVAL) {
@@ -336,12 +370,27 @@ inline result<void> vprint(std::FILE* file, const format_args& args) noexcept {
 
 /**
  * Formats arguments according to the format string, and writes the result to the standard output stream.
+ * @note This is an optimized version where the formatting can never fail.
  * @param format_str The format string.
  * @param args The format args with the format string.
  */
 template <typename... Args>
-void print(emio::valid_format_string<Args...> format_str, const Args&... args) noexcept {
+  requires(!format_can_fail_v<Args> && ...)
+void print(const emio::valid_format_string<Args...>& format_str,
+           const Args&... args) noexcept(detail::exceptions_disabled) {
   vprint(stdout, emio::make_format_args(format_str, args...)).value();  // Should never fail.
+}
+
+/**
+ * Formats arguments according to the format string, and writes the result to the standard output stream.
+ * @param format_str The format string.
+ * @param args The format args with the format string.
+ * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
+ */
+template <typename... Args>
+  requires(sizeof...(Args) > 0 && (format_can_fail_v<Args> && ...))
+result<void> print(const emio::valid_format_string<Args...>& format_str, const Args&... args) noexcept {
+  return vprint(stdout, emio::make_format_args(format_str, args...));
 }
 
 /**
@@ -352,7 +401,7 @@ void print(emio::valid_format_string<Args...> format_str, const Args&... args) n
  */
 template <typename T, typename... Args>
   requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, emio::format_string<Args...>>)
-result<void> print(T format_str, const Args&... args) noexcept {
+result<void> print(const T& format_str, const Args&... args) noexcept {
   return vprint(stdout, emio::make_format_args(format_str, args...));
 }
 
@@ -364,7 +413,7 @@ result<void> print(T format_str, const Args&... args) noexcept {
  * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
  */
 template <typename... Args>
-result<void> print(std::FILE* file, emio::format_string<Args...> format_str, const Args&... args) noexcept {
+result<void> print(std::FILE* file, const emio::format_string<Args...>& format_str, const Args&... args) noexcept {
   return vprint(file, emio::make_format_args(format_str, args...));
 }
 
@@ -394,7 +443,9 @@ inline result<void> vprintln(std::FILE* file, const format_args& args) noexcept 
  * @param args The arguments to be formatted.
  */
 template <typename... Args>
-void println(emio::valid_format_string<Args...> format_str, const Args&... args) noexcept {
+  requires(!format_can_fail_v<Args> && ...)
+void println(const emio::valid_format_string<Args...>& format_str,
+             const Args&... args) noexcept(detail::exceptions_disabled) {
   vprintln(stdout, emio::make_format_args(format_str, args...)).value();  // Should never fail.
 }
 
@@ -403,12 +454,24 @@ void println(emio::valid_format_string<Args...> format_str, const Args&... args)
  * at the end.
  * @param format_str The format string.
  * @param args The arguments to be formatted.
- * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation
- * failed.
+ * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
+ */
+template <typename... Args>
+  requires(sizeof...(Args) > 0 && (format_can_fail_v<Args> && ...))
+result<void> println(const emio::valid_format_string<Args...>& format_str, const Args&... args) noexcept {
+  return vprintln(stdout, emio::make_format_args(format_str, args...));
+}
+
+/**
+ * Formats arguments according to the format string, and writes the result to the standard output stream with a new line
+ * at the end.
+ * @param format_str The format string.
+ * @param args The arguments to be formatted.
+ * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
  */
 template <typename T, typename... Args>
   requires(std::is_same_v<T, runtime_string> || std::is_same_v<T, emio::format_string<Args...>>)
-result<void> println(T format_str, const Args&... args) noexcept {
+result<void> println(const T& format_str, const Args&... args) noexcept {
   return vprintln(stdout, emio::make_format_args(format_str, args...));
 }
 
@@ -420,7 +483,7 @@ result<void> println(T format_str, const Args&... args) noexcept {
  * @return Success or EOF if the file stream is not writable or invalid_format if the format string validation failed.
  */
 template <typename... Args>
-result<void> println(std::FILE* file, emio::format_string<Args...> format_str, const Args&... args) noexcept {
+result<void> println(std::FILE* file, const emio::format_string<Args...>& format_str, const Args&... args) noexcept {
   return vprintln(file, emio::make_format_args(format_str, args...));
 }
 

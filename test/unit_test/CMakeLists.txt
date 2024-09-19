@@ -26,6 +26,7 @@ add_executable(emio_test
         test_format_emio_vs_fmt.cpp
         test_format_string.cpp
         test_format_to_api.cpp
+        test_format_could_fail_api.cpp
         test_format_to_n_api.cpp
         test_formatted_size.cpp
         test_formatter.cpp

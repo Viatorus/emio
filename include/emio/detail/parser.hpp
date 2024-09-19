@@ -179,14 +179,14 @@ class parser_base<input_validation::disabled> {
   uint8_t increment_arg_number_{};
 };
 
-template <typename T>
-int is_arg_span2(const args_span<T>& t);
+// Wrapper around an args_span of the string to be parsed so that it can be distinguished from a normal argument.
+template <typename Arg>
+struct related_format_args {
+  const args_span<Arg>& args;
+};
 
-bool is_arg_span2(...);
-
-template <typename T>
-// NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg): only used within type traits
-constexpr bool is_args_span = sizeof(is_arg_span2(std::declval<T>())) == sizeof(int);
+template <typename Arg>
+related_format_args(const args_span<Arg>&) -> related_format_args<Arg>;
 
 template <typename CRTP, input_validation Validation>
 class parser : public parser_base<Validation> {
@@ -199,9 +199,9 @@ class parser : public parser_base<Validation> {
   parser& operator=(parser&&) = delete;
   constexpr ~parser() noexcept override;  // NOLINT(performance-trivially-destructible): See definition.
 
-  template <typename T>
-  result<void> apply(uint8_t arg_nbr, const args_span<T>& args) noexcept {
-    return static_cast<CRTP*>(this)->process_arg(args.get_args()[arg_nbr]);
+  template <typename Arg>
+  result<void> apply(uint8_t arg_nbr, const related_format_args<Arg>& args) noexcept {
+    return static_cast<CRTP*>(this)->process_arg(args.args.get_args()[arg_nbr]);
   }
 
   // NOLINTNEXTLINE(readability-convert-member-functions-to-static): not possible because of template function
@@ -210,7 +210,6 @@ class parser : public parser_base<Validation> {
   }
 
   template <typename Arg, typename... Args>
-    requires(!is_args_span<Arg>)
   constexpr result<void> apply(uint8_t arg_pos, Arg& arg, Args&... args) noexcept {
     if (arg_pos == 0) {
       return static_cast<CRTP*>(this)->process_arg(arg);

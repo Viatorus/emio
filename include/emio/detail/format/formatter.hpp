@@ -778,6 +778,13 @@ inline constexpr result<void> check_string_specs(const format_specs& specs) noex
 template <typename Arg>
 inline constexpr bool has_formatter_v = std::is_constructible_v<formatter<Arg>>;
 
+template <typename Arg>
+inline constexpr bool format_can_fail_v = false;
+
+template <typename Arg>
+  requires requires(Arg) { formatter<Arg>::format_can_fail; }
+inline constexpr bool format_can_fail_v<Arg> = formatter<Arg>::format_can_fail;
+
 template <typename T>
 concept has_validate_function_v = requires {
   { formatter<T>::validate(std::declval<reader&>()) } -> std::same_as<result<void>>;
