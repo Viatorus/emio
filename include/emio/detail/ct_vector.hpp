@@ -134,14 +134,6 @@ class ct_vector {
     return data_ != storage_.data() && data_ != nullptr;
   }
 
-  //  constexpr void reset() {
-  //    if (hold_external()) {
-  //      delete[] data_;  // NOLINT(cppcoreguidelines-owning-memory)
-  //    }
-  //    size_ = 0;
-  //    capacity_ = StorageSize;
-  //  }
-
   std::array<Char, StorageSize> storage_;
   Char* data_{storage_.data()};
   size_t size_{};
