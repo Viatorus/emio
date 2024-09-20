@@ -118,16 +118,16 @@ jobs:
         run: ctest --verbose --output-on-failure
 
   coverage:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v3
 
       - name: Install GCC
         run: |
-          sudo apt update && sudo apt install -y gcc-11 g++-11
-          echo "CC=gcc-11" >> $GITHUB_ENV
-          echo "CXX=g++-11" >> $GITHUB_ENV
+          sudo apt update && sudo apt install -y gcc-14 g++-14
+          echo "CC=gcc-14" >> $GITHUB_ENV
+          echo "CXX=g++-14" >> $GITHUB_ENV
 
       - name: Install LCov
         run: sudo apt update && sudo apt install lcov -q -y
@@ -154,16 +154,16 @@ jobs:
           files: build/coverage.info
 
   memcheck:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v3
 
       - name: Install GCC
         run: |
-          sudo apt update && sudo apt install -y gcc-11 g++-11
-          echo "CC=gcc-11" >> $GITHUB_ENV
-          echo "CXX=g++-11" >> $GITHUB_ENV
+          sudo apt update && sudo apt install -y gcc-14 g++-14
+          echo "CC=gcc-14" >> $GITHUB_ENV
+          echo "CXX=g++-14" >> $GITHUB_ENV
 
       - name: Install valgrind
         run: sudo apt update && sudo apt install -y valgrind
@@ -189,16 +189,16 @@ jobs:
           fi
 
   sanitize:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v3
 
       - name: Install GCC
         run: |
-          sudo apt update && sudo apt install -y gcc-11 g++-11
-          echo "CC=gcc-11" >> $GITHUB_ENV
-          echo "CXX=g++-11" >> $GITHUB_ENV
+          sudo apt update && sudo apt install -y gcc-14 g++-14
+          echo "CC=gcc-14" >> $GITHUB_ENV
+          echo "CXX=g++-14" >> $GITHUB_ENV
 
       - name: Configure
         run: cmake --preset=ci-sanitize
