@@ -29,10 +29,61 @@ class ct_vector {
     }
   }
 
-  ct_vector(const ct_vector&) = delete;
-  ct_vector(ct_vector&&) = delete;
-  ct_vector& operator=(const ct_vector&) = delete;
-  ct_vector& operator=(ct_vector&&) = delete;
+  constexpr ct_vector(const ct_vector& other) : ct_vector() {
+    reserve(other.size_);
+    copy_n(other.data_, other.size_, data_);
+  }
+
+  constexpr ct_vector(ct_vector&& other) noexcept : ct_vector() {
+    // Transfer ownership.
+    if (other.hold_external()) {
+      data_ = other.data_;
+      capacity_ = other.capacity_;
+    } else {
+      copy_n(other.data_, other.size_, data_);
+    }
+    size_ = other.size_;
+
+    // Reset other.
+    other.data_ = other.storage_.data();
+    other.size_ = 0;
+    other.capacity_ = StorageSize;
+  }
+
+  constexpr ct_vector& operator=(const ct_vector& other) {
+    if (&other == this) {
+      return *this;
+    }
+    reserve(other.size_);
+    copy_n(other.data_, other.size_, data_);
+    return *this;
+  }
+
+  constexpr ct_vector& operator=(ct_vector&& other) noexcept {
+    if (&other == this) {
+      return *this;
+    }
+
+    // Free this.
+    if (hold_external()) {
+      delete[] data_;  // NOLINT(cppcoreguidelines-owning-memory)
+    }
+
+    // Transfer ownership.
+    if (other.hold_external()) {
+      data_ = other.data_;
+      capacity_ = other.capacity_;
+    } else {
+      copy_n(other.data_, other.size_, data_);
+    }
+    size_ = other.size_;
+
+    // Reset other.
+    other.data_ = other.storage_.data();
+    other.size_ = 0;
+    other.capacity_ = StorageSize;
+    return *this;
+  }
 
   constexpr ~ct_vector() noexcept {
     if (hold_external()) {

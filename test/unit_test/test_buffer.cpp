@@ -4,11 +4,128 @@
 // Other includes.
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
+#include <catch2/generators/catch_generators_range.hpp>
 
 namespace {
 
 constexpr void fill(const emio::result<std::span<char>>& area, char v) {
   std::fill(area->begin(), area->end(), v);
+}
+
+template <typename T>
+constexpr bool check_equality_of_buffer(T& expected, T& other, bool data_ptr_is_different) {
+  bool result = true;
+
+  std::array<char, 1> dummy{0};
+  std::array<char, 1> dummy2{0};
+  emio::result<std::span<char>> area{dummy};
+  emio::result<std::span<char>> area2{dummy};
+  if (data_ptr_is_different) {
+    area2 = dummy2;
+  }
+
+  const auto compare = [&]() {
+    result &= area.has_value();
+    result &= area2.has_value();
+    if (data_ptr_is_different) {
+      result &= area->data() != area2->data();
+    } else {
+      result &= area->data() == area2->data();
+    }
+  };
+
+  compare();
+
+  area = expected.get_write_area_of(5);
+  area2 = other.get_write_area_of(5);
+
+  if ((!area && area2) || (area && !area2)) {
+    return false;
+  }
+  if (!area && !area2) {
+    return result;
+  }
+
+  compare();
+
+  fill(area, 'x');
+  fill(area2, 'x');
+
+  result &= expected.view() == other.view();
+
+  area = expected.get_write_area_of(2);
+  area2 = other.get_write_area_of(2);
+
+  if ((!area && area2) || (area && !area2)) {
+    return false;
+  }
+  if (!area && !area2) {
+    return result;
+  }
+
+  fill(area, 'y');
+  fill(area2, 'z');
+
+  if (data_ptr_is_different) {
+    result &= expected.view() != other.view();
+  } else {
+    result &= expected.view() == other.view();
+  }
+
+  return result;
+}
+
+template <typename T>
+void check_gang_of_5(T& buf, bool data_ptr_is_different) {
+  SECTION("copy-construct") {
+    T buf2{buf};
+    CHECK(check_equality_of_buffer(buf, buf2, data_ptr_is_different));
+  }
+  SECTION("copy-assign") {
+    T buf2;
+    buf2 = buf;
+    CHECK(check_equality_of_buffer(buf, buf2, data_ptr_is_different));
+  }
+  SECTION("move-construct") {
+    T buf_tmp{buf};
+    T buf2{std::move(buf_tmp)};
+    CHECK(check_equality_of_buffer(buf, buf2, data_ptr_is_different));
+  }
+  SECTION("move-assign") {
+    T buf_tmp{buf};
+    T buf2;
+    buf2 = std::move(buf_tmp);
+    CHECK(check_equality_of_buffer(buf, buf2, data_ptr_is_different));
+  }
+  SECTION("wild") {
+    T buf2{buf};
+    T buf3{std::move(buf2)};
+    T buf4;
+    buf4 = buf3;
+    T buf5;
+    buf5 = std::move(buf4);
+    T buf6{buf};
+    buf6 = buf5;
+
+    SECTION("1") {
+      CHECK(check_equality_of_buffer(buf, buf5, data_ptr_is_different));
+    }
+    SECTION("2") {
+      CHECK(check_equality_of_buffer(buf6, buf5, data_ptr_is_different));
+    }
+  }
+  SECTION("self-assignment copy") {
+    T buf2{buf};
+    T& buf_tmp = buf2;  // Prevent compiler warn about self assignment.
+    buf2 = buf_tmp;
+    CHECK(check_equality_of_buffer(buf, buf2, data_ptr_is_different));
+  }
+  SECTION("self-assignment move") {
+    T buf2{buf};
+    T& buf_tmp = buf2;  // Prevent compiler warn about self assignment.
+    buf2 = std::move(buf_tmp);
+    CHECK(check_equality_of_buffer(buf, buf2, data_ptr_is_different));
+  }
 }
 
 }  // namespace
@@ -29,11 +146,18 @@ TEST_CASE("memory_buffer", "[buffer]") {
   const std::string expected_str = expected_str_part_1 + expected_str_part_2 + expected_str_part_3;
 
   const bool default_constructed = GENERATE(true, false);
+  const int checkpoint = GENERATE(range(0, 5));
   INFO("Default constructed: " << default_constructed);
+  INFO("Checkpoint: " << checkpoint);
 
   emio::memory_buffer<15> buf = default_constructed ? emio::memory_buffer<15>{} : emio::memory_buffer<15>{18};
   CHECK(buf.capacity() == (default_constructed ? 15 : 18));
   CHECK(buf.view().empty());
+
+  if (checkpoint == 0) {
+    check_gang_of_5(buf, true);
+    return;
+  }
 
   emio::result<std::span<char>> area = buf.get_write_area_of(first_size);
   REQUIRE(area);
@@ -42,12 +166,22 @@ TEST_CASE("memory_buffer", "[buffer]") {
   CHECK(buf.view().size() == first_size);
   CHECK(buf.view() == expected_str_part_1);
 
+  if (checkpoint == 1) {
+    check_gang_of_5(buf, true);
+    return;
+  }
+
   area = buf.get_write_area_of(second_size);
   REQUIRE(area);
   CHECK(area->size() == second_size);
   fill(area, 'y');
   CHECK(buf.view().size() == first_size + second_size);
   CHECK(buf.view() == expected_str_part_1 + expected_str_part_2);
+
+  if (checkpoint == 2) {
+    check_gang_of_5(buf, true);
+    return;
+  }
 
   area = buf.get_write_area_of(third_size);
   REQUIRE(area);
@@ -57,6 +191,11 @@ TEST_CASE("memory_buffer", "[buffer]") {
   CHECK(buf.view().size() == first_size + second_size + third_size);
   CHECK(buf.view() == expected_str);
 
+  if (checkpoint == 3) {
+    check_gang_of_5(buf, true);
+    return;
+  }
+
   const size_t curr_capacity = buf.capacity();
   CHECK(curr_capacity >= buf.view().size());
   buf.reset();
@@ -65,6 +204,8 @@ TEST_CASE("memory_buffer", "[buffer]") {
   area = buf.get_write_area_of(first_size);
   REQUIRE(area);
   CHECK(area->size() == first_size);
+
+  check_gang_of_5(buf, true);
 }
 
 TEST_CASE("memory_buffer regression bug 1", "[buffer]") {
@@ -144,6 +285,24 @@ TEST_CASE("memory_buffer at compile-time", "[buffer]") {
     result &= buf.view() == "xxxxxxxyyyyyzzzzzzzz";
     result &= buf.capacity() >= buf.view().size();
 
+    const size_t curr_capacity = buf.capacity();
+    result &= curr_capacity >= buf.view().size();
+    buf.reset();
+    result &= buf.capacity() == curr_capacity;
+
+    area = buf.get_write_area_of(first_size);
+    result &= area.has_value();
+    result &= (area->size() == first_size);
+
+    emio::memory_buffer<1> buf2{buf};
+    emio::memory_buffer<1> buf3{std::move(buf2)};
+    emio::memory_buffer<1> buf4;
+    buf4 = buf3;
+    emio::memory_buffer<1> buf5;
+    buf5 = std::move(buf4);
+
+    result &= check_equality_of_buffer(buf, buf5, true);
+
     return result;
   }();
   STATIC_CHECK(success);
@@ -159,10 +318,18 @@ TEST_CASE("span_buffer", "[buffer]") {
   constexpr size_t second_size{55};
   constexpr size_t third_size{emio::default_cache_size};
 
+  const int checkpoint = GENERATE(range(0, 6));
+  INFO("Checkpoint: " << checkpoint);
+
   std::array<char, first_size + second_size + third_size> storage{};
   emio::span_buffer buf{storage};
   CHECK(buf.capacity() == storage.size());
   CHECK(buf.view().empty());
+
+  if (checkpoint == 0) {
+    check_gang_of_5(buf, false);
+    return;
+  }
 
   emio::result<std::span<char>> area = buf.get_write_area_of(first_size);
   REQUIRE(area);
@@ -172,6 +339,11 @@ TEST_CASE("span_buffer", "[buffer]") {
   CHECK(buf.view().size() == first_size);
   CHECK(buf.view().data() == storage.data());
 
+  if (checkpoint == 1) {
+    check_gang_of_5(buf, false);
+    return;
+  }
+
   area = buf.get_write_area_of(second_size);
   REQUIRE(area);
   CHECK(area->size() == second_size);
@@ -179,6 +351,11 @@ TEST_CASE("span_buffer", "[buffer]") {
 
   CHECK(buf.view().size() == first_size + second_size);
   CHECK(buf.view().data() == storage.data());
+
+  if (checkpoint == 2) {
+    check_gang_of_5(buf, false);
+    return;
+  }
 
   area = buf.get_write_area_of(third_size);
   REQUIRE(area);
@@ -189,12 +366,22 @@ TEST_CASE("span_buffer", "[buffer]") {
   CHECK(buf.view().data() == storage.data());
   CHECK(buf.view() == buf.str());
 
+  if (checkpoint == 3) {
+    check_gang_of_5(buf, false);
+    return;
+  }
+
   area = buf.get_write_area_of(1);
   REQUIRE(!area);
 
   area = buf.get_write_area_of(0);
   REQUIRE(area);
   CHECK(area->empty());
+
+  if (checkpoint == 4) {
+    check_gang_of_5(buf, false);
+    return;
+  }
 
   CHECK(buf.capacity() == storage.size());
   buf.reset();
@@ -203,10 +390,7 @@ TEST_CASE("span_buffer", "[buffer]") {
   REQUIRE(area);
   CHECK(area->size() == first_size);
 
-  buf.reset();
-  area = buf.get_write_area_of(storage.size());
-  REQUIRE(area);
-  CHECK(area->size() == storage.size());
+  check_gang_of_5(buf, false);
 }
 
 TEST_CASE("span_buffer check request_write_area", "[buffer]") {
@@ -217,9 +401,8 @@ TEST_CASE("span_buffer check request_write_area", "[buffer]") {
 
   class dummy_span_buffer : public emio::span_buffer {
    public:
-    using emio::span_buffer::span_buffer;
-
     using emio::span_buffer::request_write_area;
+    using emio::span_buffer::span_buffer;
   };
 
   SECTION("default constructed") {
@@ -268,8 +451,56 @@ TEST_CASE("static_buffer", "[buffer]") {
   // * Check max size of the buffer.
   // Expected: The max size is correct.
 
-  emio::static_buffer<542> buffer;
-  CHECK(buffer.get_write_area_of_max(600)->size() == 542);
+  const int checkpoint = GENERATE(range(0, 6));
+  INFO("Checkpoint: " << checkpoint);
+
+  emio::static_buffer<542> buf;
+
+  if (checkpoint == 0) {
+    check_gang_of_5(buf, true);
+    return;
+  }
+
+  emio::result<std::span<char>> area = buf.get_write_area_of_max(500);
+  REQUIRE(area);
+  CHECK(area->size() == 500);
+  fill(area, 'q');
+
+  if (checkpoint == 1) {
+    check_gang_of_5(buf, true);
+    return;
+  }
+
+  area = buf.get_write_area_of_max(5);
+  REQUIRE(area);
+  CHECK(area->size() == 5);
+  fill(area, 'y');
+
+  if (checkpoint == 2) {
+    check_gang_of_5(buf, true);
+    return;
+  }
+
+  buf.reset();
+
+  if (checkpoint == 3) {
+    check_gang_of_5(buf, true);
+    return;
+  }
+
+  area = buf.get_write_area_of_max(600);
+  REQUIRE(area);
+  CHECK(area->size() == 542);
+  fill(area, 'l');
+
+  if (checkpoint == 4) {
+    check_gang_of_5(buf, true);
+    return;
+  }
+
+  buf.reset();
+
+  check_gang_of_5(buf, true);
 }
 
 TEST_CASE("counting_buffer", "[buffer]") {
