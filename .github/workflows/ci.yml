@@ -125,9 +125,9 @@ jobs:
 
       - name: Install GCC
         run: |
-          sudo apt update && sudo apt install -y gcc-14 g++-14
-          echo "CC=gcc-14" >> $GITHUB_ENV
-          echo "CXX=g++-14" >> $GITHUB_ENV
+          sudo apt update && sudo apt install -y gcc-13 g++-13
+          echo "CC=gcc-13" >> $GITHUB_ENV
+          echo "CXX=g++-13" >> $GITHUB_ENV
 
       - name: Install LCov
         run: sudo apt update && sudo apt install lcov -q -y

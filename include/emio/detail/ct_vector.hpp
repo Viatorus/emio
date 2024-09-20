@@ -82,7 +82,6 @@ class ct_vector {
     other.data_ = other.storage_.data();
     other.size_ = 0;
     other.capacity_ = StorageSize;
-
     return *this;
   }
 
