@@ -140,6 +140,7 @@ class arg {
 template <typename Arg>
 class args_span {
  public:
+  args_span() = default;
   args_span(const args_span&) = delete;
   args_span(args_span&&) = delete;
   args_span& operator=(const args_span&) = delete;
@@ -154,24 +155,41 @@ class args_span {
   args_span(std::span<const Arg> args) : args_{args} {}
 
  private:
-  std::span<const Arg> args_;
+  std::span<const Arg> args_{};
 };
 
 template <typename Arg>
 class args_span_with_str : public args_span<Arg> {
  public:
+  args_span_with_str() = default;
   args_span_with_str(const args_span_with_str&) = delete;
   args_span_with_str(args_span_with_str&&) = delete;
   args_span_with_str& operator=(const args_span_with_str&) = delete;
   args_span_with_str& operator=(args_span_with_str&&) = delete;
   ~args_span_with_str() = default;
 
+  /**
+   * Returns the validated format/scan string.
+   * @return The view or invalid_format if the validation failed.
+   */
   [[nodiscard]] result<std::string_view> get_str() const noexcept {
     return str_.get();
   }
 
+  /**
+   * Returns if it is just a plain string.
+   * @return True, if the string does not contain any escape sequences or replacement fields, otherwise false.
+   */
   [[nodiscard]] constexpr bool is_plain_str() const noexcept {
     return str_.is_plain_str();
+  }
+
+  /**
+   * Returns if it is just an empty plain string with no arguments passed.
+   * @return True, if the string is empty, otherwise false.
+   */
+  [[nodiscard]] constexpr bool is_empty() const noexcept {
+    return is_plain_str() && get_str().value().empty();
   }
 
  protected:
@@ -180,7 +198,7 @@ class args_span_with_str : public args_span<Arg> {
       : args_span<Arg>(args), str_{str} {}
 
  private:
-  validated_string_storage str_;
+  validated_string_storage str_{};
 };
 
 template <typename Arg, size_t NbrOfArgs>

@@ -34,7 +34,7 @@ class validated_string_storage {
     if (Trait::template validate_string<Args...>(s)) {
       return {{false, s}};
     }
-    return {};
+    return {{false, err::invalid_format}};
   }
 
   constexpr validated_string_storage() noexcept = default;
@@ -60,7 +60,7 @@ class validated_string_storage {
   constexpr validated_string_storage(const std::pair<bool, result<std::string_view>>& str) noexcept : str_{str} {}
 
   // Wonder why pair and not two variables? Look at this bug report: https://github.com/llvm/llvm-project/issues/67731
-  std::pair<bool, result<std::string_view>> str_{false, err::invalid_format};
+  std::pair<bool, result<std::string_view>> str_{true, ""};
 };
 
 }  // namespace emio::detail
