@@ -136,7 +136,7 @@ TEST_CASE("default constructed format_args", "[format_string]") {
     CHECK(args.is_plain_str());
     CHECK(args.get_str().value().empty());
     CHECK(args.get_args().empty());
-    CHECK(args.is_empty());
+    CHECK(args.empty());
 
     CHECK(emio::vformat(args).value() == "");
     CHECK(emio::format("{}", args).value() == "");

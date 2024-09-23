@@ -185,10 +185,10 @@ class args_span_with_str : public args_span<Arg> {
   }
 
   /**
-   * Returns if it is just an empty plain string with no arguments passed.
-   * @return True, if the string is empty, otherwise false.
+   * Returns if it is just an empty plain string with no arguments.
+   * @return True, if the string is empty without any arguments, otherwise false.
    */
-  [[nodiscard]] constexpr bool is_empty() const noexcept {
+  [[nodiscard]] constexpr bool empty() const noexcept {
     return is_plain_str() && get_str().value().empty();
   }
 
