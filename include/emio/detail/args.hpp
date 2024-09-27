@@ -177,19 +177,20 @@ class args_span_with_str : public args_span<Arg> {
   }
 
   /**
-   * Returns if it is just a plain string.
-   * @return True, if the string does not contain any escape sequences or replacement fields, otherwise false.
+   * Returns if it is just a plain string without arguments.
+   * @return True, if the string does not contain any escape sequences, replacement fields or arguments, otherwise
+   * false.
    */
   [[nodiscard]] constexpr bool is_plain_str() const noexcept {
     return str_.is_plain_str();
   }
 
   /**
-   * Returns if it is just an empty plain string with no arguments.
+   * Returns if it is an empty string without arguments.
    * @return True, if the string is empty without any arguments, otherwise false.
    */
   [[nodiscard]] constexpr bool empty() const noexcept {
-    return is_plain_str() && get_str().value().empty();
+    return str_.empty();
   }
 
  protected:

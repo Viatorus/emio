@@ -48,6 +48,14 @@ class validated_string_storage {
   }
 
   /**
+   * Returns if it is an empty string.
+   * @return True, if the string is empty, otherwise false.
+   */
+  [[nodiscard]] constexpr bool empty() const noexcept {
+    return is_plain_str() && str_.second->empty();
+  }
+
+  /**
    * Returns the validated format/scan string.
    * @return The view or invalid_format if the validation failed.
    */
