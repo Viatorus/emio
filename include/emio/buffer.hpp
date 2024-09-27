@@ -142,8 +142,8 @@ class memory_buffer final : public buffer {
    * @param capacity The initial capacity.
    */
   constexpr explicit memory_buffer(const size_t capacity) noexcept {
-    // Request at least the internal storage size.
-    static_cast<void>(request_write_area(0, std::max(vec_.capacity(), capacity)));
+    // Request at least the internal storage size. Should never fail.
+    request_write_area(0, std::max(vec_.capacity(), capacity)).value();
   }
 
   constexpr memory_buffer(const memory_buffer& other)
@@ -206,7 +206,7 @@ class memory_buffer final : public buffer {
   constexpr void reset() noexcept {
     used_ = 0;
     vec_.clear();
-    static_cast<void>(request_write_area(0, vec_.capacity()));
+    request_write_area(0, vec_.capacity()).value();
   }
 
   /**
@@ -527,7 +527,7 @@ class iterator_buffer<std::back_insert_iterator<Container>, Capacity> final : pu
    */
   constexpr explicit iterator_buffer(std::back_insert_iterator<Container> it) noexcept
       : container_{detail::get_container(it)} {
-    static_cast<void>(request_write_area(0, std::min(container_.capacity(), Capacity)));
+    request_write_area(0, std::min(container_.capacity(), Capacity)).value();
   }
 
   iterator_buffer(const iterator_buffer&) = delete;

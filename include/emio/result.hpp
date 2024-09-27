@@ -202,7 +202,7 @@ class [[nodiscard]] result<Value> {
    */
   constexpr std::remove_reference_t<Value>* operator->() noexcept {
     EMIO_Z_DEV_ASSERT(has_value());
-    return &*value_;
+    return &*value_;  // NOLINT(bugprone-unchecked-optional-access): assumed
   }
 
   /**
@@ -212,7 +212,7 @@ class [[nodiscard]] result<Value> {
    */
   constexpr const std::remove_reference_t<Value>* operator->() const noexcept {
     EMIO_Z_DEV_ASSERT(has_value());
-    return &*value_;
+    return &*value_;  // NOLINT(bugprone-unchecked-optional-access): assumed
   }
 
   /**

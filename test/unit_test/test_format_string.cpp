@@ -112,17 +112,49 @@ TEST_CASE("runtime format_string", "[format_string]") {
 }
 
 TEST_CASE("is_plain_str", "[format_string]") {
+  CHECK(emio::format_string<>{""}.is_plain_str());
+  CHECK(emio::format_string<>{""}.empty());
   CHECK(emio::format_string<>{"abc 123"}.is_plain_str());
   CHECK(emio::format_string<>{emio::runtime("abc 123")}.is_plain_str());
+  CHECK(emio::make_format_args(emio::runtime("abc 123")).is_plain_str());
 
   CHECK_FALSE(emio::format_string<>{"abc 123 {{"}.is_plain_str());
+  CHECK_FALSE(emio::format_string<>{"abc 123 {{"}.empty());
   CHECK_FALSE(emio::format_string<>{emio::runtime("abc 123 {{")}.is_plain_str());
+  CHECK_FALSE(emio::format_string<>{emio::runtime("abc 123 {{")}.empty());
+  CHECK_FALSE(emio::make_format_args(emio::runtime("abc 123 {{")).is_plain_str());
+  CHECK_FALSE(emio::make_format_args(emio::runtime("abc 123 {{")).empty());
 
   CHECK_FALSE(emio::format_string<>{"abc }} 123"}.is_plain_str());
   CHECK_FALSE(emio::format_string<>{emio::runtime("abc }} 123")}.is_plain_str());
+  CHECK_FALSE(emio::make_format_args(emio::runtime("abc }} 123")).is_plain_str());
 
   CHECK_FALSE(emio::format_string<>{emio::runtime("abc {} 123")}.is_plain_str());
+  CHECK_FALSE(emio::make_format_args(emio::runtime("abc {} 123")).is_plain_str());
+
+  CHECK_FALSE(emio::make_format_args(emio::runtime(""), 1).is_plain_str());
+  CHECK_FALSE(emio::make_format_args(emio::runtime(""), 1).empty());
 
   CHECK_FALSE(precompiled_format_str.is_plain_str());
   CHECK_FALSE(emio::format_string<>{emio::runtime(format_str)}.is_plain_str());
+}
+
+TEST_CASE("default constructed format_args", "[format_string]") {
+  const auto check = [](const auto& args) {
+    CHECK(args.is_plain_str());
+    CHECK(args.get_str().value().empty());
+    CHECK(args.get_args().empty());
+    CHECK(args.empty());
+
+    CHECK(emio::vformat(args).value() == "");
+    CHECK(emio::format("{}", args).value() == "");
+  };
+
+  SECTION("default constructed") {
+    emio::format_args args;
+    check(args);
+  }
+  SECTION("empty constructed") {
+    check(emio::make_format_args(""));
+  }
 }
