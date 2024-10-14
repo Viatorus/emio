@@ -18,4 +18,6 @@ target_link_libraries(emio_link
 
 target_compile_features(emio_link PRIVATE cxx_std_20)
 
+target_compile_options(emio_link PRIVATE -ffreestanding)
+
 add_folders(CompileTest)
