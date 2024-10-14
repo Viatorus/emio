@@ -236,7 +236,8 @@
       "cacheVariables": {
         "BUILD_LINK_TEST": "ON",
         "CMAKE_CXX_FLAGS": "$env{CXX_FLAGS} -O2 -mcpu=cortex-m33 -mthumb -mfloat-abi=hard -mfpu=fpv5-sp-d16 -fno-canonical-system-headers -no-canonical-prefixes -fno-exceptions -fno-rtti",
-        "CMAKE_EXE_LINKER_FLAGS": "-mcpu=cortex-m7 -mthumb -Wl,--gc-sections"
+        "CMAKE_EXE_LINKER_FLAGS": "-mcpu=cortex-m7 -mthumb -Wl,--gc-sections",
+        "CMAKE_BUILD_TYPE": "MinSizeRel"
       }
     }
   ],
