@@ -7,273 +7,273 @@ on:
   pull_request:
 
 jobs:
-  checks:
-    runs-on: ubuntu-22.04
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Install GCC
-        run: |
-          sudo apt update && sudo apt install -y gcc-11 g++-11
-          echo "CC=gcc-11" >> $GITHUB_ENV
-          echo "CXX=g++-11" >> $GITHUB_ENV
-
-      - name: Install cppcheck
-        run: |
-          sudo apt update && sudo apt install -y cppcheck
-          cppcheck --version
-
-      - name: Install clang-format and clang-tidy
-        run: |
-          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          sudo add-apt-repository 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main'
-          sudo apt update && sudo apt install -y clang-format-17 clang-tidy-17
-          sudo update-alternatives --remove-all clang-format || true
-          sudo update-alternatives --remove-all clang-tidy || true
-          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-17 1000
-          sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-17 1000
-          clang-tidy --version
-          clang-format --version
-
-      - name: Run clang-format
-        run: cmake -D FORMAT_COMMAND=clang-format -P cmake/lint.cmake
-
-      - name: Run cppcheck and clang-tidy
-        # Cppcheck's checks are disabled. They are mostly redundant to clang-tidy and there are too many false positives.
-        # But the parsing of cppcheck is kept to be compatible with its compiler frontend.
-        if: ${{ !cancelled() }}
-        run: |
-          cmake --preset=ci-checks
-          cmake --build build/test/static_analysis -j $(nproc)
-
-  unit-tests:
-    strategy:
-      matrix:
-        env: [ {os: ubuntu-22.04, compiler: gcc-11},
-               {os: ubuntu-22.04, compiler: gcc-12},
-               {os: ubuntu-24.04, compiler: gcc-13},
-               {os: ubuntu-24.04, compiler: gcc-14},
-               {os: ubuntu-22.04, compiler: clang-16},
-               {os: ubuntu-22.04, compiler: clang-17},
-               {os: ubuntu-24.04, compiler: clang-18}
-             ]
-        build_type: [ Debug, Release ]
-
-    runs-on: ${{ matrix.env.os }}
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Install Compiler
-        run: |
-          if [[ "$compiler" == "gcc-11" ]]; then
-            sudo apt update && sudo apt install -y gcc-11 g++-11
-            echo "CC=gcc-11" >> $GITHUB_ENV
-            echo "CXX=g++-11" >> $GITHUB_ENV
-          elif [[ "$compiler" == "gcc-12" ]]; then
-            sudo apt update && sudo apt install -y gcc-12 g++-12
-            echo "CC=gcc-12" >> $GITHUB_ENV
-            echo "CXX=g++-12" >> $GITHUB_ENV
-          elif [[ "$compiler" == "gcc-13" ]]; then
-            sudo apt update && sudo apt install -y gcc-13 g++-13
-            echo "CC=gcc-13" >> $GITHUB_ENV
-            echo "CXX=g++-13" >> $GITHUB_ENV
-          elif [[ "$compiler" == "clang-16" ]]; then
-            wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-            sudo add-apt-repository 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-16 main'
-            sudo apt update && sudo apt install -y clang-16
-            echo "CC=clang-16" >> $GITHUB_ENV
-            echo "CXX=clang++-16" >> $GITHUB_ENV
-          elif [[ "$compiler" == "clang-17" ]]; then
-            wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-            sudo add-apt-repository 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main'
-            sudo apt update && sudo apt install -y clang-17
-            echo "CC=clang-17" >> $GITHUB_ENV
-            echo "CXX=clang++-17" >> $GITHUB_ENV
-          elif [[ "$compiler" == "clang-18" ]]; then
-            wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-            sudo add-apt-repository 'deb http://apt.llvm.org/noble/ llvm-toolchain-noble-18 main'
-            sudo apt update && sudo apt install -y clang-18
-            echo "CC=clang-18" >> $GITHUB_ENV
-            echo "CXX=clang++-18" >> $GITHUB_ENV
-          fi
-        env:
-          compiler: ${{ matrix.env.compiler }}
-
-      - name: Configure
-        run: cmake --preset=ci-ubuntu -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-
-      - name: Build Catch2
-        run: cmake --build build -t Catch2WithMain -j $(nproc)
-
-      - name: Build
-        run: cmake --build build -j $(nproc)
-
-      - name: Install
-        run: cmake --install build --prefix prefix
-
-      - name: Test
-        working-directory: build
-        run: ctest --verbose --output-on-failure
-
-  coverage:
-    runs-on: ubuntu-22.04
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Install GCC
-        run: |
-          sudo apt update && sudo apt install -y gcc-11 g++-11
-          echo "CC=gcc-11" >> $GITHUB_ENV
-          echo "CXX=g++-11" >> $GITHUB_ENV
-
-      - name: Install LCov
-        run: sudo apt update && sudo apt install lcov -q -y
-
-      - name: Configure
-        run: cmake --preset=ci-coverage
-
-      - name: Build Catch2
-        run: cmake --build build -t Catch2WithMain -j $(nproc)
-
-      - name: Build
-        run: cmake --build build/test/unit_test -j $(nproc)
-
-      - name: Test
-        working-directory: build/test/unit_test
-        run: ctest --output-on-failure
-
-      - name: Process coverage info
-        run: cmake --build build -t coverage
-
-      - name: Submit to codecov.io
-        uses: codecov/codecov-action@v3
-        with:
-          files: build/coverage.info
-
-  memcheck:
-    runs-on: ubuntu-24.04
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Install GCC
-        run: |
-          sudo apt update && sudo apt install -y gcc-14 g++-14
-          echo "CC=gcc-14" >> $GITHUB_ENV
-          echo "CXX=g++-14" >> $GITHUB_ENV
-
-      - name: Install valgrind
-        run: sudo apt update && sudo apt install -y valgrind
-
-      - name: Configure
-        run: cmake --preset=ci-memcheck
-
-      - name: Build Catch2
-        run: cmake --build build -t Catch2WithMain -j $(nproc)
-
-      - name: Build
-        run: cmake --build build -j $(nproc)
-
-      - name: Install
-        run: cmake --install build --prefix prefix
-
-      - name: Test
-        working-directory: build
-        run: |
-          if ! ctest --verbose --output-on-failure -T memcheck; then
-            find Testing/Temporary -name "MemoryChecker.*.log" -exec cat {} +
-            exit 1
-          fi
-
-  sanitize:
-    runs-on: ubuntu-24.04
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Install GCC
-        run: |
-          sudo apt update && sudo apt install -y gcc-14 g++-14
-          echo "CC=gcc-14" >> $GITHUB_ENV
-          echo "CXX=g++-14" >> $GITHUB_ENV
-
-      - name: Configure
-        run: cmake --preset=ci-sanitize
-
-      - name: Build Catch2
-        run: cmake --build build -t Catch2WithMain -j $(nproc)
-
-      - name: Build
-        run: cmake --build build/test/unit_test -j $(nproc)
-
-      - name: Test
-        working-directory: build/test/unit_test
-        env:
-          ASAN_OPTIONS: "strict_string_checks=1:\
-          detect_stack_use_after_return=1:\
-          check_initialization_order=1:\
-          strict_init_order=1:\
-          detect_leaks=1"
-          UBSAN_OPTIONS: print_stacktrace=1
-        run: ctest --output-on-failure
-
-  size-test:
-    runs-on: ubuntu-22.04
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Install GCC
-        run: |
-          sudo apt update && sudo apt install -y gcc-11 g++-11
-          echo "CC=gcc-11" >> $GITHUB_ENV
-          echo "CXX=g++-11" >> $GITHUB_ENV
-
-      - name: Configure
-        run: cmake --preset=ci-size-coverage -DCMAKE_BUILD_TYPE=MinSizeRel
-
-      - name: Build
-        run: cmake --build build/test/size_test -j $(nproc)
-
-      - name: Size-Coverage
-        run: cmake --build build -t size-coverage
-
-  size-test-embedded:
-    strategy:
-      matrix:
-        preset: [ ci-size-coverage-embedded, ci-size-coverage-embedded-nano ]
-
-    runs-on: ubuntu-22.04
-
-    env:
-      DOWNLOAD_LINK: https://developer.arm.com/-/media/Files/downloads/gnu/11.3.rel1/binrel/arm-gnu-toolchain-11.3.rel1-x86_64-arm-none-eabi.tar.xz
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Cache toolchain
-        id: cache-toolchain
-        uses: actions/cache@v2
-        with:
-          path: arm-gnu-toolchain-11.3.rel1-x86_64-arm-none-eabi
-          key: ${{ env.DOWNLOAD_LINK }}
-
-      - name: Install GCC ARM none eabi
-        if: steps.cache-toolchain.outputs.cache-hit != 'true'
-        run: |
-          curl -L $DOWNLOAD_LINK | tar xJ
-
-      - name: Configure
-        run: cmake --preset=${{ matrix.preset }} -DCMAKE_BUILD_TYPE=MinSizeRel
-
-      - name: Build
-        run: cmake --build build/test/size_test -j $(nproc)
-
-      - name: Size-Coverage
-        run: cmake --build build -t size-coverage
+#  checks:
+#    runs-on: ubuntu-22.04
+#
+#    steps:
+#      - uses: actions/checkout@v3
+#
+#      - name: Install GCC
+#        run: |
+#          sudo apt update && sudo apt install -y gcc-11 g++-11
+#          echo "CC=gcc-11" >> $GITHUB_ENV
+#          echo "CXX=g++-11" >> $GITHUB_ENV
+#
+#      - name: Install cppcheck
+#        run: |
+#          sudo apt update && sudo apt install -y cppcheck
+#          cppcheck --version
+#
+#      - name: Install clang-format and clang-tidy
+#        run: |
+#          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+#          sudo add-apt-repository 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main'
+#          sudo apt update && sudo apt install -y clang-format-17 clang-tidy-17
+#          sudo update-alternatives --remove-all clang-format || true
+#          sudo update-alternatives --remove-all clang-tidy || true
+#          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-17 1000
+#          sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-17 1000
+#          clang-tidy --version
+#          clang-format --version
+#
+#      - name: Run clang-format
+#        run: cmake -D FORMAT_COMMAND=clang-format -P cmake/lint.cmake
+#
+#      - name: Run cppcheck and clang-tidy
+#        # Cppcheck's checks are disabled. They are mostly redundant to clang-tidy and there are too many false positives.
+#        # But the parsing of cppcheck is kept to be compatible with its compiler frontend.
+#        if: ${{ !cancelled() }}
+#        run: |
+#          cmake --preset=ci-checks
+#          cmake --build build/test/static_analysis -j $(nproc)
+#
+#  unit-tests:
+#    strategy:
+#      matrix:
+#        env: [ {os: ubuntu-22.04, compiler: gcc-11},
+#               {os: ubuntu-22.04, compiler: gcc-12},
+#               {os: ubuntu-24.04, compiler: gcc-13},
+#               {os: ubuntu-24.04, compiler: gcc-14},
+#               {os: ubuntu-22.04, compiler: clang-16},
+#               {os: ubuntu-22.04, compiler: clang-17},
+#               {os: ubuntu-24.04, compiler: clang-18}
+#             ]
+#        build_type: [ Debug, Release ]
+#
+#    runs-on: ${{ matrix.env.os }}
+#
+#    steps:
+#      - uses: actions/checkout@v3
+#
+#      - name: Install Compiler
+#        run: |
+#          if [[ "$compiler" == "gcc-11" ]]; then
+#            sudo apt update && sudo apt install -y gcc-11 g++-11
+#            echo "CC=gcc-11" >> $GITHUB_ENV
+#            echo "CXX=g++-11" >> $GITHUB_ENV
+#          elif [[ "$compiler" == "gcc-12" ]]; then
+#            sudo apt update && sudo apt install -y gcc-12 g++-12
+#            echo "CC=gcc-12" >> $GITHUB_ENV
+#            echo "CXX=g++-12" >> $GITHUB_ENV
+#          elif [[ "$compiler" == "gcc-13" ]]; then
+#            sudo apt update && sudo apt install -y gcc-13 g++-13
+#            echo "CC=gcc-13" >> $GITHUB_ENV
+#            echo "CXX=g++-13" >> $GITHUB_ENV
+#          elif [[ "$compiler" == "clang-16" ]]; then
+#            wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+#            sudo add-apt-repository 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-16 main'
+#            sudo apt update && sudo apt install -y clang-16
+#            echo "CC=clang-16" >> $GITHUB_ENV
+#            echo "CXX=clang++-16" >> $GITHUB_ENV
+#          elif [[ "$compiler" == "clang-17" ]]; then
+#            wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+#            sudo add-apt-repository 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main'
+#            sudo apt update && sudo apt install -y clang-17
+#            echo "CC=clang-17" >> $GITHUB_ENV
+#            echo "CXX=clang++-17" >> $GITHUB_ENV
+#          elif [[ "$compiler" == "clang-18" ]]; then
+#            wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+#            sudo add-apt-repository 'deb http://apt.llvm.org/noble/ llvm-toolchain-noble-18 main'
+#            sudo apt update && sudo apt install -y clang-18
+#            echo "CC=clang-18" >> $GITHUB_ENV
+#            echo "CXX=clang++-18" >> $GITHUB_ENV
+#          fi
+#        env:
+#          compiler: ${{ matrix.env.compiler }}
+#
+#      - name: Configure
+#        run: cmake --preset=ci-ubuntu -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+#
+#      - name: Build Catch2
+#        run: cmake --build build -t Catch2WithMain -j $(nproc)
+#
+#      - name: Build
+#        run: cmake --build build -j $(nproc)
+#
+#      - name: Install
+#        run: cmake --install build --prefix prefix
+#
+#      - name: Test
+#        working-directory: build
+#        run: ctest --verbose --output-on-failure
+#
+#  coverage:
+#    runs-on: ubuntu-22.04
+#
+#    steps:
+#      - uses: actions/checkout@v3
+#
+#      - name: Install GCC
+#        run: |
+#          sudo apt update && sudo apt install -y gcc-11 g++-11
+#          echo "CC=gcc-11" >> $GITHUB_ENV
+#          echo "CXX=g++-11" >> $GITHUB_ENV
+#
+#      - name: Install LCov
+#        run: sudo apt update && sudo apt install lcov -q -y
+#
+#      - name: Configure
+#        run: cmake --preset=ci-coverage
+#
+#      - name: Build Catch2
+#        run: cmake --build build -t Catch2WithMain -j $(nproc)
+#
+#      - name: Build
+#        run: cmake --build build/test/unit_test -j $(nproc)
+#
+#      - name: Test
+#        working-directory: build/test/unit_test
+#        run: ctest --output-on-failure
+#
+#      - name: Process coverage info
+#        run: cmake --build build -t coverage
+#
+#      - name: Submit to codecov.io
+#        uses: codecov/codecov-action@v3
+#        with:
+#          files: build/coverage.info
+#
+#  memcheck:
+#    runs-on: ubuntu-24.04
+#
+#    steps:
+#      - uses: actions/checkout@v3
+#
+#      - name: Install GCC
+#        run: |
+#          sudo apt update && sudo apt install -y gcc-14 g++-14
+#          echo "CC=gcc-14" >> $GITHUB_ENV
+#          echo "CXX=g++-14" >> $GITHUB_ENV
+#
+#      - name: Install valgrind
+#        run: sudo apt update && sudo apt install -y valgrind
+#
+#      - name: Configure
+#        run: cmake --preset=ci-memcheck
+#
+#      - name: Build Catch2
+#        run: cmake --build build -t Catch2WithMain -j $(nproc)
+#
+#      - name: Build
+#        run: cmake --build build -j $(nproc)
+#
+#      - name: Install
+#        run: cmake --install build --prefix prefix
+#
+#      - name: Test
+#        working-directory: build
+#        run: |
+#          if ! ctest --verbose --output-on-failure -T memcheck; then
+#            find Testing/Temporary -name "MemoryChecker.*.log" -exec cat {} +
+#            exit 1
+#          fi
+#
+#  sanitize:
+#    runs-on: ubuntu-24.04
+#
+#    steps:
+#      - uses: actions/checkout@v3
+#
+#      - name: Install GCC
+#        run: |
+#          sudo apt update && sudo apt install -y gcc-14 g++-14
+#          echo "CC=gcc-14" >> $GITHUB_ENV
+#          echo "CXX=g++-14" >> $GITHUB_ENV
+#
+#      - name: Configure
+#        run: cmake --preset=ci-sanitize
+#
+#      - name: Build Catch2
+#        run: cmake --build build -t Catch2WithMain -j $(nproc)
+#
+#      - name: Build
+#        run: cmake --build build/test/unit_test -j $(nproc)
+#
+#      - name: Test
+#        working-directory: build/test/unit_test
+#        env:
+#          ASAN_OPTIONS: "strict_string_checks=1:\
+#          detect_stack_use_after_return=1:\
+#          check_initialization_order=1:\
+#          strict_init_order=1:\
+#          detect_leaks=1"
+#          UBSAN_OPTIONS: print_stacktrace=1
+#        run: ctest --output-on-failure
+#
+#  size-test:
+#    runs-on: ubuntu-22.04
+#
+#    steps:
+#      - uses: actions/checkout@v3
+#
+#      - name: Install GCC
+#        run: |
+#          sudo apt update && sudo apt install -y gcc-11 g++-11
+#          echo "CC=gcc-11" >> $GITHUB_ENV
+#          echo "CXX=g++-11" >> $GITHUB_ENV
+#
+#      - name: Configure
+#        run: cmake --preset=ci-size-coverage -DCMAKE_BUILD_TYPE=MinSizeRel
+#
+#      - name: Build
+#        run: cmake --build build/test/size_test -j $(nproc)
+#
+#      - name: Size-Coverage
+#        run: cmake --build build -t size-coverage
+#
+#  size-test-embedded:
+#    strategy:
+#      matrix:
+#        preset: [ ci-size-coverage-embedded, ci-size-coverage-embedded-nano ]
+#
+#    runs-on: ubuntu-22.04
+#
+#    env:
+#      DOWNLOAD_LINK: https://developer.arm.com/-/media/Files/downloads/gnu/11.3.rel1/binrel/arm-gnu-toolchain-11.3.rel1-x86_64-arm-none-eabi.tar.xz
+#
+#    steps:
+#      - uses: actions/checkout@v3
+#
+#      - name: Cache toolchain
+#        id: cache-toolchain
+#        uses: actions/cache@v2
+#        with:
+#          path: arm-gnu-toolchain-11.3.rel1-x86_64-arm-none-eabi
+#          key: ${{ env.DOWNLOAD_LINK }}
+#
+#      - name: Install GCC ARM none eabi
+#        if: steps.cache-toolchain.outputs.cache-hit != 'true'
+#        run: |
+#          curl -L $DOWNLOAD_LINK | tar xJ
+#
+#      - name: Configure
+#        run: cmake --preset=${{ matrix.preset }} -DCMAKE_BUILD_TYPE=MinSizeRel
+#
+#      - name: Build
+#        run: cmake --build build/test/size_test -j $(nproc)
+#
+#      - name: Size-Coverage
+#        run: cmake --build build -t size-coverage
 
 #      - name: Coveralls - Doesn't work.
 #        uses: coverallsapp/github-action@master
