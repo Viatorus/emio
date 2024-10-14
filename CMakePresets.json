@@ -234,7 +234,7 @@
         "dev-mode"
       ],
       "cacheVariables": {
-        "BUILD_LINK_TEST": "ON",
+        "BUILD_LINK_TEST": "ON"
       }
     }
   ],
