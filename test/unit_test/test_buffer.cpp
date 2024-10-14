@@ -456,6 +456,15 @@ TEST_CASE("static_buffer", "[buffer]") {
 
   emio::static_buffer<542> buf;
 
+  {
+    emio::buffer* b = new emio::static_buffer<542>;
+    delete b;
+  }
+  {
+    emio::static_buffer<542>* b = new emio::static_buffer<542>;
+    delete b;
+  }
+
   if (checkpoint == 0) {
     check_gang_of_5(buf, true);
     return;
