@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
 
-project(emioCompileTests LANGUAGES CXX)
+project(emioLinkTests LANGUAGES CXX)
 
 include(${CMAKE_SOURCE_DIR}/cmake/project-is-top-level.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/folders.cmake)

@@ -225,6 +225,17 @@
         "SIZE_COVERAGE_HTML_COMMAND": "",
         "SIZE_TOOL": "arm-none-eabi-size"
       }
+    },
+    {
+      "name": "ci-link-embedded",
+      "inherits": [
+        "ci-build",
+        "ci-arm-none-eabi",
+        "dev-mode"
+      ],
+      "cacheVariables": {
+        "BUILD_LINK_TEST": "ON",
+      }
     }
   ],
   "buildPresets": [

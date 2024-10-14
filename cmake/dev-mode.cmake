@@ -43,10 +43,14 @@ endif ()
 
 
 if (BUILD_TESTING)
-    add_subdirectory(test/benchmark)
     add_subdirectory(test/compile_test)
+    add_subdirectory(test/benchmark)
     add_subdirectory(test/static_analysis)
     add_subdirectory(test/unit_test)
+endif ()
+
+if (BUILD_LINK_TEST)
+    add_subdirectory(test/link_test)
 endif ()
 
 if (BUILD_SIZE_COVERAGE)
