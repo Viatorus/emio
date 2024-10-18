@@ -450,8 +450,10 @@ inline consteval std::string_view sv(std::string_view sv) noexcept {
 #include <concepts>
 #include <cstdint>
 #include <optional>
+#include <string_view>
 #if __STDC_HOSTED__
 #  include <stdexcept>
+#  include <string>
 #endif
 #include <type_traits>
 
@@ -641,7 +643,7 @@ class [[nodiscard]] result<Value> {
    */
   constexpr std::remove_reference_t<Value>* operator->() noexcept {
     EMIO_Z_DEV_ASSERT(has_value());
-    return &*value_;
+    return &*value_;  // NOLINT(bugprone-unchecked-optional-access): assumed
   }
 
   /**
@@ -651,7 +653,7 @@ class [[nodiscard]] result<Value> {
    */
   constexpr const std::remove_reference_t<Value>* operator->() const noexcept {
     EMIO_Z_DEV_ASSERT(has_value());
-    return &*value_;
+    return &*value_;  // NOLINT(bugprone-unchecked-optional-access): assumed
   }
 
   /**
@@ -1755,8 +1757,8 @@ class memory_buffer final : public buffer {
    * @param capacity The initial capacity.
    */
   constexpr explicit memory_buffer(const size_t capacity) noexcept {
-    // Request at least the internal storage size.
-    static_cast<void>(request_write_area(0, std::max(vec_.capacity(), capacity)));
+    // Request at least the internal storage size. Should never fail.
+    request_write_area(0, std::max(vec_.capacity(), capacity)).value();
   }
 
   constexpr memory_buffer(const memory_buffer& other)
@@ -1819,7 +1821,7 @@ class memory_buffer final : public buffer {
   constexpr void reset() noexcept {
     used_ = 0;
     vec_.clear();
-    static_cast<void>(request_write_area(0, vec_.capacity()));
+    request_write_area(0, vec_.capacity()).value();
   }
 
   /**
@@ -2140,7 +2142,7 @@ class iterator_buffer<std::back_insert_iterator<Container>, Capacity> final : pu
    */
   constexpr explicit iterator_buffer(std::back_insert_iterator<Container> it) noexcept
       : container_{detail::get_container(it)} {
-    static_cast<void>(request_write_area(0, std::min(container_.capacity(), Capacity)));
+    request_write_area(0, std::min(container_.capacity(), Capacity)).value();
   }
 
   iterator_buffer(const iterator_buffer&) = delete;
@@ -2706,7 +2708,7 @@ class validated_string_storage {
     if (Trait::template validate_string<Args...>(s)) {
       return {{false, s}};
     }
-    return {};
+    return {{false, err::invalid_format}};
   }
 
   constexpr validated_string_storage() noexcept = default;
@@ -2717,6 +2719,14 @@ class validated_string_storage {
    */
   [[nodiscard]] constexpr bool is_plain_str() const noexcept {
     return str_.first;
+  }
+
+  /**
+   * Returns if it is an empty string.
+   * @return True, if the string is empty, otherwise false.
+   */
+  [[nodiscard]] constexpr bool empty() const noexcept {
+    return is_plain_str() && str_.second->empty();
   }
 
   /**
@@ -2732,7 +2742,7 @@ class validated_string_storage {
   constexpr validated_string_storage(const std::pair<bool, result<std::string_view>>& str) noexcept : str_{str} {}
 
   // Wonder why pair and not two variables? Look at this bug report: https://github.com/llvm/llvm-project/issues/67731
-  std::pair<bool, result<std::string_view>> str_{false, err::invalid_format};
+  std::pair<bool, result<std::string_view>> str_{true, ""};
 };
 
 }  // namespace emio::detail
@@ -2865,6 +2875,7 @@ class arg {
 template <typename Arg>
 class args_span {
  public:
+  args_span() = default;
   args_span(const args_span&) = delete;
   args_span(args_span&&) = delete;
   args_span& operator=(const args_span&) = delete;
@@ -2879,24 +2890,42 @@ class args_span {
   args_span(std::span<const Arg> args) : args_{args} {}
 
  private:
-  std::span<const Arg> args_;
+  std::span<const Arg> args_{};
 };
 
 template <typename Arg>
 class args_span_with_str : public args_span<Arg> {
  public:
+  args_span_with_str() = default;
   args_span_with_str(const args_span_with_str&) = delete;
   args_span_with_str(args_span_with_str&&) = delete;
   args_span_with_str& operator=(const args_span_with_str&) = delete;
   args_span_with_str& operator=(args_span_with_str&&) = delete;
   ~args_span_with_str() = default;
 
+  /**
+   * Returns the validated format/scan string.
+   * @return The view or invalid_format if the validation failed.
+   */
   [[nodiscard]] result<std::string_view> get_str() const noexcept {
     return str_.get();
   }
 
+  /**
+   * Returns if it is just a plain string without arguments.
+   * @return True, if the string does not contain any escape sequences, replacement fields or arguments, otherwise
+   * false.
+   */
   [[nodiscard]] constexpr bool is_plain_str() const noexcept {
     return str_.is_plain_str();
+  }
+
+  /**
+   * Returns if it is an empty string without arguments.
+   * @return True, if the string is empty without any arguments, otherwise false.
+   */
+  [[nodiscard]] constexpr bool empty() const noexcept {
+    return str_.empty();
   }
 
  protected:
@@ -2905,7 +2934,7 @@ class args_span_with_str : public args_span<Arg> {
       : args_span<Arg>(args), str_{str} {}
 
  private:
-  validated_string_storage str_;
+  validated_string_storage str_{};
 };
 
 template <typename Arg, size_t NbrOfArgs>
