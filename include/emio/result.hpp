@@ -9,8 +9,10 @@
 #include <concepts>
 #include <cstdint>
 #include <optional>
+#include <string_view>
 #if __STDC_HOSTED__
 #  include <stdexcept>
+#  include <string>
 #endif
 #include <type_traits>
 
