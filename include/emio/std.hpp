@@ -7,7 +7,7 @@
 #pragma once
 
 #include <exception>
-#if __has_include(<expected>)
+#if __cplusplus >= 202302L && __has_include(<expected>)
 #  include <expected>
 #endif
 #if __STDC_HOSTED__
@@ -150,7 +150,7 @@ class formatter<std::variant<Ts...>> {
   }
 };
 
-#if __has_include(<expected>)
+#if __cplusplus >= 202302L && __has_include(<expected>)
 /**
  * Formatter for std::expected.
  * @tparam T The value type.

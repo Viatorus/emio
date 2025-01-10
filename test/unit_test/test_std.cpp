@@ -78,7 +78,7 @@ TEST_CASE("std::variant") {
   }
 }
 
-#if __has_include(<expected>)
+#if __cplusplus >= 202302L && __has_include(<expected>)
 TEST_CASE("std::expected") {
   STATIC_CHECK_FALSE(emio::is_formattable_v<std::expected<unformattable, int>>);
   STATIC_CHECK_FALSE(emio::is_formattable_v<std::expected<int, unformattable>>);
