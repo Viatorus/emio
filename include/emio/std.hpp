@@ -12,6 +12,9 @@
 #endif
 #include <optional>
 #include <variant>
+#if defined(__cpp_lib_expected)
+#  include <expected>
+#endif
 
 #include "formatter.hpp"
 
@@ -142,5 +145,40 @@ class formatter<std::variant<Ts...>> {
     return out.write_char(')');
   }  // namespace emio
 };
+
+#if defined(__cpp_lib_expected)
+/**
+ * Formatter for std::expected.
+ * @tparam T The value type.
+ * @tparam E The error type.
+ */
+template <typename T, typename E>
+  requires((!std::is_void_v<T> && is_formattable_v<T> || std::is_void_v<T>) && is_formattable_v<E>)
+class formatter<std::expected<T, E>> {
+ public:
+  static constexpr result<void> validate(reader& format_rdr) noexcept {
+    return format_rdr.read_if_match_char('}');
+  }
+
+  constexpr result<void> parse(reader& format_rdr) noexcept {
+    return format_rdr.read_if_match_char('}');
+  }
+
+  constexpr result<void> format(writer& out, const std::expected<T, E>& arg) const noexcept {
+    if (arg.has_value()) {
+      EMIO_TRYV(out.write_str(detail::sv("expected(")));
+      if constexpr (std::is_void_v<T>) {
+        EMIO_TRYV(out.write_str(detail::sv("void")));
+      } else {
+        EMIO_TRYV(formatter<T>{}.format(out, arg.value()));
+      }
+    } else {
+      EMIO_TRYV(out.write_str(detail::sv("unexpected(")));
+      EMIO_TRYV(formatter<E>{}.format(out, arg.error()));
+    }
+    return out.write_char(')');
+  }
+};
+#endif
 
 }  // namespace emio

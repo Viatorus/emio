@@ -79,3 +79,36 @@ TEST_CASE("std::variant") {
     CHECK(emio::format("{}", v2) == "variant(valueless by exception)");
   }
 }
+
+#if defined(__cpp_lib_expected)
+TEST_CASE("std::expected") {
+  // Non-void value tests
+  CHECK(emio::format("{}", std::expected<int, std::string>{42}) == "expected(42)");
+  CHECK(emio::format("{}", std::expected<int, std::string>{std::unexpected{"error"}}) == "unexpected(\"error\")");
+  
+  // Complex types
+  CHECK(emio::format("{}", std::expected<std::vector<char>, std::string>{std::vector{'a', 'b'}}) == 
+        "expected(['a', 'b'])");
+  
+  // void value tests
+  CHECK(emio::format("{}", std::expected<void, std::string>{}) == "expected(void)");
+  CHECK(emio::format("{}", std::expected<void, std::string>{std::unexpected{"error"}}) == 
+        "unexpected(\"error\")");
+  
+  // Formattability checks
+  STATIC_CHECK(emio::is_formattable_v<std::expected<int, std::string>>);
+  STATIC_CHECK(emio::is_formattable_v<std::expected<void, std::string>>);
+  STATIC_CHECK_FALSE(emio::is_formattable_v<std::expected<int, unformattable>>);
+  STATIC_CHECK_FALSE(emio::is_formattable_v<std::expected<unformattable, std::string>>);
+  STATIC_CHECK(emio::is_formattable_v<std::expected<void, int>>);
+  
+  // Nested expected
+  CHECK(emio::format("{}", std::expected<std::expected<int, std::string>, std::string>{
+                              std::expected<int, std::string>{42}}) == 
+        "expected(expected(42))");
+  
+  CHECK(emio::format("{}", std::expected<std::expected<void, std::string>, std::string>{
+                              std::expected<void, std::string>{}}) == 
+        "expected(expected(void))");
+}
+#endif
