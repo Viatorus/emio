@@ -6,8 +6,12 @@
 
 #pragma once
 
+// Include first.
+#include <version>
+
+// Other.
 #include <exception>
-#if __cplusplus >= 202302L && __has_include(<expected>)
+#if defined(__cpp_lib_expected)
 #  include <expected>
 #endif
 #if __STDC_HOSTED__
@@ -150,14 +154,14 @@ class formatter<std::variant<Ts...>> {
   }
 };
 
-#if __cplusplus >= 202302L && __has_include(<expected>)
+#if defined(__cpp_lib_expected)
 /**
  * Formatter for std::expected.
  * @tparam T The value type.
  * @tparam E The error type.
  */
 template <typename T, typename E>
-  requires((!std::is_void_v<T> && is_formattable_v<T> || std::is_void_v<T>) && is_formattable_v<E>)
+  requires(((!std::is_void_v<T> && is_formattable_v<T>) || std::is_void_v<T>) && is_formattable_v<E>)
 class formatter<std::expected<T, E>> {
  public:
   static constexpr result<void> validate(reader& format_rdr) noexcept {
