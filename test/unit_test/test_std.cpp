@@ -101,6 +101,6 @@ TEST_CASE("std::expected") {
                                std::expected<int, std::string>{42}}) == "expected(expected(42))");
 
   CHECK(emio::format("{}", std::expected<std::expected<void, std::string>, std::string>{
-                               std::expected<void, std::string>{}}) == "expected(expected(void))");
+                               std::expected<void, std::string>{}}) == "expected(expected())");
 }
 #endif
