@@ -78,7 +78,7 @@ TEST_CASE("std::variant") {
   }
 }
 
-#if defined(__cpp_lib_expected)
+#if __has_include(<expected>)
 TEST_CASE("std::expected") {
   STATIC_CHECK_FALSE(emio::is_formattable_v<std::expected<unformattable, int>>);
   STATIC_CHECK_FALSE(emio::is_formattable_v<std::expected<int, unformattable>>);

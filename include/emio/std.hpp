@@ -7,14 +7,14 @@
 #pragma once
 
 #include <exception>
+#if __has_include(<expected>)
+#  include <expected>
+#endif
 #if __STDC_HOSTED__
 #  include <filesystem>
 #endif
 #include <optional>
 #include <variant>
-#if defined(__cpp_lib_expected)
-#  include <expected>
-#endif
 
 #include "formatter.hpp"
 
@@ -150,7 +150,7 @@ class formatter<std::variant<Ts...>> {
   }
 };
 
-#if defined(__cpp_lib_expected)
+#if __has_include(<expected>)
 /**
  * Formatter for std::expected.
  * @tparam T The value type.
