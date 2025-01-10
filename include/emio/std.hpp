@@ -95,6 +95,26 @@ class formatter<std::monostate> {
   }
 };
 
+namespace detail {
+
+template <typename T>
+constexpr result<void> format_escaped_alternative(writer& out, const T& val) noexcept {
+  if constexpr (std::is_same_v<T, char>) {
+    return out.write_char_escaped(val);
+  } else if constexpr (std::is_same_v<T, std::string_view>) {
+    return out.write_str_escaped(val);
+  } else if constexpr (!std::is_null_pointer_v<T> && std::is_constructible_v<std::string_view, T>) {
+    return out.write_str_escaped(std::string_view{val});
+  } else {
+    formatter<T> fmt;
+    emio::reader rdr{detail::sv("}")};
+    EMIO_TRYV(fmt.parse(rdr));
+    return fmt.format(out, val);
+  }
+}
+
+}  // namespace detail
+
 /**
  * Formatter for std::variant.
  * @tparam Ts The types to format.
@@ -116,34 +136,16 @@ class formatter<std::variant<Ts...>> {
 #ifdef __EXCEPTIONS
     try {
 #endif
-      EMIO_TRYV(std::visit(detail::overload{
-                               [&](const char& val) -> result<void> {
-                                 return out.write_char_escaped(val);
-                               },
-                               [&](const std::string_view& val) -> result<void> {
-                                 return out.write_str_escaped(val);
-                               },
-                               [&](const auto& val) -> result<void> {
-                                 using T = std::decay_t<decltype(val)>;
-                                 if constexpr (!std::is_null_pointer_v<T> &&
-                                               std::is_constructible_v<std::string_view, T>) {
-                                   return out.write_str_escaped(std::string_view{val});
-                                 } else {
-                                   formatter<T> fmt;
-                                   emio::reader rdr{detail::sv("}")};
-                                   EMIO_TRYV(fmt.parse(rdr));
-                                   return fmt.format(out, val);
-                                 }
-                               },
-                           },
-                           arg));
+      EMIO_TRYV(std::visit([&out](const auto& val) -> result<void> {
+        return detail::format_escaped_alternative(out, val);
+      }, arg));
 #ifdef __EXCEPTIONS
     } catch (const std::bad_variant_access&) {
       EMIO_TRYV(out.write_str(detail::sv("valueless by exception")));
     }
 #endif
     return out.write_char(')');
-  }  // namespace emio
+  }
 };
 
 #if defined(__cpp_lib_expected)
@@ -167,14 +169,14 @@ class formatter<std::expected<T, E>> {
   constexpr result<void> format(writer& out, const std::expected<T, E>& arg) const noexcept {
     if (arg.has_value()) {
       EMIO_TRYV(out.write_str(detail::sv("expected(")));
-      if constexpr (std::is_void_v<T>) {
+      if constexpr (!std::is_void_v<T>) {
         EMIO_TRYV(out.write_str(detail::sv("void")));
       } else {
-        EMIO_TRYV(formatter<T>{}.format(out, arg.value()));
+        EMIO_TRYV(detail::format_escaped_alternative(out, arg.value()));
       }
     } else {
       EMIO_TRYV(out.write_str(detail::sv("unexpected(")));
-      EMIO_TRYV(formatter<E>{}.format(out, arg.error()));
+      EMIO_TRYV(detail::format_escaped_alternative(out, arg.error()));
     }
     return out.write_char(')');
   }
