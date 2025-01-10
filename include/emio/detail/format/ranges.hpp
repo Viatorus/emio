@@ -43,7 +43,7 @@ template <typename T>
 concept is_set = requires(T x) { typename T::key_type; };
 
 template <typename T>
-concept is_string_like = std::is_constructible_v<std::string_view, T>;
+concept is_string_like = !std::is_null_pointer_v<T> && std::is_convertible_v<T, std::string_view>;
 
 template <typename T>
 concept is_valid_range = is_iterable<T> && !is_string_like<T> && is_formattable_v<element_type_t<T>>;

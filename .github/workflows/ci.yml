@@ -58,8 +58,11 @@ jobs:
                {os: ubuntu-24.04, compiler: gcc-14, std: 20},
                {os: ubuntu-24.04, compiler: gcc-14, std: 23},
                {os: ubuntu-22.04, compiler: clang-16, std: 20},
+               {os: ubuntu-22.04, compiler: clang-16, std: 23},
                {os: ubuntu-22.04, compiler: clang-17, std: 20},
-               {os: ubuntu-24.04, compiler: clang-18, std: 20}
+               {os: ubuntu-22.04, compiler: clang-17, std: 23},
+               {os: ubuntu-24.04, compiler: clang-18, std: 20},
+               {os: ubuntu-24.04, compiler: clang-18, std: 23}
              ]
         build_type: [ Debug, Release ]
 
