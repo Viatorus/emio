@@ -53,8 +53,6 @@ std::string_view format_as(const throws_on_move&) {
 }  // namespace
 
 TEST_CASE("std::variant") {
-  STATIC_CHECK(emio::is_formattable_v<std::string>);
-
   std::variant<std::monostate, int, double, char, std::nullptr_t, std::string> v{};
   CHECK(emio::format("{}", v) == "variant(monostate)");
   CHECK(emio::format(emio::runtime("{}"), v) == "variant(monostate)");
@@ -79,3 +77,30 @@ TEST_CASE("std::variant") {
     CHECK(emio::format("{}", v2) == "variant(valueless by exception)");
   }
 }
+
+#if defined(__cpp_lib_expected)
+TEST_CASE("std::expected") {
+  STATIC_CHECK_FALSE(emio::is_formattable_v<std::expected<unformattable, int>>);
+  STATIC_CHECK_FALSE(emio::is_formattable_v<std::expected<int, unformattable>>);
+  STATIC_CHECK_FALSE(emio::is_formattable_v<std::expected<unformattable, unformattable>>);
+
+  // Non-void value tests
+  CHECK(emio::format("{}", std::expected<int, std::string>{42}) == "expected(42)");
+  CHECK(emio::format("{}", std::expected<int, std::string>{std::unexpected{"error"}}) == "unexpected(\"error\")");
+
+  // Complex types
+  CHECK(emio::format("{}", std::expected<std::vector<char>, std::string>{std::vector{'a', 'b'}}) ==
+        "expected(['a', 'b'])");
+
+  // void value tests
+  CHECK(emio::format("{}", std::expected<void, std::string>{}) == "expected()");
+  CHECK(emio::format("{}", std::expected<void, std::string>{std::unexpected{"error"}}) == "unexpected(\"error\")");
+
+  // Nested expected
+  CHECK(emio::format("{}", std::expected<std::expected<int, std::string>, std::string>{
+                               std::expected<int, std::string>{42}}) == "expected(expected(42))");
+
+  CHECK(emio::format("{}", std::expected<std::expected<void, std::string>, std::string>{
+                               std::expected<void, std::string>{}}) == "expected(expected())");
+}
+#endif

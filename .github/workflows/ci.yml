@@ -50,13 +50,21 @@ jobs:
   unit-tests:
     strategy:
       matrix:
-        env: [ {os: ubuntu-22.04, compiler: gcc-11},
-               {os: ubuntu-22.04, compiler: gcc-12},
-               {os: ubuntu-24.04, compiler: gcc-13},
-               {os: ubuntu-24.04, compiler: gcc-14},
-               {os: ubuntu-22.04, compiler: clang-16},
-               {os: ubuntu-22.04, compiler: clang-17},
-               {os: ubuntu-24.04, compiler: clang-18}
+        env: [ {os: ubuntu-22.04, compiler: gcc-11, std: 20},
+               {os: ubuntu-22.04, compiler: gcc-12, std: 20},
+               {os: ubuntu-22.04, compiler: gcc-12, std: 23},
+               {os: ubuntu-24.04, compiler: gcc-13, std: 20},
+               {os: ubuntu-24.04, compiler: gcc-13, std: 23},
+               {os: ubuntu-24.04, compiler: gcc-14, std: 20},
+               {os: ubuntu-24.04, compiler: gcc-14, std: 23},
+               {os: ubuntu-22.04, compiler: clang-16, std: 20},
+               {os: ubuntu-22.04, compiler: clang-16, std: 23},
+               {os: ubuntu-22.04, compiler: clang-17, std: 20},
+               {os: ubuntu-22.04, compiler: clang-17, std: 23},
+               {os: ubuntu-24.04, compiler: clang-18, std: 20},
+               {os: ubuntu-24.04, compiler: clang-18, std: 23},
+               {os: ubuntu-24.04, compiler: clang-19, std: 20},
+               {os: ubuntu-24.04, compiler: clang-19, std: 23}
              ]
         build_type: [ Debug, Release ]
 
@@ -102,7 +110,7 @@ jobs:
           compiler: ${{ matrix.env.compiler }}
 
       - name: Configure
-        run: cmake --preset=ci-ubuntu -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        run: cmake --preset=ci-ubuntu -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_CXX_STANDARD=${{ matrix.env.std }}
 
       - name: Build Catch2
         run: cmake --build build -t Catch2WithMain -j $(nproc)

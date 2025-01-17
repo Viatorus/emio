@@ -841,7 +841,7 @@ struct unified_type {
 };
 
 template <typename T>
-  requires(!std::is_integral_v<T> && !std::is_null_pointer_v<T> && std::is_constructible_v<std::string_view, T>)
+  requires(!std::is_integral_v<T> && !std::is_null_pointer_v<T> && std::is_convertible_v<T, std::string_view>)
 struct unified_type<T> {
   using type = std::string_view;
 };
