@@ -439,6 +439,56 @@ inline consteval std::string_view sv(std::string_view sv) noexcept {
   return sv;
 }
 
+// T::iterator and T::const_iterator are not guaranteed to be pointers.
+// But emio uses pointers to char* and const char*. Therefore, these helper functions are needed.
+
+template <typename T>
+concept is_iterable = requires(T&& t) {
+  t.begin() != t.end();                    // begin/end and operator !=
+  ++std::declval<decltype(t.begin())&>();  // operator ++
+  *t.begin();                              // operator*
+};
+
+template <typename T>
+  requires is_iterable<T>
+constexpr auto begin(T& obj) noexcept {
+  if constexpr (std::is_same_v<std::remove_pointer_t<typename T::iterator>, char>) {
+    return obj.begin();
+  } else {
+    return &*obj.begin();
+  }
+}
+
+template <typename T>
+  requires is_iterable<T>
+constexpr auto end(T& obj) noexcept {
+  if constexpr (std::is_same_v<std::remove_pointer_t<typename T::iterator>, char>) {
+    return obj.end();
+  } else {
+    return &*obj.end();
+  }
+}
+
+template <typename T>
+  requires is_iterable<T>
+constexpr const char* begin(const T& obj) noexcept {
+  if constexpr (std::is_same_v<std::remove_pointer_t<typename T::const_iterator>, char>) {
+    return obj.begin();
+  } else {
+    return &*obj.begin();
+  }
+}
+
+template <typename T>
+  requires is_iterable<T>
+constexpr const char* end(const T& obj) noexcept {
+  if constexpr (std::is_same_v<std::remove_pointer_t<typename T::const_iterator>, char>) {
+    return obj.end();
+  } else {
+    return &*obj.end();
+  }
+}
+
 }  // namespace emio::detail
 
 //
@@ -1066,7 +1116,8 @@ class reader {
    * Constructs the reader from a string view.
    * @param sv The string view.
    */
-  constexpr explicit reader(const std::string_view& sv) noexcept : begin_{sv.begin()}, it_{begin_}, end_{sv.end()} {}
+  constexpr explicit reader(const std::string_view& sv) noexcept
+      : begin_{detail::begin(sv)}, it_{begin_}, end_{detail::end(sv)} {}
 
   /**
    * Returns the current read position.
@@ -1318,7 +1369,7 @@ class reader {
     if (static_cast<size_t>(end_ - it_) < n) {
       return err::eof;
     }
-    if (detail::equal_n(it_, sv.begin(), n)) {
+    if (detail::equal_n(it_, detail::begin(sv), n)) {
       const std::string_view res{it_, n};
       it_ += n;
       return res;
@@ -1945,7 +1996,7 @@ class static_buffer final : private std::array<char, StorageSize>, public span_b
 
   constexpr static_buffer(const static_buffer& other) : static_buffer() {
     const std::span<char> area = get_write_area_of(other.get_used_count()).value();
-    detail::copy_n(other.begin(), area.size(), area.data());
+    detail::copy_n(&*other.begin(), area.size(), area.data());
   }
 
   // NOLINTNEXTLINE(performance-move-constructor-init): optimized move not possible
@@ -1958,7 +2009,7 @@ class static_buffer final : private std::array<char, StorageSize>, public span_b
 
     set_write_area(std::span{*this});
     const std::span<char> area = get_write_area_of(other.get_used_count()).value();
-    detail::copy_n(other.begin(), area.size(), area.data());
+    detail::copy_n(&*other.begin(), area.size(), area.data());
     return *this;
   }
 
@@ -2286,7 +2337,7 @@ class truncating_buffer final : public buffer {
     used_ += bytes_to_write;
     while (written_ < limit_ && bytes_to_write > 0) {
       EMIO_TRY(const auto area, primary_.get_write_area_of_max(std::min(bytes_to_write, limit_ - written_)));
-      detail::copy_n(cache_.begin(), area.size(), area.data());
+      detail::copy_n(detail::begin(cache_), area.size(), area.data());
       written_ += area.size();
       bytes_to_write -= area.size();
     }
@@ -2396,7 +2447,8 @@ inline constexpr size_t count_size_when_escaped(std::string_view sv) noexcept {
  */
 class write_escaped_helper {
  public:
-  constexpr write_escaped_helper(std::string_view sv) noexcept : src_it_{sv.begin()}, src_end_{sv.end()} {}
+  constexpr write_escaped_helper(std::string_view sv) noexcept
+      : src_it_{detail::begin(sv)}, src_end_{detail::end(sv)} {}
 
   [[nodiscard]] constexpr size_t write_escaped(std::span<char> area) noexcept {
     char* dst_it = area.data();
@@ -2424,7 +2476,7 @@ class write_escaped_helper {
           dst_it = write_escaped(c, dst_it);
         } else {
           // Write escaped sequence to remainder.
-          remainder_it_ = remainder_storage_.begin();
+          remainder_it_ = detail::begin(remainder_storage_);
           remainder_end_ = write_escaped(c, remainder_it_);
           // Write as much as possible into dst.
           write_remainder();
@@ -6931,14 +6983,14 @@ inline constexpr result<void> read_string_complex(reader& in, const std::string_
   // - chars in `format` are found inside `in` and the next chars in `format` is another replacement field (#5)
   // The algorithm terminates without success if all chars of `in` has been compared (#6).
 
-  const char* const format_begin = format_str.begin();
+  const char* const format_begin = detail::begin(format_str);
   const char* format_it = format_begin;
-  const char* const format_end = format_str.end();
+  const char* const format_end = detail::end(format_str);
 
   const std::string_view in_remaining = in.view_remaining();
-  const char* const in_begin = in_remaining.begin();
+  const char* const in_begin = detail::begin(in_remaining);
   const char* in_it = in_begin;
-  const char* const in_end = in_remaining.end();
+  const char* const in_end = detail::end(in_remaining);
 
   size_t matches_cnt = 0;  // Count number matches.
   while (true) {
