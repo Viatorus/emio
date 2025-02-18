@@ -330,7 +330,7 @@ class static_buffer final : private std::array<char, StorageSize>, public span_b
 
   constexpr static_buffer(const static_buffer& other) : static_buffer() {
     const std::span<char> area = get_write_area_of(other.get_used_count()).value();
-    detail::copy_n(other.begin(), area.size(), area.data());
+    detail::copy_n(detail::begin(other), area.size(), area.data());
   }
 
   // NOLINTNEXTLINE(performance-move-constructor-init): optimized move not possible
@@ -343,7 +343,7 @@ class static_buffer final : private std::array<char, StorageSize>, public span_b
 
     set_write_area(std::span{*this});
     const std::span<char> area = get_write_area_of(other.get_used_count()).value();
-    detail::copy_n(other.begin(), area.size(), area.data());
+    detail::copy_n(detail::begin(other), area.size(), area.data());
     return *this;
   }
 
@@ -671,7 +671,7 @@ class truncating_buffer final : public buffer {
     used_ += bytes_to_write;
     while (written_ < limit_ && bytes_to_write > 0) {
       EMIO_TRY(const auto area, primary_.get_write_area_of_max(std::min(bytes_to_write, limit_ - written_)));
-      detail::copy_n(cache_.begin(), area.size(), area.data());
+      detail::copy_n(detail::begin(cache_), area.size(), area.data());
       written_ += area.size();
       bytes_to_write -= area.size();
     }

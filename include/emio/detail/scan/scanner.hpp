@@ -153,14 +153,14 @@ inline constexpr result<void> read_string_complex(reader& in, const std::string_
   // - chars in `format` are found inside `in` and the next chars in `format` is another replacement field (#5)
   // The algorithm terminates without success if all chars of `in` has been compared (#6).
 
-  const char* const format_begin = format_str.begin();
+  const char* const format_begin = detail::begin(format_str);
   const char* format_it = format_begin;
-  const char* const format_end = format_str.end();
+  const char* const format_end = detail::end(format_str);
 
   const std::string_view in_remaining = in.view_remaining();
-  const char* const in_begin = in_remaining.begin();
+  const char* const in_begin = detail::begin(in_remaining);
   const char* in_it = in_begin;
-  const char* const in_end = in_remaining.end();
+  const char* const in_end = detail::end(in_remaining);
 
   size_t matches_cnt = 0;  // Count number matches.
   while (true) {

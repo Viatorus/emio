@@ -324,4 +324,54 @@ inline consteval std::string_view sv(std::string_view sv) noexcept {
   return sv;
 }
 
+// T::iterator and T::const_iterator are not guaranteed to be pointers.
+// But emio uses pointers to char* and const char*. Therefore, these helper functions are needed.
+
+template <typename T>
+concept is_iterable = requires(T&& t) {
+    t.begin() != t.end(); // begin/end and operator !=
+    ++std::declval<decltype(t.begin())&>(); // operator ++
+    *t.begin(); // operator*
+};
+
+template<typename T>
+requires is_iterable<T>
+constexpr auto begin(T& obj) noexcept {
+    if constexpr (std::is_same_v<std::remove_pointer_t<typename T::iterator>, char>) {
+        return obj.begin();
+    } else {
+        return &*obj.begin();
+    }
+}
+
+template<typename T>
+requires is_iterable<T>
+constexpr auto end(T& obj) noexcept {
+    if constexpr (std::is_same_v<std::remove_pointer_t<typename T::iterator>, char>) {
+        return obj.end();
+    } else {
+        return &*obj.end();
+    }
+}
+
+template<typename T>
+requires is_iterable<T>
+constexpr const char* begin(const T& obj) noexcept {
+    if constexpr (std::is_same_v<std::remove_pointer_t<typename T::const_iterator>, char>) {
+        return obj.begin();
+    } else {
+        return &*obj.begin();
+    }
+}
+
+template<typename T>
+requires is_iterable<T>
+constexpr const char* end(const T& obj) noexcept {
+    if constexpr (std::is_same_v<std::remove_pointer_t<typename T::const_iterator>, char>) {
+        return obj.end();
+    } else {
+        return &*obj.end();
+    }
+}
+
 }  // namespace emio::detail
