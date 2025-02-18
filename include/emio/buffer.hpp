@@ -330,7 +330,7 @@ class static_buffer final : private std::array<char, StorageSize>, public span_b
 
   constexpr static_buffer(const static_buffer& other) : static_buffer() {
     const std::span<char> area = get_write_area_of(other.get_used_count()).value();
-    detail::copy_n(detail::begin(other), area.size(), area.data());
+    detail::copy_n(&*other.begin(), area.size(), area.data());
   }
 
   // NOLINTNEXTLINE(performance-move-constructor-init): optimized move not possible
@@ -343,7 +343,7 @@ class static_buffer final : private std::array<char, StorageSize>, public span_b
 
     set_write_area(std::span{*this});
     const std::span<char> area = get_write_area_of(other.get_used_count()).value();
-    detail::copy_n(detail::begin(other), area.size(), area.data());
+    detail::copy_n(&*other.begin(), area.size(), area.data());
     return *this;
   }
 
