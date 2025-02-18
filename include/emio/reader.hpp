@@ -69,7 +69,8 @@ class reader {
    * Constructs the reader from a string view.
    * @param sv The string view.
    */
-  constexpr explicit reader(const std::string_view& sv) noexcept : begin_{detail::begin(sv)}, it_{begin_}, end_{detail::end(sv)} {}
+  constexpr explicit reader(const std::string_view& sv) noexcept
+      : begin_{detail::begin(sv)}, it_{begin_}, end_{detail::end(sv)} {}
 
   /**
    * Returns the current read position.

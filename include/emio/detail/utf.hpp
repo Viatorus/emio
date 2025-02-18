@@ -40,7 +40,8 @@ inline constexpr size_t count_size_when_escaped(std::string_view sv) noexcept {
  */
 class write_escaped_helper {
  public:
-  constexpr write_escaped_helper(std::string_view sv) noexcept : src_it_{detail::begin(sv)}, src_end_{detail::end(sv)} {}
+  constexpr write_escaped_helper(std::string_view sv) noexcept
+      : src_it_{detail::begin(sv)}, src_end_{detail::end(sv)} {}
 
   [[nodiscard]] constexpr size_t write_escaped(std::span<char> area) noexcept {
     char* dst_it = area.data();
