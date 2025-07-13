@@ -784,6 +784,11 @@ TEST_CASE("format_enum") {
   CHECK(emio::format("{}", color::red) == "0");
 }
 
+TEST_CASE("format_byte") {
+  std::byte b{5};
+  CHECK(emio::format("{}", b) == "5");
+}
+
 TEST_CASE("format_string") {
   CHECK(emio::format("{}", std::string("test")) == "test");
   CHECK(emio::format("{:s}", std::string("test")) == "test");

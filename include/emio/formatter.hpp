@@ -182,6 +182,17 @@ class formatter<T> : public formatter<std::underlying_type_t<T>> {
 };
 
 /**
+ * Formatter for std::byte types to there underlying type.
+ */
+template <>
+class formatter<std::byte> : public formatter<uint8_t> {
+ public:
+  constexpr result<void> format(writer& out, const std::byte& arg) const noexcept {
+    return formatter<uint8_t>::format(out, static_cast<uint8_t>(arg));
+  }
+};
+
+/**
  * Formatter for types which can formatted with a format_as function when using ADL.
  * @tparam T The type.
  */
