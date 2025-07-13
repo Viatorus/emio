@@ -66,9 +66,7 @@ jobs:
                {os: ubuntu-24.04, compiler: clang-18, std: 20},
                {os: ubuntu-24.04, compiler: clang-18, std: 23},
                {os: ubuntu-24.04, compiler: clang-19, std: 20},
-               {os: ubuntu-24.04, compiler: clang-19, std: 23},
-               {os: ubuntu-24.04, compiler: clang-20, std: 20},
-               {os: ubuntu-24.04, compiler: clang-20, std: 23}
+               {os: ubuntu-24.04, compiler: clang-19, std: 23}
              ]
         build_type: [ Debug, Release ]
 
