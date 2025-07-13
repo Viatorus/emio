@@ -91,9 +91,9 @@ jobs:
             sudo apt update && sudo apt install -y gcc-13 g++-13
             echo "CC=gcc-13" >> $GITHUB_ENV
             echo "CXX=g++-13" >> $GITHUB_ENV
-          elif [[ "$compiler" == "gcc-14" ]]; then
+          elif [[ "$compiler" == "gcc-15" ]]; then
             sudo apt update && sudo apt install -y gcc-15 g++-15
-            echo "CC=gcc-14" >> $GITHUB_ENV
+            echo "CC=gcc-15" >> $GITHUB_ENV
             echo "CXX=g++-15" >> $GITHUB_ENV
           elif [[ "$compiler" == "clang-16" ]]; then
             wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
