@@ -57,8 +57,8 @@ jobs:
                {os: ubuntu-24.04, compiler: gcc-13, std: 23},
                {os: ubuntu-24.04, compiler: gcc-14, std: 20},
                {os: ubuntu-24.04, compiler: gcc-14, std: 23},
-               {os: ubuntu-24.04, compiler: gcc-15, std: 20},
-               {os: ubuntu-24.04, compiler: gcc-15, std: 23},
+               {os: ubuntu-25.04, compiler: gcc-15, std: 20},
+               {os: ubuntu-25.04, compiler: gcc-15, std: 23},
                {os: ubuntu-22.04, compiler: clang-16, std: 20},
                {os: ubuntu-22.04, compiler: clang-16, std: 23},
                {os: ubuntu-22.04, compiler: clang-17, std: 20},
@@ -91,10 +91,6 @@ jobs:
             sudo apt update && sudo apt install -y gcc-13 g++-13
             echo "CC=gcc-13" >> $GITHUB_ENV
             echo "CXX=g++-13" >> $GITHUB_ENV
-          elif [[ "$compiler" == "gcc-15" ]]; then
-            sudo apt update && sudo apt install -y gcc-15 g++-15
-            echo "CC=gcc-15" >> $GITHUB_ENV
-            echo "CXX=g++-15" >> $GITHUB_ENV
           elif [[ "$compiler" == "clang-16" ]]; then
             wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
             sudo add-apt-repository 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-16 main'
