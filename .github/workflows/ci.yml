@@ -105,6 +105,12 @@ jobs:
             sudo apt update && sudo apt install -y clang-18
             echo "CC=clang-18" >> $GITHUB_ENV
             echo "CXX=clang++-18" >> $GITHUB_ENV
+          elif [[ "$compiler" == "clang-20" ]]; then
+            wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+            sudo add-apt-repository 'deb http://apt.llvm.org/noble/ llvm-toolchain-noble-20 main'
+            sudo apt update && sudo apt install -y clang-20
+            echo "CC=clang-20" >> $GITHUB_ENV
+            echo "CXX=clang++-20" >> $GITHUB_ENV
           fi
         env:
           compiler: ${{ matrix.env.compiler }}
@@ -264,7 +270,7 @@ jobs:
 
       - name: Cache toolchain
         id: cache-toolchain
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: arm-gnu-toolchain-11.3.rel1-x86_64-arm-none-eabi
           key: ${{ env.DOWNLOAD_LINK }}
