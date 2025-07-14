@@ -182,7 +182,7 @@ class formatter<T> : public formatter<std::underlying_type_t<T>> {
 };
 
 /**
- * Formatter for std::byte types to there underlying type.
+ * Formatter for std::byte.
  */
 template <>
 class formatter<std::byte> : public formatter<uint8_t> {
