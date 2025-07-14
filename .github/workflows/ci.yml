@@ -57,8 +57,6 @@ jobs:
                {os: ubuntu-24.04, compiler: gcc-13, std: 23},
                {os: ubuntu-24.04, compiler: gcc-14, std: 20},
                {os: ubuntu-24.04, compiler: gcc-14, std: 23},
-               {os: ubuntu-25.04, compiler: gcc-15, std: 20},
-               {os: ubuntu-25.04, compiler: gcc-15, std: 23},
                {os: ubuntu-22.04, compiler: clang-16, std: 20},
                {os: ubuntu-22.04, compiler: clang-16, std: 23},
                {os: ubuntu-22.04, compiler: clang-17, std: 20},
