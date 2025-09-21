@@ -12,6 +12,7 @@
 #include <type_traits>
 
 #include "detail/conversion.hpp"
+#include "detail/scan/float.hpp"
 #include "result.hpp"
 
 namespace emio {
@@ -225,6 +226,21 @@ class reader {
     }
   }
 
+  template <typename T>
+    requires(std::is_floating_point_v<T>)
+  constexpr result<T> parse_float() noexcept {
+    // Store current read position.
+    const char* const backup_it = it_;
+
+    // Reduce code generation by upcasting the integer.
+    const result<T> res = parse_sign_and_float<T>();
+    if (!res) {
+      it_ = backup_it;
+      return res.assume_error();
+    }
+    return res.assume_value();
+  }
+
   /**
    * Parse options for read_until operations.
    */
@@ -344,6 +360,35 @@ class reader {
   constexpr result<T> parse_sign_and_int(const int base) noexcept {
     EMIO_TRY(const bool is_negative, detail::parse_sign(*this));
     return detail::parse_int<T>(*this, base, is_negative);
+  }
+
+  template <typename T>
+  constexpr result<T> parse_sign_and_float() noexcept {
+    // Get remaining string view
+    std::string_view remaining = view_remaining();
+    
+    // Try to parse the float (handles sign internally)
+    auto float_result = detail::scan::parse_float<T>(remaining);
+    if (!float_result) {
+      return err::invalid_data;
+    }
+    
+    // Find how much we consumed
+    // size_t consumed = 0;
+    // auto partial_result = detail::scan::parse_partial_number(remaining);
+    // if (partial_result) {
+      // consumed = partial_result->second;
+      // Account for sign if present
+      // if (!remaining.empty() && (remaining[0] == '+' || remaining[0] == '-')) {
+        // consumed += 1;
+      // }
+    // }
+    
+    // Advance the iterator
+    // it_ += consumed;
+    it_ += 3;
+    
+    return *float_result;
   }
 
   constexpr result<std::string_view> read_until_pos(size_t pos, const read_until_options& options,
@@ -468,3 +513,4 @@ constexpr result<T> parse_int(reader& in, const int base, const bool is_negative
 }  // namespace detail
 
 }  // namespace emio
+

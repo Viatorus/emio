@@ -154,7 +154,10 @@
         "ci-build",
         "ci-unix",
         "dev-mode"
-      ]
+      ],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
     },
     {
       "name": "ci-memcheck",
@@ -224,6 +227,17 @@
         "ENABLE_SIZE_COVERAGE": "ON",
         "SIZE_COVERAGE_HTML_COMMAND": "",
         "SIZE_TOOL": "arm-none-eabi-size"
+      }
+    },
+    {
+      "name": "dev",
+      "inherits": [
+        "ci-build",
+        "ci-unix",
+        "dev-mode"
+      ],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
       }
     }
   ],
