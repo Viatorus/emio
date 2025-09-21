@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <bit>
 #include <cstdint>
@@ -14,6 +15,7 @@
 #include <optional>
 #include <string_view>
 
+#include "../../result.hpp"
 #include "../bignum.hpp"
 #include "../conversion.hpp"
 
@@ -51,9 +53,7 @@ struct DecimalSeq {
     //  3. `left_shift` `num_digits` to a max of `DecimalSeq::MAX_DIGITS`.
     //
     // Trim is only called in `right_shift` and `left_shift`.
-    // debug_assert!(self.num_digits <= Self::MAX_DIGITS);
-    // Use assert in C++ for debug
-    // assert(num_digits <= MAX_DIGITS);
+    EMIO_Z_DEV_ASSERT(num_digits <= MAX_DIGITS);
     while (num_digits != 0 && digits[num_digits - 1] == 0) {
       num_digits -= 1;
     }
@@ -268,9 +268,9 @@ struct BiasedFp {
 };
 
 /// Parse a big integer representation of the float as a decimal.
-constexpr DecimalSeq parse_decimal_seq(std::string_view s) noexcept {
+constexpr std::pair<DecimalSeq, size_t> parse_decimal_seq(std::string_view s) noexcept {
   DecimalSeq d{};
-  const char* start = s.data();
+  const char* const start = s.data();
   size_t start_len = s.size();
 
   // Skip leading zeros
@@ -290,7 +290,7 @@ constexpr DecimalSeq parse_decimal_seq(std::string_view s) noexcept {
   // Parse fractional part if present
   if (!s.empty() && s.front() == '.') {
     s.remove_prefix(1);
-    const char* first = s.data();
+    // const char* first = s.data(); // TODO
     size_t first_len = s.size();
 
     // Skip leading zeros after decimal point if no digits yet
@@ -359,7 +359,7 @@ constexpr DecimalSeq parse_decimal_seq(std::string_view s) noexcept {
     d.digits[i] = 0;
   }
 
-  return d;
+  return std::pair{d, s.data() - start};
 }
 
 /// Parse the significant digits and biased, binary exponent of a float.
@@ -387,20 +387,36 @@ static constexpr size_t NUM_POWERS = 19;
 static constexpr std::array<uint8_t, 19> POWERS = {0,  3,  6,  9,  13, 16, 19, 23, 26, 29,
                                                    33, 36, 39, 43, 46, 49, 53, 56, 59};
 
-static constexpr size_t INFINITE_POWER = 2047;
-static constexpr int32_t EXP_MIN = -1022;  // Not -1023 because of the hidden bit?
-static constexpr size_t SIG_BITS = 52;
+struct Floater {
+  int32_t infinite_power{};
+  int32_t exp_min{};
+  int32_t sig_bits{};
+};
 
 template <typename F>
-constexpr BiasedFp parse_long_mantissa(std::string_view s) noexcept {
+constexpr Floater get_floater() {
+  if constexpr (std::is_same_v<F, float>) {
+    return Floater{
+        .infinite_power = 255,
+        .exp_min = -126,
+        .sig_bits = 23,
+    };
+  } else if constexpr (std::is_same_v<F, double>) {
+    return Floater{
+        .infinite_power = 2047,
+        .exp_min = -1022,
+        .sig_bits = 52,
+    };
+  }
+}
+
+constexpr BiasedFp parse_long_mantissa(DecimalSeq d, const Floater f) noexcept {
   auto get_shift = [](size_t n) constexpr -> size_t {
     return (n < NUM_POWERS) ? static_cast<size_t>(POWERS[n]) : MAX_SHIFT;
   };
 
   const BiasedFp fp_zero = BiasedFp::zero_pow2(0);
-  const BiasedFp fp_inf = BiasedFp::zero_pow2(/* F:: */ INFINITE_POWER);
-
-  auto d = parse_decimal_seq(s);
+  const BiasedFp fp_inf = BiasedFp::zero_pow2(/* F:: */ f.infinite_power);
 
   // Short-circuit if the value can only be a literal 0 or infinity.
   if (d.num_digits == 0 || d.decimal_point < -324) {
@@ -421,7 +437,7 @@ constexpr BiasedFp parse_long_mantissa(std::string_view s) noexcept {
   }
   // Shift left toward (1/2 ... 1].
   while (d.decimal_point <= 0) {
-    size_t shift;
+    size_t shift{};
     if (d.decimal_point == 0) {
       const uint8_t digit = d.digits[0];
       if (digit >= 5) {
@@ -442,85 +458,80 @@ constexpr BiasedFp parse_long_mantissa(std::string_view s) noexcept {
   }
   // We are now in the range [1/2 ... 1] but the binary format uses [1 ... 2].
   exp2 -= 1;
-  while (/* F:: */ EXP_MIN > exp2) {
-    size_t n = static_cast<size_t>(/* F:: */ EXP_MIN - exp2);
-    if (n > MAX_SHIFT) {
-      n = MAX_SHIFT;
-    }
+  while (f.exp_min > exp2) {
+    size_t n = static_cast<size_t>(f.exp_min - exp2);
+    n = std::min(n, MAX_SHIFT);
     d.right_shift(n);
     exp2 += static_cast<int32_t>(n);
   }
-  if ((exp2 - /* F:: */ EXP_MIN + 1) >= /*  F:: */ INFINITE_POWER) {
+  if ((exp2 - f.exp_min + 1) >= f.infinite_power) {
     return fp_inf;
   }
   // Shift the decimal to the hidden bit, and then round the value
   // to get the high mantissa+1 bits.
-  d.left_shift(static_cast<size_t>(/* F:: */ SIG_BITS) + 1);
+  d.left_shift(static_cast<size_t>(f.sig_bits) + 1);
   uint64_t mantissa = d.round();
-  if (mantissa >= (1ULL << (/* F:: */ SIG_BITS + 1))) {
+  if (mantissa >= (1ULL << (f.sig_bits + 1))) {
     // Rounding up overflowed to the carry bit, need to
     // shift back to the hidden bit.
-    // d.right_shift(1);
+    d.right_shift(1);
     exp2 += 1;
     mantissa = d.round();
-    if ((exp2 - /* F:: */ EXP_MIN + 1) >= /* F:: */ INFINITE_POWER) {
+    if ((exp2 - f.exp_min + 1) >= f.infinite_power) {
       return fp_inf;
     }
   }
-  int32_t power2 = exp2 - /* F:: */ EXP_MIN + 1;
-  if (mantissa < (1ULL << /* F:: */ SIG_BITS)) {
+  int32_t power2 = exp2 - f.exp_min + 1;
+  if (mantissa < (1ULL << f.sig_bits)) {
     power2 -= 1;
   }
   // Zero out all the bits above the explicit mantissa bits.
-  mantissa &= (1ULL << /* F:: */ SIG_BITS) - 1;
+  mantissa &= (1ULL << f.sig_bits) - 1;
   return BiasedFp{mantissa, power2};
 }
 
-/// Converts a `BiasedFp` to the closest machine float type.
-template <typename F>
-constexpr F biased_fp_to_float(const BiasedFp& x) noexcept {
-  uint64_t word = x.mantissa;
-  word |= static_cast<uint64_t>(x.power2) << /*  F:: */ SIG_BITS;
-  F result;
-  std::memcpy(&result, &word, sizeof(F));
-  return result;
-}
-
 /// Main float parsing function
-template <typename Float>
-constexpr std::optional<Float> parse_float_impl(std::string_view s) noexcept {
+constexpr result<std::tuple<BiasedFp, bool, size_t>> parse_float_impl(std::string_view s, const Floater f) noexcept {
   if (s.empty()) {
-    return std::nullopt;
+    return err::eof;
   }
 
   // Handle sign
   bool negative = false;
+  size_t sign_size = 0;
   if (s[0] == '-') {
     negative = true;
+    sign_size = 1;
     s = s.substr(1);
   } else if (s[0] == '+') {
+    sign_size = 1;
     s = s.substr(1);
   }
 
   if (s.empty()) {
-    return std::nullopt;
+    return err::eof;
   }
 
   // Parse the number.
-  auto fp = parse_long_mantissa<Float>(s);
-
-  Float result = biased_fp_to_float<Float>(fp);
-  if (negative) {
-    result = -result;
-  }
-
-  return result;
+  auto [d, consumed] = parse_decimal_seq(s);
+  return std::tuple{parse_long_mantissa(d, f), negative, consumed + sign_size};
 }
 
 /// Parse a float from a string view
 template <typename Float>
-constexpr std::optional<Float> parse_float(std::string_view s) noexcept {
-  return parse_float_impl<Float>(s);
+constexpr result<std::pair<Float, size_t>> parse_float(std::string_view s) noexcept {
+  auto f = get_floater<Float>();
+  EMIO_TRY(auto z, parse_float_impl(s, f));
+
+  uint64_t word = std::get<0>(z).mantissa;
+  word |= static_cast<uint64_t>(std::get<0>(z).power2) << f.sig_bits;
+  Float result;
+  std::memcpy(&result, &word, sizeof(Float));
+
+  if (std::get<1>(z)) {
+    result = -result;
+  }
+  return std::pair{result, std::get<2>(z)};
 }
 
 }  // namespace emio::detail::scan

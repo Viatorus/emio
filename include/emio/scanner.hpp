@@ -65,8 +65,7 @@ class scanner {
  * This includes:
  * - char
  * - integral
- * To be implemented:
- * - floating-point types
+ * - floating-point (except for long double)
  * @tparam T The type.
  */
 template <typename T>

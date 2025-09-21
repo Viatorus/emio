@@ -598,34 +598,43 @@
 //   CHECK(!validate_scan_string<std::string>("{:d}"));
 // }
 
-  #include <random>
-  #include <sstream>
-  #include <iomanip>
-  #include <emio/format.hpp>
+#include <emio/format.hpp>
+#include <iomanip>
+#include <iostream>
+#include <random>
+#include <sstream>
 
 TEST_CASE("double") {
-  double d{};
-
-  emio::scan("5103110659.0907802582", "{}", d);
-  REQUIRE(d == 5103110659.0907802582);
-
+  // #define double float
+  // double d{};
+  // // //
+  // emio::scan("-4.99039e+09", "{}", d).value();
+  // REQUIRE(d == -4.99039e+09);
+  // //
+  // // INSERT_YOUR_CODE
+  // //
+  // return;
 
   SECTION("random doubles") {
-    std::mt19937_64 rng; // fixed seed for reproducibility
+    std::mt19937_64 rng{};  // fixed seed for reproducibility
+
     std::uniform_real_distribution<double> dist(-1e10, 1e10);
 
-    // for (int32_t i = 0; i < 100; ++i) {
-    while (true) {
+    // for (int32_t i = 0; i < 1e5; ++i) {
+      while (true) {
       double original = dist(rng);
 
       // Convert to string with maximum precision
       auto s = emio::format("{}", original);
       double parsed = 0.0;
-      emio::scan(s, "{}", parsed);
+
+      INFO(original);
+
+      REQUIRE(emio::scan(s, "{}", parsed));
       REQUIRE(parsed == original);
     }
   }
-  
+
   // REQUIRE(emio::scan("800", "{}", d));
   // CHECK(d == 1.23);
 }

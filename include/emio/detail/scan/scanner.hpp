@@ -368,7 +368,7 @@ template <typename T>
 inline constexpr bool is_core_type_v =
     std::is_same_v<T, char> || std::is_same_v<T, int32_t> || std::is_same_v<T, uint32_t> ||
     std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t> || std::is_same_v<T, float> ||
-    std::is_same_v<T, double> || std::is_same_v<T, long double>;
+    std::is_same_v<T, double>;
 
 }  // namespace detail::scan
 

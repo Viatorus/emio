@@ -386,9 +386,9 @@ class reader {
     
     // Advance the iterator
     // it_ += consumed;
-    it_ += 3;
+    it_ += float_result.assume_value().second;
     
-    return *float_result;
+    return float_result.assume_value().first;
   }
 
   constexpr result<std::string_view> read_until_pos(size_t pos, const read_until_options& options,

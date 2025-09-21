@@ -115,35 +115,6 @@ class bignum {
     });
   }
 
-  /// Returns the number of bits necessary to represent this value. Note that zero
-  /// is considered to need 0 bits.
-  [[nodiscard]] constexpr size_t bit_length() const noexcept {
-    if (size_ == 0) {
-      return 0;
-    }
-
-    // Find the most significant non-zero digit.
-    size_t msd = size_;
-    while (msd > 0 && base_[msd - 1] == 0) {
-      --msd;
-    }
-
-    if (msd == 0) {
-      return 0;
-    }
-
-    // Calculate bit position within the most significant digit
-    uint32_t msb_digit = base_[msd - 1];
-    size_t bit_pos = 0;
-    while (msb_digit > 0) {
-      msb_digit >>= 1;
-      ++bit_pos;
-    }
-    // size_t bit_pos = msb_digit == 0 ? 0 : (static_cast<size_t>(32) - static_cast<size_t>(__builtin_clz(msb_digit)));
-
-    return (msd - 1) * 32 + bit_pos;
-  }
-
   // add
   // add_small
   constexpr bignum& add_small(uint32_t other) noexcept {
@@ -172,9 +143,7 @@ class bignum {
       base_[i] = res.value;
     }
     EMIO_Z_DEV_ASSERT(!res.carry);
-    if (i > size_) {
-      size_ = i;
-    }
+    size_ = std::max(i, size_);
     return *this;
   }
 

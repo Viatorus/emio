@@ -62,7 +62,7 @@ struct format_fp_result_t {
   int16_t exp;
 };
 
-enum class format_exact_mode { significand_digits, decimal_point };
+enum class format_exact_mode : bool { significand_digits, decimal_point };
 
 inline constexpr format_fp_result_t format_exact(const finite_result_t& dec, emio::buffer& buf, format_exact_mode mode,
                                                  int16_t number_of_digits) noexcept {
