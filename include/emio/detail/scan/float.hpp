@@ -258,12 +258,12 @@ struct DecimalSeq {
   }
 };
 
-struct BiasedFp {
+struct biased_fp {
   uint64_t mantissa;
   int32_t power2;
 
-  static constexpr BiasedFp zero_pow2(int32_t p_biased) noexcept {
-    return BiasedFp{.mantissa = 0, .power2 = p_biased};
+  static constexpr biased_fp zero_pow2(int32_t p_biased) noexcept {
+    return biased_fp{.mantissa = 0, .power2 = p_biased};
   }
 };
 
@@ -410,13 +410,13 @@ constexpr Floater get_floater() {
   }
 }
 
-constexpr BiasedFp parse_long_mantissa(DecimalSeq d, const Floater f) noexcept {
+constexpr biased_fp parse_long_mantissa(DecimalSeq d, const Floater& f) noexcept {
   auto get_shift = [](size_t n) constexpr -> size_t {
     return (n < NUM_POWERS) ? static_cast<size_t>(POWERS[n]) : MAX_SHIFT;
   };
 
-  const BiasedFp fp_zero = BiasedFp::zero_pow2(0);
-  const BiasedFp fp_inf = BiasedFp::zero_pow2(/* F:: */ f.infinite_power);
+  const biased_fp fp_zero = biased_fp::zero_pow2(0);
+  const biased_fp fp_inf = biased_fp::zero_pow2(/* F:: */ f.infinite_power);
 
   // Short-circuit if the value can only be a literal 0 or infinity.
   if (d.num_digits == 0 || d.decimal_point < -324) {
@@ -487,51 +487,20 @@ constexpr BiasedFp parse_long_mantissa(DecimalSeq d, const Floater f) noexcept {
   }
   // Zero out all the bits above the explicit mantissa bits.
   mantissa &= (1ULL << f.sig_bits) - 1;
-  return BiasedFp{mantissa, power2};
+  return biased_fp{mantissa, power2};
 }
 
-/// Main float parsing function
-constexpr result<std::tuple<BiasedFp, bool, size_t>> parse_float_impl(std::string_view s, const Floater f) noexcept {
-  if (s.empty()) {
-    return err::eof;
-  }
-
-  // Handle sign
-  bool negative = false;
-  size_t sign_size = 0;
-  if (s[0] == '-') {
-    negative = true;
-    sign_size = 1;
-    s = s.substr(1);
-  } else if (s[0] == '+') {
-    sign_size = 1;
-    s = s.substr(1);
-  }
-
-  if (s.empty()) {
-    return err::eof;
-  }
-
-  // Parse the number.
-  auto [d, consumed] = parse_decimal_seq(s);
-  return std::tuple{parse_long_mantissa(d, f), negative, consumed + sign_size};
-}
-
-/// Parse a float from a string view
 template <typename Float>
-constexpr result<std::pair<Float, size_t>> parse_float(std::string_view s) noexcept {
-  auto f = get_floater<Float>();
-  EMIO_TRY(auto z, parse_float_impl(s, f));
+constexpr result<Float> parse_float(DecimalSeq d) noexcept {
+  const Floater f = get_floater<Float>();
+  const auto x = parse_long_mantissa(d, f);
 
-  uint64_t word = std::get<0>(z).mantissa;
-  word |= static_cast<uint64_t>(std::get<0>(z).power2) << f.sig_bits;
+  /// Convert `biased_fp` to the closest machine float type.
+  uint64_t word = x.mantissa;
+  word |= static_cast<uint64_t>(x.power2) << f.sig_bits;
   Float result;
   std::memcpy(&result, &word, sizeof(Float));
-
-  if (std::get<1>(z)) {
-    result = -result;
-  }
-  return std::pair{result, std::get<2>(z)};
+  return result;
 }
 
 }  // namespace emio::detail::scan

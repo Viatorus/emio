@@ -364,31 +364,14 @@ class reader {
 
   template <typename T>
   constexpr result<T> parse_sign_and_float() noexcept {
-    // Get remaining string view
-    std::string_view remaining = view_remaining();
-    
-    // Try to parse the float (handles sign internally)
-    auto float_result = detail::scan::parse_float<T>(remaining);
-    if (!float_result) {
-      return err::invalid_data;
+    EMIO_TRY(const bool is_negative, detail::parse_sign(*this));
+    auto [seq, consumed] = detail::scan::parse_decimal_seq(view_remaining());
+    EMIO_TRY(T value, detail::scan::parse_float<T>(seq));
+    if (is_negative) {
+      value = -value;
     }
-    
-    // Find how much we consumed
-    // size_t consumed = 0;
-    // auto partial_result = detail::scan::parse_partial_number(remaining);
-    // if (partial_result) {
-      // consumed = partial_result->second;
-      // Account for sign if present
-      // if (!remaining.empty() && (remaining[0] == '+' || remaining[0] == '-')) {
-        // consumed += 1;
-      // }
-    // }
-    
-    // Advance the iterator
-    // it_ += consumed;
-    it_ += float_result.assume_value().second;
-    
-    return float_result.assume_value().first;
+    it_ += consumed;
+    return value;
   }
 
   constexpr result<std::string_view> read_until_pos(size_t pos, const read_until_options& options,
@@ -513,4 +496,3 @@ constexpr result<T> parse_int(reader& in, const int base, const bool is_negative
 }  // namespace detail
 
 }  // namespace emio
-
