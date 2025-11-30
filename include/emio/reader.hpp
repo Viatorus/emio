@@ -231,8 +231,6 @@ class reader {
   constexpr result<T> parse_float() noexcept {
     // Store current read position.
     const char* const backup_it = it_;
-
-    // Reduce code generation by upcasting the integer.
     const result<T> res = parse_sign_and_float<T>();
     if (!res) {
       it_ = backup_it;
