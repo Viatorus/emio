@@ -8,6 +8,7 @@
 
 #include <concepts>
 #include <cstdint>
+#include <exception>
 #include <optional>
 #include <string_view>
 #if __STDC_HOSTED__
