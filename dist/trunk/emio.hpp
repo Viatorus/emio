@@ -499,6 +499,7 @@ constexpr const char* end(const T& obj) noexcept {
 
 #include <concepts>
 #include <cstdint>
+#include <exception>
 #include <optional>
 #include <string_view>
 #if __STDC_HOSTED__
