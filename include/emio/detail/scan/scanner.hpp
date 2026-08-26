@@ -134,6 +134,13 @@ constexpr result<void> read_arg(reader& original_in, const format_specs& specs, 
 }
 
 template <typename Arg>
+  requires(std::is_floating_point_v<Arg>)
+constexpr result<void> read_arg(reader& in, const format_specs& /*specs*/, Arg& arg) noexcept {
+  EMIO_TRY(arg, in.parse_float<Arg>());
+  return success;
+}
+
+template <typename Arg>
   requires(std::is_same_v<Arg, char>)
 constexpr result<void> read_arg(reader& in, const format_specs& /*unused*/, Arg& arg) noexcept {
   EMIO_TRY(arg, in.read_char());
@@ -318,6 +325,21 @@ inline constexpr result<void> check_string_specs(const format_specs& specs) noex
   return success;
 }
 
+inline constexpr result<void> check_floating_point_specs(const format_specs& specs) noexcept {
+  if (specs.alternate_form) {
+    return err::invalid_format;
+  }
+  switch (specs.type) {
+  case no_type:
+  case 'f':
+  case 'e':
+  case 'g':
+    return success;
+  default:
+    return err::invalid_format;
+  }
+}
+
 //
 // Type traits.
 //
@@ -345,7 +367,8 @@ concept has_any_validate_function_v =
 template <typename T>
 inline constexpr bool is_core_type_v =
     std::is_same_v<T, char> || std::is_same_v<T, int32_t> || std::is_same_v<T, uint32_t> ||
-    std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t>;
+    std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t> || std::is_same_v<T, float> ||
+    std::is_same_v<T, double>;
 
 }  // namespace detail::scan
 

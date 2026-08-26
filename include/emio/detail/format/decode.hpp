@@ -25,7 +25,7 @@ struct finite_result_t {
   bool inclusive{};
 };
 
-enum class category { zero, finite, infinity, nan };
+enum class category : uint8_t { zero, finite, infinity, nan };
 
 struct decode_result_t {
   bool negative{};

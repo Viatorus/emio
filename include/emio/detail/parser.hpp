@@ -20,7 +20,7 @@ namespace emio::detail {
 /**
  * Flag to enable/disable input validation.
  */
-enum class input_validation { enabled, disabled };
+enum class input_validation : bool { enabled, disabled };
 
 inline constexpr uint8_t no_more_args = std::numeric_limits<uint8_t>::max();
 

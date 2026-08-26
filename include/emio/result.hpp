@@ -39,7 +39,7 @@ namespace emio {
 /**
  * A list of possible I/O errors.
  */
-enum class err {
+enum class err : uint8_t {
   // success = 0,    ///< Internal used for no error.
   eof = 1,           ///< End of file (e.g. reaching the end of an output array).
   invalid_argument,  ///< A parameter is incorrect (e.g. the output base is invalid).

@@ -65,8 +65,7 @@ class scanner {
  * This includes:
  * - char
  * - integral
- * To be implemented:
- * - floating-point types
+ * - floating-point (except for long double)
  * @tparam T The type.
  */
 template <typename T>
@@ -80,6 +79,8 @@ class scanner<T> {
       EMIO_TRYV(check_char_specs(specs));
     } else if constexpr (std::is_integral_v<T>) {
       EMIO_TRYV(check_integral_specs(specs));
+    } else if constexpr (std::is_floating_point_v<T>) {
+      EMIO_TRYV(check_floating_point_specs(specs));
     } else {
       static_assert(detail::always_false_v<T>, "Unknown core type!");
     }
@@ -99,7 +100,7 @@ class scanner<T> {
 };
 
 /**
- * Scanner for integral types which are not core types.
+ * Scanner for arithmetic types which are not core types.
  */
 template <typename T>
   requires(std::is_integral_v<T> && !std::is_same_v<T, bool> && !detail::scan::is_core_type_v<T>)

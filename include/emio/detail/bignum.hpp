@@ -110,7 +110,7 @@ class bignum {
 
   /// Returns `true` if the bignum is zero.
   [[nodiscard]] constexpr bool is_zero() const noexcept {
-    return std::all_of(base_.begin(), base_.end(), [](uint32_t v) {
+    return std::all_of(base_.begin(), base_.begin() + size_, [](uint32_t v) {
       return v == 0;
     });
   }
@@ -143,9 +143,7 @@ class bignum {
       base_[i] = res.value;
     }
     EMIO_Z_DEV_ASSERT(!res.carry);
-    if (i > size_) {
-      size_ = i;
-    }
+    size_ = std::max(i, size_);
     return *this;
   }
 

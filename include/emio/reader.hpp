@@ -12,6 +12,7 @@
 #include <type_traits>
 
 #include "detail/conversion.hpp"
+#include "detail/scan/float.hpp"
 #include "result.hpp"
 
 namespace emio {
@@ -225,6 +226,19 @@ class reader {
     }
   }
 
+  template <typename T>
+    requires(std::is_floating_point_v<T>)
+  constexpr result<T> parse_float() noexcept {
+    // Store current read position.
+    const char* const backup_it = it_;
+    const result<T> res = parse_sign_and_float<T>();
+    if (!res) {
+      it_ = backup_it;
+      return res.assume_error();
+    }
+    return res.assume_value();
+  }
+
   /**
    * Parse options for read_until operations.
    */
@@ -344,6 +358,18 @@ class reader {
   constexpr result<T> parse_sign_and_int(const int base) noexcept {
     EMIO_TRY(const bool is_negative, detail::parse_sign(*this));
     return detail::parse_int<T>(*this, base, is_negative);
+  }
+
+  template <typename T>
+  constexpr result<T> parse_sign_and_float() noexcept {
+    EMIO_TRY(const bool is_negative, detail::parse_sign(*this));
+    auto [seq, consumed] = detail::scan::parse_decimal_seq(view_remaining());
+    EMIO_TRY(T value, detail::scan::parse_float<T>(seq));
+    if (is_negative) {
+      value = -value;
+    }
+    it_ += consumed;
+    return value;
   }
 
   constexpr result<std::string_view> read_until_pos(size_t pos, const read_until_options& options,
